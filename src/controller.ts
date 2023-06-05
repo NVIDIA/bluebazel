@@ -334,8 +334,8 @@ export class BazelController {
     private async getBazelTargetBuildPath(target: string) {
         const bazelTarget = this.getBazelTarget(target);
         const executable = this.m_configuration.getExecutableCommand();
-
-        const cmd = 'cquery --output=starlark --starlark:expr=target.files_to_run.executable.path';
+        const configs = this.model.getRunConfigArgs();
+        const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
 
         const outputPath = await this.runShellCommand(`${executable} ${cmd} ${bazelTarget}`);
 
