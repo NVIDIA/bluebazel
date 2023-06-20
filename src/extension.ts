@@ -28,7 +28,6 @@ import { ConfigurationManager } from './configurationManager';
 import { registerBuildCommands } from './buildCommands';
 import { registerRunCommands } from './runCommands';
 import { registerTestCommands } from './testCommands';
-import * as common from './common';
 import { BazelModel } from './model';
 
 let bazelTree: BazelTreeDataProvider;
@@ -36,13 +35,14 @@ let bazelModel: BazelModel;
 let bazelController: BazelController;
 let extensionConfiguration = new ConfigurationManager();
 
+
 export function activate(context: vscode.ExtensionContext) {
 
     extensionConfiguration = new ConfigurationManager();
 
     bazelModel = new BazelModel(context.workspaceState);
 
-    bazelController = new BazelController(context,
+    bazelController = new BazelController(context.workspaceState,
         extensionConfiguration,
         bazelModel);
 
