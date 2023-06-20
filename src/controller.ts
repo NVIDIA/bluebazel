@@ -51,11 +51,13 @@ export class BazelController {
     private m_configuration: ConfigurationManager;
     private m_outputChannel: vscode.OutputChannel;
 
+    private m_workspaceState: vscode.Memento;
+
     constructor(
-        private readonly context: vscode.ExtensionContext,
+        private readonly workspaceState: vscode.Memento,
         configurationManager: ConfigurationManager,
         private readonly model: BazelModel) {
-        this.context = context;
+        this.m_workspaceState = workspaceState;
         this.m_outputChannel = vscode.window.createOutputChannel('Blue Bazel');
         this.m_configuration = configurationManager;
 
@@ -74,7 +76,7 @@ export class BazelController {
         }
 
         // Load the run targets
-        const targets: vscode.QuickPickItem[] | undefined = this.context.workspaceState.get<vscode.QuickPickItem[]>(BazelController.RunTargets);
+        const targets: vscode.QuickPickItem[] | undefined = this.m_workspaceState.get<vscode.QuickPickItem[]>(BazelController.RunTargets);
         if (targets !== undefined) {
             this.m_runTargets = targets;
         }
@@ -89,7 +91,7 @@ export class BazelController {
         let actualTarget = target;
         if (target === common.BUILD_RUN_TARGET_STR) {
             // Find run target
-            const runTarget = this.context.workspaceState.get<RunTarget>(common.WORKSPACE_KEYS.runTarget);
+            const runTarget = this.m_workspaceState.get<RunTarget>(common.WORKSPACE_KEYS.runTarget);
             if (runTarget !== undefined &&
                 typeof runTarget === 'object' &&
                 runTarget !== null &&
@@ -106,55 +108,68 @@ export class BazelController {
         const buildEnvVars = this.model.getBuildEnvVariables();
         const executable = this.m_configuration.getExecutableCommand();
         const task = new vscode.Task(
-            { type: `build ${actualTarget}` },
+            {
+                type: `build ${actualTarget}`
+            },
             this.m_workspaceFolder,
             `build ${actualTarget}`, this.getTaskSource(),
             new vscode.ShellExecution(`${executable} build ${buildArgs} ${configArgs} ${actualTarget} ${buildEnvVars}\n`, { cwd: this.m_workspaceFolder.uri.path }),
             '$gcc'
         );
 
+        if (this.m_configuration.isClearTerminalBeforeAction()) {
+            this.clearTerminal();
+        }
+
+
         const execution = await vscode.tasks.executeTask(task);
-        return new Promise<void>(resolve => {
-            const disposable = vscode.tasks.onDidEndTask(e => {
-                if (e.execution === execution) {
-                    disposable.dispose();
-                    resolve();
-                    const a = execution.task.execution;
-                    if (a !== undefined) {
-                        console.log(a);
-                    }
-                }
-            });
-        });
+        this.showProgressOfTask(`build ${actualTarget}`, execution);
     }
 
 
-    public format() {
+    public async format() {
         const executable = this.m_configuration.getExecutableCommand();
         const cmd = this.m_configuration.getFormatCommand();
         const task = new vscode.Task(
-            { type: 'format' },
+            {
+                type: 'format'
+            },
             this.m_workspaceFolder,
             'format', this.getTaskSource(),
             new vscode.ShellExecution(`${executable} ${cmd}`),
             '$gcc'
         );
-        vscode.tasks.executeTask(task);
+
+        if (this.m_configuration.isClearTerminalBeforeAction()) {
+            this.clearTerminal();
+        }
+
+        const execution = await vscode.tasks.executeTask(task);
+        this.showProgressOfTask('format', execution);
     }
 
-    public clean() {
+    public async clean() {
         const executable = this.m_configuration.getExecutableCommand();
         const task = new vscode.Task(
-            { type: 'clean' },
+            {
+                type: 'clean'
+            },
             this.m_workspaceFolder,
             'clean', this.getTaskSource(),
             new vscode.ShellExecution(`${executable} clean`),
             '$gcc'
         );
-        vscode.tasks.executeTask(task);
+
+        if (this.m_configuration.isClearTerminalBeforeAction()) {
+            this.clearTerminal();
+        }
+
+        const execution = await vscode.tasks.executeTask(task);
+        this.showProgressOfTask('clean', execution);
+
     }
 
-    public buildSingle() {
+    public async buildSingle() {
         // Get current open file.
         // - Check if there is any file open
         const textEditor = vscode.window.activeTextEditor;
@@ -176,14 +191,20 @@ export class BazelController {
             const configArgs = this.model.getBuildConfigArgs();
             const executable = this.m_configuration.getExecutableCommand();
             const task = new vscode.Task(
-                { type: `build ${filePath}` },
+                {
+                    type: `build ${filePath}`
+                },
                 this.m_workspaceFolder,
                 `build ${filePath}`, this.getTaskSource(),
                 new vscode.ShellExecution(`${executable} build --compile_one_dependency ${buildArgs} ${configArgs} ${filePath}\n`, { cwd: this.m_workspaceFolder.uri.path }),
                 '$gcc'
             );
 
-            vscode.tasks.executeTask(task);
+            if (this.m_configuration.isClearTerminalBeforeAction()) {
+                this.clearTerminal();
+            }
+            const execution = await vscode.tasks.executeTask(task);
+            this.showProgressOfTask(`build ${filePath}`, execution);
         }
     }
 
@@ -217,7 +238,14 @@ export class BazelController {
             `run ${bazelTarget}`, this.getTaskSource(),
             new vscode.ShellExecution(`${executable} run ${bazelArgs} ${configArgs} ${bazelTarget} -- ${runArgs}\n`, { cwd: this.m_workspaceFolder.uri.path , env: envVars})
         );
-        vscode.tasks.executeTask(task);
+
+        if (this.m_configuration.isClearTerminalBeforeAction()) {
+            this.clearTerminal();
+        }
+
+        const execution = await vscode.tasks.executeTask(task);
+
+        this.showProgressOfTask(`run ${bazelTarget}`, execution);
     }
 
     private async runDirect(target: string) {
@@ -241,9 +269,13 @@ export class BazelController {
             new vscode.ProcessExecution(`${programPath}`, args.split(' '),
                 { cwd: this.m_workspaceFolder.uri.path, env: envVars })
         );
-        task.presentationOptions.panel = vscode.TaskPanelKind.New;
-        task.presentationOptions.showReuseMessage = false;
-        return vscode.tasks.executeTask(task);
+        if (this.m_configuration.isClearTerminalBeforeAction()) {
+            this.clearTerminal();
+        }
+
+        const execution = await vscode.tasks.executeTask(task);
+
+        this.showProgressOfTask(`run ${programPath}`, execution);
     }
 
     public async debug(target: string) {
@@ -260,7 +292,7 @@ export class BazelController {
         const envVars = this.model.getRunEnvVariables();
         const task = new vscode.Task(
             {
-                type: `debug ${target}`,
+                type: `debug ${target}`
             },
             this.m_workspaceFolder,
             `debug ${target}`, this.getTaskSource(),
@@ -270,7 +302,11 @@ export class BazelController {
         // We don't want to see the task's output.
         task.presentationOptions.reveal = vscode.TaskRevealKind.Silent;
         task.presentationOptions.echo = false;
-        task.presentationOptions.panel = vscode.TaskPanelKind.Dedicated;
+        task.presentationOptions.panel = vscode.TaskPanelKind.Shared;
+
+        if (this.m_configuration.isClearTerminalBeforeAction()) {
+            this.clearTerminal();
+        }
 
         const execution = await vscode.tasks.executeTask(task);
         return new Promise<void>(resolve => {
@@ -337,7 +373,7 @@ export class BazelController {
         const configs = this.model.getRunConfigArgs();
         const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
 
-        const outputPath = await this.runShellCommand(`${executable} ${cmd} ${bazelTarget}`);
+        const outputPath = await this.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, false);
 
         return outputPath;
     }
@@ -447,18 +483,31 @@ export class BazelController {
         return debugConf;
     }
 
-    private async debugInBazel(target: string) {
-        // target is in the form of a relative path: bazel-bin/path/executable
-        // bazelTarget is in the form of //path:executable
+    private async debugWithProgress(target: string, debugConf: vscode.DebugConfiguration) {
         const bazelTarget = this.getBazelTarget(target);
-        vscode.window.showInformationMessage(`Debugging: ${bazelTarget}`);
+        if (this.m_configuration.isBuildBeforeLaunch()) {
+            await this.buildTarget(path.relative(common.BAZEL_BIN, target));
+        }
+        // Show a notification that we're debugging.
+        this.showProgress(`debug ${bazelTarget}`,
+            (cancellationToken) => {
+                return new Promise((resolve, reject) => {
 
+                    vscode.debug.startDebugging(this.m_workspaceFolder, debugConf);
+
+                    cancellationToken.onCancellationRequested(() => {
+                        vscode.commands.executeCommand('workbench.action.debug.stop');
+                        reject(`debug ${bazelTarget} cancelled.`);
+                    });
+                });
+            });
+    }
+
+    private async debugInBazel(target: string) {
         this.createRunUnderLaunchConfig(target).then(debugConf => {
             this.createLocalDebugScript(target).then(res => {
                 // Sandbox deploy is finished. Try to execute.
-                this.buildTarget(path.relative(common.BAZEL_BIN, target)).then(result => {
-                    vscode.debug.startDebugging(this.m_workspaceFolder, debugConf);
-                });
+                this.debugWithProgress(target, debugConf);
             }).catch(e => {
                 console.log(e);
             });
@@ -466,21 +515,8 @@ export class BazelController {
     }
 
     private async debugDirect(target: string) {
-        // target is in the form of a relative path: bazel-bin/path/executable
-        // bazelTarget is in the form of //path:executable
-        const bazelTarget = this.getBazelTarget(target);
-
-        // Show a notification that we're debugging.
-        vscode.window.showInformationMessage(`Debugging: ${bazelTarget}`);
-
         this.createDirectLaunchConfig(target).then(debugConf => {
-            if (this.m_configuration.isBuildBeforeLaunch()) {
-                return this.buildTarget(path.relative(common.BAZEL_BIN, target)).then(res => {
-                    vscode.debug.startDebugging(this.m_workspaceFolder, debugConf);
-                });
-            } else {
-                vscode.debug.startDebugging(this.m_workspaceFolder, debugConf);
-            }
+            this.debugWithProgress(target, debugConf);
         });
     }
 
@@ -528,18 +564,16 @@ export class BazelController {
     }
 
     public refreshRunTargets(): Promise<void> {
-        vscode.window.showInformationMessage('Refreshing run targets...');
         if (this.m_isRefreshingRunTargets) {
             vscode.window.showWarningMessage('Run targets are still being refreshed...');
             return Promise.resolve();
         }
         else {
-            vscode.window.showInformationMessage('Refreshing run targets...');
             const executable = this.m_configuration.getExecutableCommand();
             const cmd = this.m_configuration.getGenerateRunTargetsCommand();
 
             this.m_isRefreshingRunTargets = true;
-            return this.runShellCommand(`${executable} ${cmd}`).then(data => {
+            return this.runShellCommand(`${executable} ${cmd}`, false).then(data => {
                 const all_outputs = data.split('\n');
                 const targets: vscode.QuickPickItem[] = [];
                 all_outputs.forEach(element => {
@@ -558,9 +592,8 @@ export class BazelController {
                 // Sort targets
                 targets.sort((a: vscode.QuickPickItem, b: vscode.QuickPickItem) => { return a.label < b.label ? -1 : 1; });
                 this.m_runTargets = targets;
-                this.context.workspaceState.update(BazelController.RunTargets, this.m_runTargets);
+                this.m_workspaceState.update(BazelController.RunTargets, this.m_runTargets);
                 this.m_isRefreshingRunTargets = false;
-                vscode.window.showInformationMessage('Run targets have been refreshed.');
 
                 return Promise.resolve();
             });
@@ -589,36 +622,95 @@ export class BazelController {
         else {
             // Get configs from bazel commands on shell for both run and build.
             // Combine them, convert to set to remove duplicates and back to list.
-            const configs = await this.runShellCommand(`bash -c 'source ${bash_complete_script} && echo $(_bazel__expand_config . ${type})'`).then(data => { return data.split(' '); });
+            const configs = await this.runShellCommand(`bash -c 'source ${bash_complete_script} && echo $(_bazel__expand_config . ${type})'`, false).then(data => { return data.split(' '); });
             const config_set = new Set(configs);
             return Array.from(config_set.values());
         }
     }
 
-    public runShellCommand(cmd: string): Promise<string> {
-        this.m_outputChannel.clear();
-        this.m_outputChannel.show();
-        this.m_outputChannel.appendLine(`Running shell command: ${cmd}`);
-        return new Promise<string>((resolve, reject) => {
-            const execOptions: child.ExecOptions = {
-                cwd: this.m_workspaceFolder.uri.path,
-                shell: 'bash',
-                maxBuffer: Number.MAX_SAFE_INTEGER,
-                windowsHide: false
-            };
-
-            const process = child.exec(`${cmd}`, execOptions,
-                (error: child.ExecException | null, stdout: string, stderr: string) => {
-                    if (error && error.code != 1) { // Error code 1 indicates grep couldn't find any matches
-                        vscode.window.showErrorMessage(error.message);
-                        resolve('');
-                    } else {
-                        resolve(stdout.trim());
+    private showProgressOfTask(title: string, execution: vscode.TaskExecution) {
+        this.showProgress(title, (cancellationToken) => {
+            return new Promise<void>((resolve, reject) => {
+                const disposable = vscode.tasks.onDidEndTask(e => {
+                    if (e.execution === execution) {
+                        disposable.dispose();
+                        resolve();
                     }
+                });
+
+                cancellationToken.onCancellationRequested(() => {
+                    execution.terminate();
+                    reject(new Error(`${title} cancelled.`));
+                });
+            });
+        });
+    }
+
+    private showProgress(title: string, longMethod: (token: vscode.CancellationToken) => Promise<any>): Promise<any> {
+
+        return new Promise<string>((resolve, reject) => {
+
+            vscode.window.withProgress(
+                {
+                    location: vscode.ProgressLocation.Notification,
+                    title: `Blue Bazel: ${title}`,
+                    cancellable: true
                 },
+                async (progress, cancellationToken) => {
+                    progress.report({ increment: undefined, message: '...' });
+
+                    try {
+                        const result = await longMethod(cancellationToken);
+                        progress.report({ increment: undefined, message: 'Finished.' });
+                        resolve(result);
+                    } catch (error) {
+                        progress.report({ increment: undefined, message: 'Cancelled.' });
+                        reject(error);
+                    }
+                }
             );
-            process.stdout?.on('data', (data) => { this.m_outputChannel.appendLine(data); });
-            process.stderr?.on('data', (data) => { this.m_outputChannel.appendLine(data); });
+        });
+    }
+
+    private runShellCommand(cmd: string, showOutput: boolean): Promise<string> {
+
+        this.m_outputChannel.clear();
+        this.m_outputChannel.appendLine(`Running shell command: ${cmd}`);
+
+        if (showOutput) {
+            this.m_outputChannel.show();
+        }
+        return this.showProgress(cmd, (cancellationToken): Promise<string> => {
+            return new Promise<string>((resolve, reject) => {
+                const execOptions: child.ExecOptions = {
+                    cwd: this.m_workspaceFolder.uri.path,
+                    shell: 'bash',
+                    maxBuffer: Number.MAX_SAFE_INTEGER,
+                    windowsHide: false
+                };
+
+                const process = child.exec(`${cmd}`, execOptions,
+                    (error: child.ExecException | null, stdout: string, stderr: string) => {
+                        if (error && error.code != 1) { // Error code 1 indicates grep couldn't find any matches
+                            vscode.window.showErrorMessage(error.message);
+                            resolve('');
+                        } else {
+                            resolve(stdout.trim());
+                        }
+                    },
+                );
+
+                process.stdout?.on('data', (data) => { this.m_outputChannel.appendLine(data); });
+                process.stderr?.on('data', (data) => { this.m_outputChannel.appendLine(data); });
+
+                if (cancellationToken) {
+                    cancellationToken.onCancellationRequested(() => {
+                        process.kill();
+                        reject(new Error(`${cmd} cancelled.`));
+                    });
+                }
+
+            });
         });
     }
 
@@ -641,17 +733,14 @@ export class BazelController {
         let output = input;
         const regexp = /<([^\s]*)>/g;
         let match;
-        console.log(`Running: ${input}`);
         do {
             match = regexp.exec(input);
             if (match) {
                 const currentCommand = await this.getCurrentCommand(match[1]);
                 console.log(`Current command: ${currentCommand}`);
-                const evalRes = await this.runShellCommand(currentCommand);
-                console.log(`Command ${currentCommand} output: ${evalRes}`);
+                const evalRes = await this.runShellCommand(currentCommand, this.m_configuration.isShowShellCommandOutput());
 
                 output = output.replace(match[0], evalRes);
-                console.log(`Command ${currentCommand} output: ${evalRes} replace: ${output}`);
             }
         } while (match);
         return output;
@@ -663,12 +752,19 @@ export class BazelController {
         completeCommand = await this.substituteCommands(completeCommand);
 
         const task = new vscode.Task(
-            { type: `${completeCommand}` },
+            {
+                type: `${completeCommand}`
+            },
             this.m_workspaceFolder,
             completeCommand, this.getTaskSource(),
             new vscode.ShellExecution(`${completeCommand}\n`, { cwd: this.m_workspaceFolder.uri.path }),
             '$gcc'
         );
+
+        if (this.m_configuration.isClearTerminalBeforeAction()) {
+            this.clearTerminal();
+        }
+
 
         vscode.tasks.executeTask(task);
     }
@@ -767,10 +863,6 @@ export class BazelController {
         }
     }
 
-    private showProgress<T>(message: string, payload: () => Thenable<T>): Thenable<T> {
-        return vscode.window.withProgress({ location: ProgressLocation.Window, title: message }, payload);
-    }
-
     private async extPick(input: string): Promise<string> {
         // Evaluate the inner command of the pick
         const output = await this.substituteCommands(input);
@@ -789,6 +881,10 @@ export class BazelController {
                 res = data;
         });
         return res;
+    }
+
+    private async clearTerminal() {
+        await vscode.commands.executeCommand('workbench.action.terminal.clear');
     }
 }
 

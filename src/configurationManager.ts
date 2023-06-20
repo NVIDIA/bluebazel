@@ -24,7 +24,8 @@
 import * as vscode from 'vscode';
 import { workspace, WorkspaceConfiguration } from 'vscode';
 import { BazelController } from './controller';
-
+import * as path from 'path';
+import * as fs from 'fs';
 export interface CustomButton {
     'title': string,
     'command': string,
@@ -45,10 +46,92 @@ export interface ShellCommand {
     'command': string
 }
 
+class MergedConfiguration implements WorkspaceConfiguration {
+    userSettings: WorkspaceConfiguration;
+    defaultSettings: any;
+    constructor(userSettings: WorkspaceConfiguration, defaultSettings: JSON) {
+        // Additional initialization if needed
+        this.userSettings = userSettings;
+        this.defaultSettings = defaultSettings;
+    }
+
+    readonly [key: string]: any;
+
+    has(section: string): boolean {
+        return this.userSettings.has(section) || section in this.defaultSettings;
+    }
+
+    inspect<T>(section: string): { key: string; defaultValue?: T | undefined; globalValue?: T | undefined; workspaceValue?: T | undefined; workspaceFolderValue?: T | undefined; defaultLanguageValue?: T | undefined; globalLanguageValue?: T | undefined; workspaceLanguageValue?: T | undefined; workspaceFolderLanguageValue?: T | undefined; languageIds?: string[] | undefined; } | undefined {
+        return this.userSettings.inspect<T>(section);
+    }
+
+    update(section: string, value: any, configurationTarget?: boolean | vscode.ConfigurationTarget | undefined, overrideInLanguage?: boolean | undefined): Thenable<void> {
+        return this.userSettings.update(section, value, configurationTarget, overrideInLanguage);
+    }
+
+    get<T>(section: string, defaultValue?: T): T | undefined {
+        const settingValue = this.userSettings.get<T>(section);
+        const settingsInspection = this.userSettings.inspect(section);
+        const isModifiedByUser = settingValue !== undefined &&
+            (settingsInspection?.globalValue !== undefined ||
+                settingsInspection?.workspaceFolderValue !== undefined ||
+                settingsInspection?.workspaceValue !== undefined);
+        if (isModifiedByUser) {
+            return settingValue;
+        } else if (section in this.defaultSettings) {
+            return this.defaultSettings[section] as T;
+        } else if (defaultValue) {
+            return defaultValue;
+        } else {
+            return settingValue;
+        }
+    }
+}
+
 export class ConfigurationManager {
+
+    private m_config: WorkspaceConfiguration;
+    constructor() {
+        const defaultSettings = this.getDefaultSettings();
+        const userSettings = workspace.getConfiguration('bluebazel');
+        this.m_config = new MergedConfiguration(userSettings, defaultSettings);
+    }
+
+    private getDefaultSettings(): JSON {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (!workspaceFolders) {
+            console.error('No workspace folder found.');
+            return JSON.parse('{}');
+        }
+
+        const defaultSettings = [];
+        for (const folder of workspaceFolders) {
+            const rootPath = folder.uri.fsPath;
+
+            // Construct the path to the .vscode directory
+            const defaultSettingsPath = path.join(rootPath, '.vscode', 'bluebazel.json');
+
+            try {
+                const fileContent = fs.readFileSync(defaultSettingsPath, 'utf8');
+                defaultSettings.push(JSON.parse(fileContent));
+            } catch (error) {
+                console.log('Failed to parse default settings', error);
+            }
+        }
+
+        const contents = Object.assign({}, ...defaultSettings);
+        Object.keys(contents).forEach((oldKey) => {
+            if (oldKey.includes('bluebazel.')) {
+                const newKey = oldKey.replace('bluebazel.', '');
+                contents[newKey] = contents[oldKey];
+            }
+            delete contents[oldKey];
+        });
+        return contents;
+    }
+
     private getConfig(): WorkspaceConfiguration {
-        const config = workspace.getConfiguration('bluebazel');
-        return config;
+        return this.m_config;
     }
 
     public getCustomButtons(): Array<CustomSection> {
@@ -56,6 +139,7 @@ export class ConfigurationManager {
 
         // Look for custom buttons
         const customButtons = config.get<Array<CustomSection>>('customButtons');
+        console.log('custom buttons', customButtons);
         if (customButtons === undefined) {
             return [];
         }
@@ -116,6 +200,28 @@ export class ConfigurationManager {
                 });
             }
         });
+    }
+
+    public isShowShellCommandOutput(): boolean
+    {
+        const config = this.getConfig();
+        const res = config.get<boolean>('showShellCommandOutput');
+        if (res === undefined) {
+            return false;
+        } else {
+            return res;
+        }
+    }
+
+    public isClearTerminalBeforeAction(): boolean
+    {
+        const config = this.getConfig();
+        const res = config.get<boolean>('clearTerminalBeforeAction');
+        if (res === undefined) {
+            return false;
+        } else {
+            return res;
+        }
     }
 
     public isBuildBeforeLaunch(): boolean
