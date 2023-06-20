@@ -26,7 +26,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as bbcontroller from '../../controller';
 import * as bbmodel from '../../model';
-import * as bbconfiguration from '../../configurationManager'
+import * as bbconfiguration from '../../configurationManager';
 
 
 
@@ -34,7 +34,7 @@ class MockWorkspaceState implements vscode.Memento {
     private state: { [key: string]: any } = {};
 
     get<T>(key: string, defaultValue?: T): T | undefined {
-        return this.state.hasOwnProperty(key) ? this.state[key] : defaultValue;
+        return key in this.state ? this.state[key] : defaultValue;
     }
 
     update(key: string, value: any): Thenable<void> {
