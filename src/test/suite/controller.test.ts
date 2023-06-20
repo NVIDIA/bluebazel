@@ -24,27 +24,40 @@
 
 import * as assert from 'assert';
 import * as vscode from 'vscode';
+import * as bbcontroller from '../../controller';
+import * as bbmodel from '../../model';
+import * as bbconfiguration from '../../configurationManager'
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
+
+
+class MockWorkspaceState implements vscode.Memento {
+    private state: { [key: string]: any } = {};
+
+    get<T>(key: string, defaultValue?: T): T | undefined {
+        return this.state.hasOwnProperty(key) ? this.state[key] : defaultValue;
+    }
+
+    update(key: string, value: any): Thenable<void> {
+        this.state[key] = value;
+        return Promise.resolve();
+    }
+}
+
+suite('Controller Tests', () => {
+    test('Contstruction', async () => {
         const extension = vscode.extensions.getExtension('nvidia.bluebazel');
         assert.notStrictEqual(extension, undefined);
         await extension?.activate();
-    });
 
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
-        }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
-            }
-        });
+        const workspaceState: vscode.Memento = new MockWorkspaceState();
+
+        const extensionConfiguration = new bbconfiguration.ConfigurationManager();
+
+        const model = new bbmodel.BazelModel(workspaceState);
+
+        const controller = new bbcontroller.BazelController(workspaceState, extensionConfiguration, model);
+
+        assert.notStrictEqual(controller, undefined);
     });
 
 });
