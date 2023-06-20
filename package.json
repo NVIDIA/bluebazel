@@ -15,10 +15,10 @@
         "workspaceContains:**/WORKSPACE",
         "workspaceContains:**/BUILD"
     ],
-    "main": "./out/extension.js",
+    "main": "./out/main.js",
     "contributes": {
         "views": {
-            "activitybar": [
+            "explorer": [
                 {
                     "id": "bluebazelView",
                     "name": "Blue Bazel",
