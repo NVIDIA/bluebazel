@@ -15,7 +15,7 @@
         "workspaceContains:**/WORKSPACE",
         "workspaceContains:**/BUILD"
     ],
-    "main": "./out/extension.js",
+    "main": "./out/main.js",
     "contributes": {
         "views": {
             "explorer": [
