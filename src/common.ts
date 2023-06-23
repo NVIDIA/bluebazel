@@ -45,7 +45,8 @@ export const WORKSPACE_KEYS = {
     bazelRunArgs: 'bazelRunArgs',
     bazelTestArgs: 'bazelTestArgs',
     runArgs: 'runArgs',
-    testArgs: 'testArgs'
+    testArgs: 'testArgs',
+    setupEnvVars: 'setupEnvVars'
 };
 
 export const CONFIG_KEYWORDS = {

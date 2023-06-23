@@ -163,6 +163,14 @@ export class ConfigurationManager {
         return 'query \'kind(cc_binary, //src/... )\'';
     }
 
+    public getSetupEnvironmentCommand(): string {
+        const result = this.getConfig().get<string>('setupEnvironmentCommand');
+        if (result !== undefined) {
+            return result;
+        }
+        return '';
+    }
+
     public getExecutableCommand(): string {
         const result = this.getConfig().get<string>('executableCommand');
         if (result !== undefined) {

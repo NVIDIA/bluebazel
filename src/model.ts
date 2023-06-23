@@ -137,13 +137,48 @@ export class BazelModel {
         return envVariables;
     }
 
-    public getTestEnvVariables() {
+    public getTestEnvVariables(): string {
         let vars = '';
         const set = this.getTestEnvVars();
         set.forEach((value, index) => {
             vars += `--test_env=${value} `;
         });
         return vars;
+    }
+
+    public getSetupEnvVariables(): string {
+        let vars = '';
+        const set = this.getSetupEnvVars();
+        set.forEach((value, index) => {
+            vars += `export ${value} && `;
+        });
+
+        return vars;
+    }
+
+    public getSetupEnvVariablesAsArray(): Array<{ [key: string]: string }> {
+        const vars: Array<{[key: string]: string}> = [];
+        const set = this.getSetupEnvVars();
+        set.forEach((item, index) => {
+            const [key, value] = item.split('=');
+            const nameValuePair = {
+                name: key,
+                value: value
+            };
+            vars.push(nameValuePair);
+        });
+        return vars;
+    }
+
+    public getSetupEnvVariablesAsObject() {
+        const envVariables: { [key: string]: string } = {};
+        const set = this.getSetupEnvVars();
+        set.forEach((item, index) => {
+            const [key, value] = item.split('=');
+            envVariables[key] = value;
+        });
+
+        return envVariables;
     }
 
     public getBazelBuildArgs()
@@ -196,6 +231,10 @@ export class BazelModel {
         return this.getStringArray(common.WORKSPACE_KEYS.testEnvVars);
     }
 
+    public getSetupEnvVars(): string[] {
+        return this.getStringArray(common.WORKSPACE_KEYS.setupEnvVars);
+    }
+
     public getRunArgs(target: string): string {
         const key = common.getWorkspaceKeyUniqueToTarget(common.WORKSPACE_KEYS.runArgs, target);
         const value = this.getString(key);
@@ -205,6 +244,8 @@ export class BazelModel {
     public getTestArgs(target: string): string {
         const key = common.getWorkspaceKeyUniqueToTarget(common.WORKSPACE_KEYS.testArgs, target);
         const value = this.getString(key);
-        return value;
+        const pattern = /(--\S+)/g;
+        const result = value.replace(pattern, '--test_arg $1');
+        return result;
     }
 }
