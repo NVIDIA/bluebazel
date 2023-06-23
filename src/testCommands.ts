@@ -48,7 +48,7 @@ export function registerTestCommands(context: vscode.ExtensionContext,
 
     context.subscriptions.push(vscode.commands.registerCommand('bluebazel.test', () => {
         const target = bazelModel.getTarget(common.TargetType.TEST).value;
-        const task = '${bluebazel.executable} test ${bluebazel.bazelTestArgs} ${bluebazel.testConfigs} [Pick(<testTarget>)] --test_arg=${bluebazel.testArgs} ${bluebazel.testEnvVars}';
+        const task = '${bluebazel.executable} test ${bluebazel.bazelTestArgs} ${bluebazel.testConfigs} [Pick(<testTarget>)] ${bluebazel.testArgs} ${bluebazel.testEnvVars}';
         if (!target) {
             vscode.commands.executeCommand('bluebazel.pickTestTarget', (target: string) => {
                 bazelController.runCustomTask(task);

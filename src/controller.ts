@@ -22,7 +22,6 @@
 // SOFTWARE.
 
 import * as vscode from 'vscode';
-import { ProgressLocation } from 'vscode';
 import * as path from 'path';
 import * as child from 'child_process';
 import * as fs from 'fs';
@@ -51,13 +50,10 @@ export class BazelController {
     private m_configuration: ConfigurationManager;
     private m_outputChannel: vscode.OutputChannel;
 
-    private m_workspaceState: vscode.Memento;
-
     constructor(
         private readonly workspaceState: vscode.Memento,
         configurationManager: ConfigurationManager,
         private readonly model: BazelModel) {
-        this.m_workspaceState = workspaceState;
         this.m_outputChannel = vscode.window.createOutputChannel('Blue Bazel');
         this.m_configuration = configurationManager;
 
@@ -76,11 +72,43 @@ export class BazelController {
         }
 
         // Load the run targets
-        const targets: vscode.QuickPickItem[] | undefined = this.m_workspaceState.get<vscode.QuickPickItem[]>(BazelController.RunTargets);
+        const targets: vscode.QuickPickItem[] | undefined = this.workspaceState.get<vscode.QuickPickItem[]>(BazelController.RunTargets);
         if (targets !== undefined) {
             this.m_runTargets = targets;
         }
 
+        this.updateSetupEnvVars();
+    }
+
+    private updateSetupEnvVars() {
+        this.model.update(common.WORKSPACE_KEYS.setupEnvVars, '');
+        const envSetupCommand = this.m_configuration.getSetupEnvironmentCommand();
+        const envDelimiter = '---bluebazel setup---';
+        if (envSetupCommand) {
+            this.runShellCommand(`${envSetupCommand} && echo ${envDelimiter} && printenv`, false).then((value) => {
+                const env = value.stdout.replace(new RegExp(`[\\s\\S]*?${envDelimiter}\n`, 'g'), '').split('\n');
+                const envArray: string[] = [];
+                let currentVariable = '';
+                for (const line of env) {
+                    if (line.includes('=')) {
+                        if (currentVariable) {
+                            const [name, value] = currentVariable.split('=');
+                            envArray.push(`${name}=${value}`);
+                        }
+                        currentVariable = line;
+                    } else if (currentVariable) {
+                        currentVariable += `\n${line}`;
+                    }
+                }
+
+                if (currentVariable) {
+                    const [name, value] = currentVariable.split('=');
+                    envArray.push(`${name}=${value}`);
+                }
+
+                this.model.update(common.WORKSPACE_KEYS.setupEnvVars, envArray);
+            });
+        }
     }
 
     private getTaskSource(): string {
@@ -91,7 +119,7 @@ export class BazelController {
         let actualTarget = target;
         if (target === common.BUILD_RUN_TARGET_STR) {
             // Find run target
-            const runTarget = this.m_workspaceState.get<RunTarget>(common.WORKSPACE_KEYS.runTarget);
+            const runTarget = this.workspaceState.get<RunTarget>(common.WORKSPACE_KEYS.runTarget);
             if (runTarget !== undefined &&
                 typeof runTarget === 'object' &&
                 runTarget !== null &&
@@ -107,13 +135,14 @@ export class BazelController {
         const configArgs = this.model.getBuildConfigArgs();
         const buildEnvVars = this.model.getBuildEnvVariables();
         const executable = this.m_configuration.getExecutableCommand();
+        const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
         const task = new vscode.Task(
             {
                 type: `build ${actualTarget}`
             },
             this.m_workspaceFolder,
             `build ${actualTarget}`, this.getTaskSource(),
-            new vscode.ShellExecution(`${executable} build ${buildArgs} ${configArgs} ${actualTarget} ${buildEnvVars}\n`, { cwd: this.m_workspaceFolder.uri.path }),
+            new vscode.ShellExecution(`${executable} build ${buildArgs} ${configArgs} ${actualTarget} ${buildEnvVars}\n`, { cwd: this.m_workspaceFolder.uri.path, env: setupEnvVars }),
             '$gcc'
         );
 
@@ -123,20 +152,21 @@ export class BazelController {
 
 
         const execution = await vscode.tasks.executeTask(task);
-        this.showProgressOfTask(`build ${actualTarget}`, execution);
+        return this.showProgressOfTask(`build ${actualTarget}`, execution);
     }
 
 
     public async format() {
         const executable = this.m_configuration.getExecutableCommand();
         const cmd = this.m_configuration.getFormatCommand();
+        const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
         const task = new vscode.Task(
             {
                 type: 'format'
             },
             this.m_workspaceFolder,
             'format', this.getTaskSource(),
-            new vscode.ShellExecution(`${executable} ${cmd}`),
+            new vscode.ShellExecution(`${executable} ${cmd}`, { cwd: this.m_workspaceFolder.uri.path, env: setupEnvVars }),
             '$gcc'
         );
 
@@ -150,13 +180,15 @@ export class BazelController {
 
     public async clean() {
         const executable = this.m_configuration.getExecutableCommand();
+        const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
+
         const task = new vscode.Task(
             {
                 type: 'clean'
             },
             this.m_workspaceFolder,
             'clean', this.getTaskSource(),
-            new vscode.ShellExecution(`${executable} clean`),
+            new vscode.ShellExecution(`${executable} clean`, { cwd: this.m_workspaceFolder.uri.path, env: setupEnvVars }),
             '$gcc'
         );
 
@@ -190,13 +222,14 @@ export class BazelController {
             const buildArgs = this.model.getBazelBuildArgs();
             const configArgs = this.model.getBuildConfigArgs();
             const executable = this.m_configuration.getExecutableCommand();
+            const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
             const task = new vscode.Task(
                 {
                     type: `build ${filePath}`
                 },
                 this.m_workspaceFolder,
                 `build ${filePath}`, this.getTaskSource(),
-                new vscode.ShellExecution(`${executable} build --compile_one_dependency ${buildArgs} ${configArgs} ${filePath}\n`, { cwd: this.m_workspaceFolder.uri.path }),
+                new vscode.ShellExecution(`${executable} build --compile_one_dependency ${buildArgs} ${configArgs} ${filePath}\n`, { cwd: this.m_workspaceFolder.uri.path, env: setupEnvVars }),
                 '$gcc'
             );
 
@@ -224,8 +257,12 @@ export class BazelController {
         const configArgs = this.model.getRunConfigArgs();
         const executable = this.m_configuration.getExecutableCommand();
         const envVars = this.model.getRunEnvVariablesAsObject();
+        const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
         const bazelArgs = this.model.getBazelRunArgs();
-        const runArgs = this.model.getRunArgs(target);
+        let runArgs = this.model.getRunArgs(target);
+        if (runArgs.length > 0) {
+            runArgs = '-- ' + runArgs;
+        }
         // target is in the form of a relative path: bazel-bin/path/executable
         // bazelTarget is in the form of //path:executable
         const bazelTarget = this.getBazelTarget(target);
@@ -236,7 +273,7 @@ export class BazelController {
             },
             this.m_workspaceFolder,
             `run ${bazelTarget}`, this.getTaskSource(),
-            new vscode.ShellExecution(`${executable} run ${bazelArgs} ${configArgs} ${bazelTarget} -- ${runArgs}\n`, { cwd: this.m_workspaceFolder.uri.path , env: envVars})
+            new vscode.ShellExecution(`${executable} run ${bazelArgs} ${configArgs} ${bazelTarget} ${runArgs}\n`, { cwd: this.m_workspaceFolder.uri.path, env: { ...setupEnvVars, ...envVars } })
         );
 
         if (this.m_configuration.isClearTerminalBeforeAction()) {
@@ -259,6 +296,8 @@ export class BazelController {
 
         const args = this.model.getRunArgs(target);
         const envVars = this.model.getRunEnvVariablesAsObject();
+        const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
+
         const task = new vscode.Task(
             {
                 // Added this so we can run multiple apps at once
@@ -267,7 +306,7 @@ export class BazelController {
             this.m_workspaceFolder,
             `run ${programPath}`, this.getTaskSource(),
             new vscode.ProcessExecution(`${programPath}`, args.split(' '),
-                { cwd: this.m_workspaceFolder.uri.path, env: envVars })
+                { cwd: this.m_workspaceFolder.uri.path, env: { ...setupEnvVars, ...envVars } })
         );
         if (this.m_configuration.isClearTerminalBeforeAction()) {
             this.clearTerminal();
@@ -290,13 +329,15 @@ export class BazelController {
         // Create a task to get the environment variables when we source bazel script
         const executable = this.m_configuration.getExecutableCommand();
         const envVars = this.model.getRunEnvVariables();
+        const envSetupCommand = this.m_configuration.getSetupEnvironmentCommand();
+
         const task = new vscode.Task(
             {
                 type: `debug ${target}`
             },
             this.m_workspaceFolder,
             `debug ${target}`, this.getTaskSource(),
-            new vscode.ShellExecution(`bash -c "echo '#!/bin/bash\n${envVars} ${executable} run --run_under=gdb \\"\\$@\\"\n' > ${this.m_workspaceFolder.uri.path}/.vscode/bazel_debug.sh" && chmod +x ${this.m_workspaceFolder.uri.path}/.vscode/bazel_debug.sh\n`,
+            new vscode.ShellExecution(`bash -c "echo '#!/bin/bash\n${envSetupCommand}\n${envVars} ${executable} run --run_under=gdb \\"\\$@\\"\n' > ${this.m_workspaceFolder.uri.path}/.vscode/bazel_debug.sh" && chmod +x ${this.m_workspaceFolder.uri.path}/.vscode/bazel_debug.sh\n`,
                 { cwd: this.m_workspaceFolder.uri.path })
         );
         // We don't want to see the task's output.
@@ -373,9 +414,8 @@ export class BazelController {
         const configs = this.model.getRunConfigArgs();
         const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
 
-        const outputPath = await this.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, false);
-
-        return outputPath;
+        const result = await this.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, false);
+        return result.stdout;
     }
 
     private async createRunUnderLaunchConfig(target: string) {
@@ -385,6 +425,7 @@ export class BazelController {
         const configArgs = this.model.getRunConfigArgs();
         const workingDirectory = this.m_workspaceFolder.uri.path;
         const targetPath = await this.getBazelTargetBuildPath(target);
+
         // Program (executable) path with respect to workspace.
         const programPath = path.join(workingDirectory, targetPath);
         // This is a hacky approach to force debug in a container.
@@ -455,6 +496,7 @@ export class BazelController {
         const programPath = path.join(workingDirectory, targetPath);
 
         const envVars = this.model.getRunEnvVariablesAsArray();
+        const setupEnvVars = this.model.getSetupEnvVariablesAsArray();
         // Debug configuration.
         const debugConf: vscode.DebugConfiguration = {
             name: programPath,
@@ -463,7 +505,7 @@ export class BazelController {
             program: programPath,
             stopAtEntry: false,
             cwd: this.m_workspaceFolder.uri.path,
-            environment: envVars,
+            environment: [...setupEnvVars, ...envVars],
             externalConsole: false,
             MIMode: 'gdb',
             setupCommands: [
@@ -485,15 +527,18 @@ export class BazelController {
 
     private async debugWithProgress(target: string, debugConf: vscode.DebugConfiguration) {
         const bazelTarget = this.getBazelTarget(target);
-        if (this.m_configuration.isBuildBeforeLaunch()) {
-            await this.buildTarget(path.relative(common.BAZEL_BIN, target));
-        }
+
         // Show a notification that we're debugging.
         this.showProgress(`debug ${bazelTarget}`,
             (cancellationToken) => {
                 return new Promise((resolve, reject) => {
-
-                    vscode.debug.startDebugging(this.m_workspaceFolder, debugConf);
+                    if (this.m_configuration.isBuildBeforeLaunch()) {
+                        this.buildTarget(common.BUILD_RUN_TARGET_STR).then(res => {
+                            vscode.debug.startDebugging(this.m_workspaceFolder, debugConf);
+                        });
+                    } else {
+                        vscode.debug.startDebugging(this.m_workspaceFolder, debugConf);
+                    }
 
                     cancellationToken.onCancellationRequested(() => {
                         vscode.commands.executeCommand('workbench.action.debug.stop');
@@ -574,7 +619,7 @@ export class BazelController {
 
             this.m_isRefreshingRunTargets = true;
             return this.runShellCommand(`${executable} ${cmd}`, false).then(data => {
-                const all_outputs = data.split('\n');
+                const all_outputs = data.stdout.split('\n');
                 const targets: vscode.QuickPickItem[] = [];
                 all_outputs.forEach(element => {
                     if (element.length >= 2 && element.substring(0, 2).includes('//')) {
@@ -592,7 +637,7 @@ export class BazelController {
                 // Sort targets
                 targets.sort((a: vscode.QuickPickItem, b: vscode.QuickPickItem) => { return a.label < b.label ? -1 : 1; });
                 this.m_runTargets = targets;
-                this.m_workspaceState.update(BazelController.RunTargets, this.m_runTargets);
+                this.workspaceState.update(BazelController.RunTargets, this.m_runTargets);
                 this.m_isRefreshingRunTargets = false;
 
                 return Promise.resolve();
@@ -622,14 +667,14 @@ export class BazelController {
         else {
             // Get configs from bazel commands on shell for both run and build.
             // Combine them, convert to set to remove duplicates and back to list.
-            const configs = await this.runShellCommand(`bash -c 'source ${bash_complete_script} && echo $(_bazel__expand_config . ${type})'`, false).then(data => { return data.split(' '); });
+            const configs = await this.runShellCommand(`bash -c 'source ${bash_complete_script} && echo $(_bazel__expand_config . ${type})'`, false).then(data => { return data.stdout.split(' '); });
             const config_set = new Set(configs);
             return Array.from(config_set.values());
         }
     }
 
     private showProgressOfTask(title: string, execution: vscode.TaskExecution) {
-        this.showProgress(title, (cancellationToken) => {
+        return this.showProgress(title, (cancellationToken) => {
             return new Promise<void>((resolve, reject) => {
                 const disposable = vscode.tasks.onDidEndTask(e => {
                     if (e.execution === execution) {
@@ -672,7 +717,7 @@ export class BazelController {
         });
     }
 
-    private runShellCommand(cmd: string, showOutput: boolean): Promise<string> {
+    private runShellCommand(cmd: string, showOutput: boolean): Promise<{ stdout: string }> {
 
         this.m_outputChannel.clear();
         this.m_outputChannel.appendLine(`Running shell command: ${cmd}`);
@@ -680,32 +725,35 @@ export class BazelController {
         if (showOutput) {
             this.m_outputChannel.show();
         }
-        return this.showProgress(cmd, (cancellationToken): Promise<string> => {
-            return new Promise<string>((resolve, reject) => {
+        return this.showProgress(cmd, (cancellationToken): Promise<{ stdout: string }> => {
+            return new Promise<{ stdout: string }>((resolve, reject) => {
+                const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
                 const execOptions: child.ExecOptions = {
                     cwd: this.m_workspaceFolder.uri.path,
                     shell: 'bash',
                     maxBuffer: Number.MAX_SAFE_INTEGER,
-                    windowsHide: false
+                    windowsHide: false,
+                    env: {...setupEnvVars, ...process.env}
                 };
 
-                const process = child.exec(`${cmd}`, execOptions,
+                const proc = child.exec(`${cmd}`, execOptions,
                     (error: child.ExecException | null, stdout: string, stderr: string) => {
                         if (error && error.code != 1) { // Error code 1 indicates grep couldn't find any matches
                             vscode.window.showErrorMessage(error.message);
-                            resolve('');
+                            resolve({ stdout: '' });
                         } else {
-                            resolve(stdout.trim());
+
+                            resolve({ stdout: stdout.trim() });
                         }
                     },
                 );
 
-                process.stdout?.on('data', (data) => { this.m_outputChannel.appendLine(data); });
-                process.stderr?.on('data', (data) => { this.m_outputChannel.appendLine(data); });
+                proc.stdout?.on('data', (data) => { this.m_outputChannel.appendLine(data); });
+                proc.stderr?.on('data', (data) => { this.m_outputChannel.appendLine(data); });
 
                 if (cancellationToken) {
                     cancellationToken.onCancellationRequested(() => {
-                        process.kill();
+                        proc.kill();
                         reject(new Error(`${cmd} cancelled.`));
                     });
                 }
@@ -740,7 +788,7 @@ export class BazelController {
                 console.log(`Current command: ${currentCommand}`);
                 const evalRes = await this.runShellCommand(currentCommand, this.m_configuration.isShowShellCommandOutput());
 
-                output = output.replace(match[0], evalRes);
+                output = output.replace(match[0], evalRes.stdout);
             }
         } while (match);
         return output;
@@ -750,6 +798,7 @@ export class BazelController {
         let completeCommand = this.substituteKeywords(command);
         completeCommand = await this.substituteExtCommands(completeCommand);
         completeCommand = await this.substituteCommands(completeCommand);
+        const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
 
         const task = new vscode.Task(
             {
@@ -757,7 +806,7 @@ export class BazelController {
             },
             this.m_workspaceFolder,
             completeCommand, this.getTaskSource(),
-            new vscode.ShellExecution(`${completeCommand}\n`, { cwd: this.m_workspaceFolder.uri.path }),
+            new vscode.ShellExecution(`${completeCommand}\n`, { cwd: this.m_workspaceFolder.uri.path, env: setupEnvVars}),
             '$gcc'
         );
 

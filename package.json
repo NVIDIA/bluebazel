@@ -2,7 +2,7 @@
     "name": "bluebazel",
     "displayName": "Blue Bazel",
     "description": "Bazel vscode UI integration to build, debug, and test targets",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "engines": {
         "vscode": "^1.48.0"
     },
@@ -280,8 +280,13 @@
                 },
                 "bluebazel.generateRunTargets": {
                     "type": "string",
-                    "default": "query 'kind(cc_binary, //src/... '",
+                    "default": "query 'kind(cc_binary, //src/...)'",
                     "description": "Command to generate run targets."
+                },
+                "bluebazel.setupEnvironmentCommand": {
+                    "type": "string",
+                    "default": "",
+                    "description": "Environment setup command that will set up environment for every bazel command."
                 },
                 "bluebazel.executableCommand": {
                     "type": "string",
