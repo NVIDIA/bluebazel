@@ -408,23 +408,23 @@ export class BazelController {
         });
     }
 
-    private async getBazelTargetBuildPath(target: string) {
+    private async getBazelTargetBuildPath(target: string, debug=false) {
         const bazelTarget = this.getBazelTarget(target);
         const executable = this.m_configuration.getExecutableCommand();
         const configs = this.model.getRunConfigArgs();
-        const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
+        const cmd = `cquery ${configs} ${debug ? '-c dbg ' : ''}--output=starlark --starlark:expr=target.files_to_run.executable.path`;
 
         const result = await this.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, false);
         return result.stdout;
     }
 
-    private async createRunUnderLaunchConfig(target: string) {
+    private async createRunUnderLaunchConfig(target: string, debug=false) {
         const bazelTarget = this.getBazelTarget(target);
         const args = this.model.getRunArgs(target);
         const bazelArgs = this.model.getBazelRunArgs();
         const configArgs = this.model.getRunConfigArgs();
         const workingDirectory = this.m_workspaceFolder.uri.path;
-        const targetPath = await this.getBazelTargetBuildPath(target);
+        const targetPath = await this.getBazelTargetBuildPath(target, debug);
 
         // Program (executable) path with respect to workspace.
         const programPath = path.join(workingDirectory, targetPath);
@@ -486,12 +486,12 @@ export class BazelController {
         return debugConf;
     }
 
-    private async createDirectLaunchConfig(target: string) {
+    private async createDirectLaunchConfig(target: string, debug=false) {
         const workingDirectory = this.m_workspaceFolder.uri.path;
         // Sandbox deploy is finished. Try to execute.
         const args = this.model.getRunArgs(target);
 
-        const targetPath = await this.getBazelTargetBuildPath(target);
+        const targetPath = await this.getBazelTargetBuildPath(target, debug);
         // Program (executable) path with respect to workspace.
         const programPath = path.join(workingDirectory, targetPath);
 
@@ -514,7 +514,12 @@ export class BazelController {
                     text: '-enable-pretty-printing',
                     ignoreFailures: true
                 }
-            ]
+            ],
+            linux: {
+                sourceFileMap: {
+                    "/proc/self/cwd": workingDirectory
+                }
+            }
         };
 
         // Debugger does not accept an empty list as arguments
@@ -549,7 +554,7 @@ export class BazelController {
     }
 
     private async debugInBazel(target: string) {
-        this.createRunUnderLaunchConfig(target).then(debugConf => {
+        this.createRunUnderLaunchConfig(target, true).then(debugConf => {
             this.createLocalDebugScript(target).then(res => {
                 // Sandbox deploy is finished. Try to execute.
                 this.debugWithProgress(target, debugConf);
@@ -560,7 +565,7 @@ export class BazelController {
     }
 
     private async debugDirect(target: string) {
-        this.createDirectLaunchConfig(target).then(debugConf => {
+        this.createDirectLaunchConfig(target, true).then(debugConf => {
             this.debugWithProgress(target, debugConf);
         });
     }
