@@ -733,7 +733,7 @@ export class BazelController {
                     shell: 'bash',
                     maxBuffer: Number.MAX_SAFE_INTEGER,
                     windowsHide: false,
-                    env: {...setupEnvVars, ...process.env}
+                    env: {...process.env, ...setupEnvVars}
                 };
 
                 const proc = child.exec(`${cmd}`, execOptions,
