@@ -84,6 +84,15 @@ export function registerBuildCommands(context: vscode.ExtensionContext,
     bazelModel: BazelModel,
     bazelTree: BazelTreeDataProvider) {
 
+
+    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.copyBuildCommand', () => {
+        const target = bazelModel.getTarget(common.TargetType.BUILD).value;
+
+        vscode.env.clipboard.writeText(bazelController.getBuildTargetCommand(target) || '');
+
+        vscode.window.showInformationMessage('Copied to clipboard');
+    }));
+
     context.subscriptions.push(vscode.commands.registerCommand('bluebazel.pickBuildTarget', () => {
         pickBuildTarget(bazelController, bazelModel, bazelTree);
     }));

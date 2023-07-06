@@ -30,6 +30,10 @@ vscode.commands.registerCommand('bluebazel.editSinglePropTreeItem', (node: Singl
     node.runEdit();
 });
 
+vscode.commands.registerCommand('bluebazel.copySinglePropTreeItem', (node: SinglePropTreeItem) => {
+    node.runCopy();
+});
+
 export class SinglePropTreeItem extends vscode.TreeItem {
     private m_edit: () => void;
     private m_originalLabel: string;
@@ -74,6 +78,10 @@ export class SinglePropTreeItem extends vscode.TreeItem {
 
     public runEdit() {
         this.m_edit();
+    }
+
+    public runCopy() {
+        vscode.env.clipboard.writeText(this.m_value);
     }
 
     private updateModel() {

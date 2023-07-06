@@ -15,3 +15,9 @@ Stop showing output pane for background tasks. Include file based settings for p
 ## 0.0.4
 
 Fix bug that caused empty test_arg to appear when there were no test args. Add ability to set environment before bazel commands.
+
+## 0.0.5
+
+Fix bug that caused user to reload if settings changed for settings that did not require that.
+Fix issue of running query every time test button is pushed.
+Added copy buttons to args and to commands.

@@ -32,6 +32,16 @@ export function registerRunCommands(context: vscode.ExtensionContext,
     bazelController: BazelController,
     bazelModel: BazelModel,
     bazelTree: BazelTreeDataProvider) {
+
+    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.copyRunCommand', () => {
+        const target = bazelModel.getTarget(common.TargetType.RUN).value;
+
+        bazelController.getRunCommand(target).then((value) => {
+            vscode.env.clipboard.writeText(value || '');
+            vscode.window.showInformationMessage('Copied to clipboard');
+        });
+    }));
+
     context.subscriptions.push(vscode.commands.registerCommand('bluebazel.pickRunTarget', () => {
         bazelController.getRunTargets()
             .then(data => vscode.window.showQuickPick(data))

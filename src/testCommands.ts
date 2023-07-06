@@ -34,13 +34,26 @@ export function registerTestCommands(context: vscode.ExtensionContext,
     bazelModel: BazelModel,
     bazelTree: BazelTreeDataProvider) {
 
+    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.copyTestCommand', () => {
+        const target = bazelModel.getTarget(common.TargetType.TEST).value;
+
+        vscode.env.clipboard.writeText(bazelController.getTestCommand(target) || '');
+
+        vscode.window.showInformationMessage('Copied to clipboard');
+    }));
+
     context.subscriptions.push(vscode.commands.registerCommand('bluebazel.pickTestTarget', () => {
         bazelController.getRunTargets()
             .then(data => vscode.window.showQuickPick(data))
             .then(res => {
                 if (res !== undefined && res.detail !== undefined) {
-                    bazelModel.update(common.WORKSPACE_KEYS.testTarget, { label: res.label, value: res.detail });
-                    bazelTree.refresh();
+                    const testTargets = bazelController.getTestTargets(res.detail);
+                    testTargets.then(data => vscode.window.showQuickPick(data)).then(resolve => {
+                        if (resolve !== undefined && resolve.detail !== undefined) {
+                            bazelModel.update(common.WORKSPACE_KEYS.testTarget, { label: resolve.label.split('/').slice(-1)[0], value: resolve.detail });
+                            bazelTree.refresh();
+                        }
+                    });
                 }
             })
             .catch(err => vscode.window.showErrorMessage(err));
@@ -48,13 +61,14 @@ export function registerTestCommands(context: vscode.ExtensionContext,
 
     context.subscriptions.push(vscode.commands.registerCommand('bluebazel.test', () => {
         const target = bazelModel.getTarget(common.TargetType.TEST).value;
-        const task = '${bluebazel.executable} test ${bluebazel.bazelTestArgs} ${bluebazel.testConfigs} [Pick(<testTarget>)] ${bluebazel.testArgs} ${bluebazel.testEnvVars}';
         if (!target) {
             vscode.commands.executeCommand('bluebazel.pickTestTarget', (target: string) => {
-                bazelController.runCustomTask(task);
+                if (target !== undefined) {
+                    bazelController.test(target);
+                }
             });
         } else {
-            bazelController.runCustomTask(task);
+            bazelController.test(target);
         }
     }));
 

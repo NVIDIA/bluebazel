@@ -115,7 +115,7 @@ export class BazelController {
         return BazelController.TaskSource + this.getRandomInt(100000);
     }
 
-    public async buildTarget(target: string) {
+    private getActualBuildTarget(target: string): string | undefined {
         let actualTarget = target;
         if (target === common.BUILD_RUN_TARGET_STR) {
             // Find run target
@@ -126,15 +126,38 @@ export class BazelController {
                 Object.keys(runTarget).includes('value')) {
                 actualTarget = path.relative(common.BAZEL_BIN, runTarget.value);
             } else {
-                vscode.window.showErrorMessage('Build failed. Could not find run target.');
-                return;
+                return undefined;
             }
         }
+        return actualTarget;
+    }
 
+    public getBuildTargetCommand(target: string): string | undefined {
+        const actualTarget = this.getActualBuildTarget(target);
+        if (!actualTarget) {
+            return undefined;
+        }
+
+        const executable = this.m_configuration.getExecutableCommand();
         const buildArgs = this.model.getBazelBuildArgs();
         const configArgs = this.model.getBuildConfigArgs();
         const buildEnvVars = this.model.getBuildEnvVariables();
-        const executable = this.m_configuration.getExecutableCommand();
+        return `${executable} build ${buildArgs} ${configArgs} ${actualTarget} ${buildEnvVars}\n`;
+    }
+
+    public async buildTarget(target: string) {
+        const actualTarget = this.getActualBuildTarget(target);
+        if (!actualTarget) {
+            vscode.window.showErrorMessage('Build failed. Could not find run target.');
+            return;
+        }
+
+        const buildCommand = this.getBuildTargetCommand(target);
+        if (!buildCommand) {
+            vscode.window.showErrorMessage('Build failed. Could not find run target.');
+            return;
+        }
+
         const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
         const task = new vscode.Task(
             {
@@ -142,7 +165,7 @@ export class BazelController {
             },
             this.m_workspaceFolder,
             `build ${actualTarget}`, this.getTaskSource(),
-            new vscode.ShellExecution(`${executable} build ${buildArgs} ${configArgs} ${actualTarget} ${buildEnvVars}\n`, { cwd: this.m_workspaceFolder.uri.path, env: setupEnvVars }),
+            new vscode.ShellExecution(buildCommand, { cwd: this.m_workspaceFolder.uri.path, env: setupEnvVars }),
             '$gcc'
         );
 
@@ -245,6 +268,83 @@ export class BazelController {
         return Math.floor(Math.random() * Math.floor(max));
     }
 
+    public getTestCommand(target: string): string | undefined {
+        if (!target) {
+            return undefined;
+        }
+        const configArgs = this.model.getTestConfigArgs();
+        const executable = this.m_configuration.getExecutableCommand();
+        const bazelArgs = this.model.getBazelTestArgs();
+        const envVars = this.model.getTestEnvVariables();
+        const bazelTarget = target;
+        const testArgs = this.model.getTestArgs(target);
+        return `${executable} test ${bazelArgs} ${configArgs} ${envVars} ${bazelTarget} ${testArgs}\n`;
+    }
+
+    public async test(target: string) {
+        const testCommand = this.getTestCommand(target);
+        if (!testCommand) {
+            vscode.window.showErrorMessage('Test failed. Could not get test target.');
+            return;
+        }
+        const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
+        const task = new vscode.Task(
+            {
+                // Added this so we can run multiple apps at once
+                type: `test ${target}`
+            },
+            this.m_workspaceFolder,
+            `test ${target}`, this.getTaskSource(),
+            new vscode.ShellExecution(testCommand, { cwd: this.m_workspaceFolder.uri.path, env: { ...setupEnvVars} })
+        );
+
+        if (this.m_configuration.isClearTerminalBeforeAction()) {
+            this.clearTerminal();
+        }
+
+        const execution = await vscode.tasks.executeTask(task);
+
+        this.showProgressOfTask(`test ${target}`, execution);
+    }
+
+    public async getRunCommand(target: string): Promise<string | undefined> {
+        if (!target) {
+            return undefined;
+        }
+        if (!this.m_configuration.shouldRunBinariesDirect()) {
+            return this.getRunInBazelCommand(target);
+        } else {
+            return this.getRunDirectCommand(target);
+        }
+    }
+
+    private getRunInBazelCommand(target: string): string | undefined {
+        if (!target) {
+            return undefined;
+        }
+        const configArgs = this.model.getRunConfigArgs();
+        const executable = this.m_configuration.getExecutableCommand();
+        const bazelArgs = this.model.getBazelRunArgs();
+        const bazelTarget = this.getBazelTarget(target);
+        let runArgs = this.model.getRunArgs(target);
+        if (runArgs.length > 0) {
+            runArgs = '-- ' + runArgs;
+        }
+        return `${executable} run ${bazelArgs} ${configArgs} ${bazelTarget} ${runArgs}\n`;
+    }
+
+    private async getRunDirectCommand(target: string): Promise<string | undefined> {
+        if (!target) {
+            return undefined;
+        }
+
+        const targetPath = await this.getBazelTargetBuildPath(target);
+        // Program (executable) path with respect to workspace.
+        const programPath = path.join(this.m_workspaceFolder.uri.path, targetPath);
+        const runArgs = this.model.getRunArgs(target);
+        return `${programPath} ${runArgs}`;
+    }
+
     public async run(target: string) {
         if (!this.m_configuration.shouldRunBinariesDirect()) {
             return this.runInBazel(target);
@@ -254,18 +354,20 @@ export class BazelController {
     }
 
     private async runInBazel(target: string) {
-        const configArgs = this.model.getRunConfigArgs();
-        const executable = this.m_configuration.getExecutableCommand();
+
         const envVars = this.model.getRunEnvVariablesAsObject();
         const setupEnvVars = this.model.getSetupEnvVariablesAsObject();
-        const bazelArgs = this.model.getBazelRunArgs();
-        let runArgs = this.model.getRunArgs(target);
-        if (runArgs.length > 0) {
-            runArgs = '-- ' + runArgs;
-        }
+
         // target is in the form of a relative path: bazel-bin/path/executable
         // bazelTarget is in the form of //path:executable
         const bazelTarget = this.getBazelTarget(target);
+
+        const runCommand = this.getRunInBazelCommand(target);
+        if (!runCommand) {
+            vscode.window.showErrorMessage('Run failed. Could not get run target.');
+            return;
+        }
+
         const task = new vscode.Task(
             {
                 // Added this so we can run multiple apps at once
@@ -273,7 +375,7 @@ export class BazelController {
             },
             this.m_workspaceFolder,
             `run ${bazelTarget}`, this.getTaskSource(),
-            new vscode.ShellExecution(`${executable} run ${bazelArgs} ${configArgs} ${bazelTarget} ${runArgs}\n`, { cwd: this.m_workspaceFolder.uri.path, env: { ...setupEnvVars, ...envVars } })
+            new vscode.ShellExecution(runCommand, { cwd: this.m_workspaceFolder.uri.path, env: { ...setupEnvVars, ...envVars } })
         );
 
         if (this.m_configuration.isClearTerminalBeforeAction()) {
@@ -655,6 +757,20 @@ export class BazelController {
         }
     }
 
+    public async getTestTargets(target: string): Promise<vscode.QuickPickItem[]> {
+        const testTarget = this.getBazelTarget(target);
+        const executable = this.m_configuration.getExecutableCommand();
+        const testPath = testTarget.replace(new RegExp(/:.*/g), '/...');
+        const command = `${executable} query 'tests(${testPath})'`;
+        const result = await this.runShellCommand(command, false).then((value) => {
+            return new Promise<vscode.QuickPickItem[]>(resolve => {
+                const test = testTarget.split(':').slice(-1)[0];
+                resolve(value.stdout.split('\n').map(item => ({ label: test + ':' + item.split(':').slice(-1)[0], detail: item })));
+            });
+        });
+        return result;
+    }
+
     /// type should be 'build', 'run', or 'test'
     public async getConfigs(type: string): Promise<string[]> {
         // Check if bazel-complete.bash exists
@@ -733,7 +849,7 @@ export class BazelController {
                     shell: 'bash',
                     maxBuffer: Number.MAX_SAFE_INTEGER,
                     windowsHide: false,
-                    env: {...setupEnvVars, ...process.env}
+                    env: {...process.env, ...setupEnvVars}
                 };
 
                 const proc = child.exec(`${cmd}`, execOptions,
@@ -881,10 +997,11 @@ export class BazelController {
             return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
         } else if (keyword === common.CONFIG_KEYWORDS.testTarget) {
             const result = this.model.getTarget(common.TargetType.TEST).value;
-            const resultSplitted = result.split('/');
+            /* const resultSplitted = result.split('/');
             resultSplitted.shift(); // Removes bazel-bin
             const targetName = resultSplitted[resultSplitted.length - 1];
-            return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
+            return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName; */
+            return result;
         } else if (keyword === common.CONFIG_KEYWORDS.buildConfigs) {
             return this.model.getBuildConfigArgs();
         } else if (keyword === common.CONFIG_KEYWORDS.runConfigs) {
