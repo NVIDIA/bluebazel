@@ -37,6 +37,11 @@ vscode.commands.registerCommand('bluebazel.removeMultiPropTreeItem', (node: Mult
     node.getParent().runRemove(node);
 });
 
+vscode.commands.registerCommand('bluebazel.copyMultiPropTreeItem', (node: MultiPropTreeItemChild) => {
+    node.getParent().runCopy(node);
+});
+
+
 class MultiPropTreeItemChild extends vscode.TreeItem {
     private m_parent: MultiPropTreeItem;
     constructor(label: string,
@@ -132,6 +137,10 @@ export class MultiPropTreeItem extends vscode.TreeItem {
 
     public runRemove(node: MultiPropTreeItemChild) {
         this.m_remove(node);
+    }
+
+    public runCopy(node: MultiPropTreeItemChild) {
+        vscode.env.clipboard.writeText(node.label || '');
     }
 
 

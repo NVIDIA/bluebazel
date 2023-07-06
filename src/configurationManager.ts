@@ -47,31 +47,29 @@ export interface ShellCommand {
 }
 
 class MergedConfiguration implements WorkspaceConfiguration {
-    userSettings: WorkspaceConfiguration;
     defaultSettings: any;
-    constructor(userSettings: WorkspaceConfiguration, defaultSettings: JSON) {
+    constructor(defaultSettings: JSON) {
         // Additional initialization if needed
-        this.userSettings = userSettings;
         this.defaultSettings = defaultSettings;
     }
 
     readonly [key: string]: any;
 
     has(section: string): boolean {
-        return this.userSettings.has(section) || section in this.defaultSettings;
+        return this.getUserSettings().has(section) || section in this.defaultSettings;
     }
 
     inspect<T>(section: string): { key: string; defaultValue?: T | undefined; globalValue?: T | undefined; workspaceValue?: T | undefined; workspaceFolderValue?: T | undefined; defaultLanguageValue?: T | undefined; globalLanguageValue?: T | undefined; workspaceLanguageValue?: T | undefined; workspaceFolderLanguageValue?: T | undefined; languageIds?: string[] | undefined; } | undefined {
-        return this.userSettings.inspect<T>(section);
+        return this.getUserSettings().inspect<T>(section);
     }
 
     update(section: string, value: any, configurationTarget?: boolean | vscode.ConfigurationTarget | undefined, overrideInLanguage?: boolean | undefined): Thenable<void> {
-        return this.userSettings.update(section, value, configurationTarget, overrideInLanguage);
+        return this.getUserSettings().update(section, value, configurationTarget, overrideInLanguage);
     }
 
     get<T>(section: string, defaultValue?: T): T | undefined {
-        const settingValue = this.userSettings.get<T>(section);
-        const settingsInspection = this.userSettings.inspect(section);
+        const settingValue = this.getUserSettings().get<T>(section);
+        const settingsInspection = this.getUserSettings().inspect(section);
         const isModifiedByUser = settingValue !== undefined &&
             (settingsInspection?.globalValue !== undefined ||
                 settingsInspection?.workspaceFolderValue !== undefined ||
@@ -86,6 +84,10 @@ class MergedConfiguration implements WorkspaceConfiguration {
             return settingValue;
         }
     }
+
+    getUserSettings(): WorkspaceConfiguration {
+        return workspace.getConfiguration('bluebazel');
+    }
 }
 
 export class ConfigurationManager {
@@ -93,8 +95,7 @@ export class ConfigurationManager {
     private m_config: WorkspaceConfiguration;
     constructor() {
         const defaultSettings = this.getDefaultSettings();
-        const userSettings = workspace.getConfiguration('bluebazel');
-        this.m_config = new MergedConfiguration(userSettings, defaultSettings);
+        this.m_config = new MergedConfiguration(defaultSettings);
     }
 
     private getDefaultSettings(): JSON {
