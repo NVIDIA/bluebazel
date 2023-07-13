@@ -396,7 +396,7 @@
         "executable": "^4.1.1",
         "fast-glob": "^3.2.4",
         "glob-parent": "^6.0.2",
-        "istextorbinary": "^5.10.0",
+        "istextorbinary": "^5.15.0",
         "tmp": "^0.2.1"
     },
     "publisher": "NVIDIA",
