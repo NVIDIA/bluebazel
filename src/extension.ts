@@ -35,8 +35,19 @@ let bazelModel: BazelModel;
 let bazelController: BazelController;
 let extensionConfiguration = new ConfigurationManager();
 
+function getActivateWhenClause(context: vscode.ExtensionContext): string {
+    const publisherName = context.extension.packageJSON.publisher;
+    const extensionName = context.extension.packageJSON.name;
+    const extensionActiveWhenClause = publisherName + '.' + extensionName + '.active';
+    return extensionActiveWhenClause;
+}
 
 export function activate(context: vscode.ExtensionContext) {
+
+    // This makes the contribution points in package.json visible
+    // based on their when clause.
+    const setting = getActivateWhenClause(context);
+    vscode.commands.executeCommand('setContext', setting, true);
 
     extensionConfiguration = new ConfigurationManager();
 

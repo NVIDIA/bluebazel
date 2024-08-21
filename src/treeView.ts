@@ -56,7 +56,7 @@ export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.Tre
 
         const sections = sectionTitles.map(title => new TreeItem(title, vscode.TreeItemCollapsibleState.Collapsed));
         for (const section of sections) {
-            section.contextValue = section.label;
+            section.contextValue = section.label?.toString();
             if (section.contextValue === common.CONFIG_SECTIONS.build) {
                 section.label = common.CONFIG_SECTIONS.build + ` ${this.bazelModel.getTarget(common.TargetType.BUILD).value}`;
             } else if (section.contextValue === common.CONFIG_SECTIONS.run) {
@@ -199,7 +199,7 @@ export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.Tre
                 return (element as MultiPropTreeItem).getChildren();
             } else {
                 if (element.label !== undefined) {
-                    return this.getCustomButtonsForSection(element.label);
+                    return this.getCustomButtonsForSection(element.label.toString());
                 }
             }
         }

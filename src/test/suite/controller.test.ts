@@ -31,6 +31,9 @@ import * as bbconfiguration from '../../configurationManager';
 
 
 class MockWorkspaceState implements vscode.Memento {
+    keys(): readonly string[] {
+        throw new Error('Method not implemented.');
+    }
     private state: { [key: string]: any } = {};
 
     get<T>(key: string, defaultValue?: T): T | undefined {

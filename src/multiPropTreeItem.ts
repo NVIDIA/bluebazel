@@ -104,7 +104,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
         this.m_edit = (node: MultiPropTreeItemChild) => {
             // Edit this in the list
             vscode.window.showInputBox({
-                value: node.label
+                value: node.label?.toString() || ''
             }).then(data => {
                 if (data !== undefined) {
                     if (data.replace(/\s/g, '') === '') {
@@ -113,7 +113,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
                         this.edit(node, data);
                     }
                     if (onEdit) {
-                        onEdit(node.label || '', data);
+                        onEdit(node.label?.toString() || '', data);
                     }
                 }
             });
@@ -122,7 +122,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
         this.m_remove = (node: MultiPropTreeItemChild) => {
             this.remove(node);
             if (onRemove) {
-                onRemove(node.label || '');
+                onRemove(node.label?.toString() || '');
             }
         };
     }
@@ -140,7 +140,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
     }
 
     public runCopy(node: MultiPropTreeItemChild) {
-        vscode.env.clipboard.writeText(node.label || '');
+        vscode.env.clipboard.writeText(node.label?.toString() || '');
     }
 
 
@@ -186,7 +186,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
         const result: string[] = [];
         for (const child of this.m_children) {
             if (child.label) {
-                result.push(child.label);
+                result.push(child.label?.toString());
             }
         }
         return result;

@@ -140,7 +140,6 @@ export class ConfigurationManager {
 
         // Look for custom buttons
         const customButtons = config.get<Array<CustomSection>>('customButtons');
-        console.log('custom buttons', customButtons);
         if (customButtons === undefined) {
             return [];
         }
