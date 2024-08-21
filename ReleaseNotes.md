@@ -21,3 +21,12 @@ Fix bug that caused empty test_arg to appear when there were no test args. Add a
 Fix bug that caused user to reload if settings changed for settings that did not require that.
 Fix issue of running query every time test button is pushed.
 Added copy buttons to args and to commands.
+
+## 1.0.0
+
+First major release.
+Refactor entire codebase to address separation of concerns throughtout.
+Add capability to add multiple types of actions (not just build, run, test) such as query.
+Add capability to add multiple targets to each action.
+Add capability to debug golang and python targets.
+Add autocomplete (if available) to config and bazel args for target properties.

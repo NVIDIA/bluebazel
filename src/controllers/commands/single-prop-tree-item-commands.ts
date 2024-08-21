@@ -22,41 +22,24 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 
-import * as glob from 'glob';
-import * as Mocha from 'mocha';
-import * as path from 'path';
+import { BazelTargetProperty } from '../../models/bazel-target-property';
+import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { showSimpleQuickPick } from '../../ui/quick-pick';
+import * as vscode from 'vscode';
 
-export function run(): Promise<void> {
-    // Create the mocha test
-    const mocha = new Mocha({
-        ui: 'tdd',
-        color: true
-    });
-
-    const testsRoot = path.resolve(__dirname, '..');
-
-    return new Promise((c, e) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
-            if (err) {
-                return e(err);
-            }
-
-            // Add files to the test suite
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
-
-            try {
-                // Run the mocha test
-                mocha.run(failures => {
-                    if (failures > 0) {
-                        e(new Error(`${failures} tests failed.`));
-                    } else {
-                        c();
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                e(err);
-            }
-        });
-    });
+export function registerSinglePropTreeItemCommands(context: vscode.ExtensionContext, treeDataProvider: BazelTargetTreeProvider) {
+    const extensionName = ExtensionUtils.getExtensionName(context);
+    context.subscriptions.push(
+        vscode.commands.registerCommand(`${extensionName}.copySinglePropTreeItem`, (property: BazelTargetProperty) => {
+            vscode.env.clipboard.writeText(property.get());
+        }),
+        vscode.commands.registerCommand(`${extensionName}.editSinglePropTreeItem`, (property: BazelTargetProperty) => {
+            const data: string[] = property.getHistory();
+            showSimpleQuickPick(data, (data: string) => {
+                property.update(data);
+                treeDataProvider.refresh();
+            });
+        })
+    );
 }

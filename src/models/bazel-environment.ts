@@ -22,41 +22,36 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 
-import * as glob from 'glob';
-import * as Mocha from 'mocha';
-import * as path from 'path';
+import { ConfigurationManager } from '../services/configuration-manager';
+import { EnvironmentService } from '../services/environment-service';
+import * as vscode from 'vscode';
+export class BazelEnvironment {
+    private envVars: string[] = [];
 
-export function run(): Promise<void> {
-    // Create the mocha test
-    const mocha = new Mocha({
-        ui: 'tdd',
-        color: true
-    });
+    public static async create(context: vscode.ExtensionContext,
+        configurationManager: ConfigurationManager,
+        cancellationToken?: vscode.CancellationToken
+    ): Promise<BazelEnvironment> {
+        const instance = new BazelEnvironment();
+        try {
+            instance.envVars = await this.loadEnvVars(context, configurationManager, cancellationToken);
+            return instance;
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    }
 
-    const testsRoot = path.resolve(__dirname, '..');
+    private static async loadEnvVars(context: vscode.ExtensionContext,
+        configurationManager: ConfigurationManager,
+        cancellationToken?: vscode.CancellationToken
+    ): Promise<string[]> {
+        const result = EnvironmentService.fetchSetupEnvironment(context, configurationManager.getSetupEnvironmentCommand(), cancellationToken);
+        context.workspaceState.update('setupEnvVars', result);
+        return result;
+    }
 
-    return new Promise((c, e) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
-            if (err) {
-                return e(err);
-            }
-
-            // Add files to the test suite
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
-
-            try {
-                // Run the mocha test
-                mocha.run(failures => {
-                    if (failures > 0) {
-                        e(new Error(`${failures} tests failed.`));
-                    } else {
-                        c();
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                e(err);
-            }
-        });
-    });
+    // Methods to manage environment variables
+    public getEnvVars(): string[] {
+        return this.envVars;
+    }
 }

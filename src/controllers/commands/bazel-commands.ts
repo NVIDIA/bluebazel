@@ -21,42 +21,27 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelController } from '../bazel-controller';
+import * as vscode from 'vscode';
 
-import * as glob from 'glob';
-import * as Mocha from 'mocha';
-import * as path from 'path';
 
-export function run(): Promise<void> {
-    // Create the mocha test
-    const mocha = new Mocha({
-        ui: 'tdd',
-        color: true
-    });
 
-    const testsRoot = path.resolve(__dirname, '..');
+export function registerBazelCommands(context: vscode.ExtensionContext,
+    bazelController: BazelController) {
 
-    return new Promise((c, e) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
-            if (err) {
-                return e(err);
-            }
+    const extensionName = ExtensionUtils.getExtensionName(context);
 
-            // Add files to the test suite
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.format`, () => {
+        bazelController.format();
+    }));
 
-            try {
-                // Run the mocha test
-                mocha.run(failures => {
-                    if (failures > 0) {
-                        e(new Error(`${failures} tests failed.`));
-                    } else {
-                        c();
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                e(err);
-            }
-        });
-    });
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.clean`, () => {
+        bazelController.clean();
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.buildCurrentFile`, () => {
+        bazelController.buildSingle();
+    }));
+
 }

@@ -22,41 +22,33 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 
-import * as glob from 'glob';
-import * as Mocha from 'mocha';
-import * as path from 'path';
+import { BazelTarget } from './bazel-target';
+import { EventEmitter } from 'vscode';
 
-export function run(): Promise<void> {
-    // Create the mocha test
-    const mocha = new Mocha({
-        ui: 'tdd',
-        color: true
-    });
+export enum BazelTargetState {
+    Idle = 'idle',
+    Executing = 'executing',
+    Debugging = 'debugging'
+}
 
-    const testsRoot = path.resolve(__dirname, '..');
+export class BazelTargetStateManager {
+    private targetStateMap: Map<string, BazelTargetState> = new Map();
 
-    return new Promise((c, e) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
-            if (err) {
-                return e(err);
-            }
+    // Event emitter to notify when target state changes
+    private _onDidChangeTargetState: EventEmitter<BazelTarget> = new EventEmitter<BazelTarget>();
 
-            // Add files to the test suite
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
+    // Event that consumers can subscribe to
+    public readonly onDidChangeTargetState = this._onDidChangeTargetState.event;
 
-            try {
-                // Run the mocha test
-                mocha.run(failures => {
-                    if (failures > 0) {
-                        e(new Error(`${failures} tests failed.`));
-                    } else {
-                        c();
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                e(err);
-            }
-        });
-    });
+    // Method to set the state of a target
+    public setTargetState(target: BazelTarget, state: BazelTargetState): void {
+        this.targetStateMap.set(target.id, state);
+        // Emit event whenever the state is set
+        this._onDidChangeTargetState.fire(target);
+    }
+
+    // Method to get the state of a target
+    public getTargetState(target: BazelTarget): BazelTargetState {
+        return this.targetStateMap.get(target.id) || BazelTargetState.Idle;
+    }
 }

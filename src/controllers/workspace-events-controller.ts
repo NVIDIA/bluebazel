@@ -21,42 +21,32 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { ExtensionUtils } from '../services/extension-utils';
+import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
+import * as vscode from 'vscode';
 
-import * as glob from 'glob';
-import * as Mocha from 'mocha';
-import * as path from 'path';
+export class WorkspaceEventsController {
+    constructor(private context: vscode.ExtensionContext, private bazelTree: BazelTargetTreeProvider) {
+        this.registerConfigurationChangeHandler();
+    }
 
-export function run(): Promise<void> {
-    // Create the mocha test
-    const mocha = new Mocha({
-        ui: 'tdd',
-        color: true
-    });
+    private registerConfigurationChangeHandler() {
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration(ExtensionUtils.getExtensionName(this.context))) {
+                this.bazelTree.refresh();
 
-    const testsRoot = path.resolve(__dirname, '..');
-
-    return new Promise((c, e) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
-            if (err) {
-                return e(err);
-            }
-
-            // Add files to the test suite
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
-
-            try {
-                // Run the mocha test
-                mocha.run(failures => {
-                    if (failures > 0) {
-                        e(new Error(`${failures} tests failed.`));
-                    } else {
-                        c();
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                e(err);
+                const action = 'Reload';
+                vscode.window
+                    .showInformationMessage(
+                        'Reload window in order for changes in bazel extension configuration to take effect.',
+                        action
+                    )
+                    .then(selectedAction => {
+                        if (selectedAction === action) {
+                            vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        }
+                    });
             }
         });
-    });
+    }
 }

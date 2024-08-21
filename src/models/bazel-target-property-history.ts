@@ -1,7 +1,7 @@
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2023 NVIDIA Corporation
+// Copyright (c) 2021-2024 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,35 +20,36 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 
 import * as vscode from 'vscode';
 interface HistoryMap {
     [key: string]: string[]
 }
 
-export class History {
+export class BazelTargetPropertyHistory {
 
-    private m_historyMap: HistoryMap = {};
+    private historyMap: HistoryMap = {};
     private readonly DEFAULT_TARGET: string = 'DEFAULT_TARGET';
-
-    constructor(private readonly workspaceState: Storage,
+    private readonly key: string;
+    constructor(private readonly context: vscode.ExtensionContext,
         readonly name: string,
         readonly size: number) {
 
-        const res = workspaceState.get<HistoryMap>(name);
+        this.key = `${name}History`;
+        const res = this.context.workspaceState.get<HistoryMap>(this.key);
         if (res === undefined) {
             const newRes: HistoryMap = {};
-            this.m_historyMap = newRes;
-            workspaceState.update(name, this.m_historyMap);
+            this.historyMap = newRes;
+            this.context.workspaceState.update(this.key, this.historyMap);
         } else {
-            this.m_historyMap = res;
+            this.historyMap = res;
         }
     }
 
     public getFirstHistoryItem(target?: string): string {
         target = target || this.DEFAULT_TARGET;
-        const result = this.m_historyMap[target];
+        const result = this.historyMap[target];
         if (result !== undefined && result.length > 0) {
             return result[0];
         }
@@ -57,15 +58,15 @@ export class History {
 
     public getHistory(target?: string): string[] {
         target = target || this.DEFAULT_TARGET;
-        if (this.m_historyMap[target] === undefined) {
+        if (this.historyMap[target] === undefined) {
             return [];
         }
-        return this.m_historyMap[target];
+        return this.historyMap[target];
     }
 
     public add(value: string, target?: string) {
         target = target || this.DEFAULT_TARGET;
-        let history = this.m_historyMap[target];
+        let history = this.historyMap[target];
         if (history === undefined) {
             history = [];
         }
@@ -81,7 +82,7 @@ export class History {
         if (history.length > this.size) {
             history.pop();
         }
-        this.m_historyMap[target] = history;
-        this.workspaceState.update(this.name, this.m_historyMap);
+        this.historyMap[target] = history;
+        this.context.workspaceState.update(this.key, this.historyMap);
     }
 }
