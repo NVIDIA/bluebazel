@@ -21,29 +21,25 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import * as assert from 'assert';
+
+import { BazelTargetProperty } from '../../models/bazel-target-property';
+import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { showQuickPick } from '../../ui/quick-pick';
 import * as vscode from 'vscode';
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
-    });
-
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
-        }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
-            }
-        });
-    });
-
-});
+export function registerSinglePropTreeItemCommands(context: vscode.ExtensionContext, treeDataProvider: BazelTargetTreeProvider) {
+    const extensionName = ExtensionUtils.getExtensionName(context);
+    context.subscriptions.push(
+        vscode.commands.registerCommand(`${extensionName}.copySinglePropTreeItem`, (property: BazelTargetProperty) => {
+            vscode.env.clipboard.writeText(property.get());
+        }),
+        vscode.commands.registerCommand(`${extensionName}.editSinglePropTreeItem`, (property: BazelTargetProperty) => {
+            const data: string[] = property.getHistory();
+            showQuickPick(data, (data: string) => {
+                property.update(data);
+                treeDataProvider.refresh();
+            });
+        })
+    );
+}

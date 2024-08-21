@@ -21,29 +21,36 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import * as assert from 'assert';
+
+import { ExtensionUtils } from '../services/extension-utils';
 import * as vscode from 'vscode';
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
-    });
 
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
+export class WorkspaceStateManager {
+    constructor(private readonly context: vscode.ExtensionContext) {}
+
+    public refreshWorkspaceState() {
+        const version = ExtensionUtils.getExtensionVersion(this.context);
+        const oldVersion = this.context.workspaceState.get<string>('version', '');
+        if (oldVersion !== version) {
+            this.clearWorkspaceState();
+            this.context.workspaceState.update('version', version);
         }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
-            }
-        });
-    });
+    }
 
-});
+    private clearWorkspaceState() {
+        const keys = this.context.workspaceState.keys();
+        for (const key of keys) {
+            this.context.workspaceState.update(key, undefined);
+        }
+        console.info('Workspace state has been cleared due to version bump.');
+    }
+
+    public update<T>(key: string, value: T) {
+        this.context.workspaceState.update(key, value);
+    }
+
+    public get<T>(key: string, defaultValue: T): T {
+        return this.context.workspaceState.get(key, defaultValue);
+    }
+}

@@ -21,29 +21,31 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import * as assert from 'assert';
-import * as vscode from 'vscode';
+import { Model } from './model';
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
-    });
-
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
+export class ModelAccessor {
+    public static getString(model: Model): string {
+        const value = model.get<string>();
+        if (typeof value !== 'string') {
+            return '';
+        } else {
+            return value;
         }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
-            }
-        });
-    });
+    }
 
-});
+    public static getWithDefault<T>(model: Model, defaultValue?: T) {
+        const value = model.get<string>();
+        if (value === undefined) {
+            return defaultValue;
+        }
+        return value;
+    }
+
+    public static getStringArray(model: Model): string[] {
+        const values = model.get<string[]>();
+        if (!values) {
+            return [];
+        }
+        return values;
+    }
+}

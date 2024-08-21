@@ -21,29 +21,34 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import * as assert from 'assert';
+
 import * as vscode from 'vscode';
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function showQuickPick(quickPickData: string[], onChange: (data: any)=>void) {
+    const quickItems: vscode.QuickPickItem[] = [{ label: '' }];
+    quickPickData.forEach(arg => { if (arg !== undefined && arg.trim().length > 0) { quickItems.push({ label: arg }); } });
+
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.items = quickItems;
+    // Don't hide until a selection is made
+    quickPick.ignoreFocusOut = true;
+
+    quickPick.onDidChangeValue(value => {
+        quickItems[0].label = value;
+        quickPick.items = quickItems;
     });
 
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
-        }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
+    quickPick.onDidChangeSelection(items => {
+        const item = items[0];
+        quickPick.value = item.label;
+        quickPick.hide();
+        vscode.window.showInputBox({ value: item.label }).then(data => {
+            if (data !== undefined) {
+                onChange(data);
             }
         });
     });
 
-});
+    quickPick.show();
+}

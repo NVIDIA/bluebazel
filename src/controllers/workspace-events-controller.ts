@@ -21,29 +21,32 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import * as assert from 'assert';
+import { ExtensionUtils } from '../services/extension-utils';
+import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
-    });
+export class WorkspaceEventsController {
+    constructor(private context: vscode.ExtensionContext, private bazelTree: BazelTargetTreeProvider) {
+        this.registerConfigurationChangeHandler();
+    }
 
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
-        }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
+    private registerConfigurationChangeHandler() {
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration(ExtensionUtils.getExtensionName(this.context))) {
+                this.bazelTree.refresh();
+
+                const action = 'Reload';
+                vscode.window
+                    .showInformationMessage(
+                        'Reload window in order for changes in bazel extension configuration to take effect.',
+                        action
+                    )
+                    .then(selectedAction => {
+                        if (selectedAction === action) {
+                            vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        }
+                    });
             }
         });
-    });
-
-});
+    }
+}

@@ -1,7 +1,7 @@
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2023 NVIDIA Corporation
+// Copyright (c) 2021-2024 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -20,9 +20,31 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+import * as vscode from 'vscode';
 
-interface Storage {
-    get<T>(key: string): T | undefined;
-    update(key: string, data: any): void;
+/**
+ * Utility class for retrieving extension-specific information.
+ */
+export class ExtensionUtils {
+    /**
+     * Gets the name of the extension dynamically.
+     * @param context The extension context.
+     * @returns The extension name.
+     */
+    public static getExtensionName(context: vscode.ExtensionContext): string {
+        return context.extension.packageJSON.name;
+    }
+
+    public static getExtensionDisplayName(context: vscode.ExtensionContext): string {
+        return context.extension.packageJSON.displayName;
+    }
+
+    public static getPublisherName(context: vscode.ExtensionContext): string {
+        return context.extension.packageJSON.publisher;
+    }
+
+    public static getExtensionVersion(context: vscode.ExtensionContext): string {
+        return context.extension.packageJSON.version;
+    }
 }

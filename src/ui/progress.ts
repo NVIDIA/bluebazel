@@ -21,29 +21,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import * as assert from 'assert';
+
 import * as vscode from 'vscode';
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
-    });
 
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
-        }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function showProgress(title: string, longMethod: (token: vscode.CancellationToken) => Promise<any>): Promise<any> {
+
+    return new Promise<string>((resolve, reject) => {
+
+        vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: `Blue Bazel: ${title}`,
+                cancellable: true
+            },
+            async (progress, cancellationToken) => {
+                progress.report({ increment: undefined, message: '...' });
+
+                try {
+                    const result = await longMethod(cancellationToken);
+                    progress.report({ increment: undefined, message: 'Finished.' });
+                    resolve(result);
+                } catch (error) {
+                    progress.report({ increment: undefined, message: 'Cancelled.' });
+                    reject(error);
+                }
             }
-        });
+        );
     });
-
-});
+}

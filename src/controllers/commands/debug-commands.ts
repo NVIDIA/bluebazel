@@ -21,29 +21,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import * as assert from 'assert';
+import { BazelTarget } from '../../models/bazel-target';
+import { ExtensionUtils } from '../../services/extension-utils';
+import { DebugController } from '../target-controllers/debug-controller';
 import * as vscode from 'vscode';
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
-    });
 
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
-        }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
-            }
-        });
-    });
+export function registerDebugCommands(context: vscode.ExtensionContext,
+    debugController: DebugController) {
 
-});
+    const extensionName = ExtensionUtils.getExtensionName(context);
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.debug`, (target: BazelTarget) => {
+        debugController.execute(target);
+    }));
+
+}
