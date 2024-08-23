@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2023 NVIDIA Corporation
+// Copyright (c) 2021-2024 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,41 +22,29 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-export const BUILD_RUN_TARGET_STR = '<Run Target>';
-export const BAZEL_BIN = 'bazel-bin';
+export class EnvVarsUtils {
+    public static listToArray(envVars: string[]): Array<{ [key: string]: string }> {
+        const vars: Array<{[key: string]: string}> = [];
+        const set = envVars;
+        set.forEach((item, index) => {
+            const [key, value] = item.split('=');
+            const nameValuePair = {
+                name: key,
+                value: value
+            };
+            vars.push(nameValuePair);
+        });
+        return vars;
+    }
 
-export enum TargetType {
-    BUILD = 'build',
-    RUN = 'run',
-    TEST = 'test'
+    public static listToObject(envVars: string[]): {[key: string]: string} {
+        const envVariables: { [key: string]: string } = {};
+        const set = envVars;
+        set.forEach((item, index) => {
+            const [key, value] = item.split('=');
+            envVariables[key] = value;
+        });
+
+        return envVariables;
+    }
 }
-
-export const WORKSPACE_KEYS = {
-    buildTarget: 'buildTarget',
-    runTarget: 'runTarget',
-    testTarget: 'testTarget',
-    buildEnvVars: 'buildEnvVar',
-    runEnvVars: 'runEnvVars',
-    testEnvVars: 'testEnvVars',
-    buildConfigs: 'buildConfigs',
-    runConfigs: 'runConfigs',
-    testConfigs: 'testConfigs',
-    bazelBuildArgs: 'bazelBuildArgs',
-    bazelRunArgs: 'bazelRunArgs',
-    bazelTestArgs: 'bazelTestArgs',
-    runArgs: 'runArgs',
-    testArgs: 'testArgs',
-    setupEnvVars: 'setupEnvVars',
-    targetSections: 'targetSections'
-};
-
-export const CONFIG_SECTIONS = {
-    build: 'Build',
-    run: 'Run',
-    test: 'Test'
-};
-
-export function getWorkspaceKeyUniqueToTarget(key: string, target: string): string {
-    return `${key}For${target}`;
-}
-

@@ -24,16 +24,17 @@
 import * as vscode from 'vscode';
 import { BazelController } from './controller';
 import { BazelTreeDataProvider } from './treeView';
-import { ConfigurationManager } from './configurationManager';
+import { ConfigurationManager } from './services/configuration-manager';
 import { registerBuildCommands } from './buildCommands';
 import { registerRunCommands } from './runCommands';
 import { registerTestCommands } from './testCommands';
 import { BazelModel } from './model';
+import { registerCommands } from './controllers/command-controller';
 
 let bazelTree: BazelTreeDataProvider;
 let bazelModel: BazelModel;
 let bazelController: BazelController;
-let extensionConfiguration = new ConfigurationManager();
+let extensionConfiguration: ConfigurationManager;
 
 function getActivateWhenClause(context: vscode.ExtensionContext): string {
     const publisherName = context.extension.packageJSON.publisher;
@@ -49,11 +50,12 @@ export function activate(context: vscode.ExtensionContext) {
     const setting = getActivateWhenClause(context);
     vscode.commands.executeCommand('setContext', setting, true);
 
-    extensionConfiguration = new ConfigurationManager();
+    extensionConfiguration = new ConfigurationManager(context);
 
     bazelModel = new BazelModel(context.workspaceState);
 
-    bazelController = new BazelController(context.workspaceState,
+    bazelController = new BazelController(context,
+        context.workspaceState,
         extensionConfiguration,
         bazelModel);
 
@@ -115,6 +117,7 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
+    registerCommands(context);
     // Register custom commands
-    extensionConfiguration.registerCommands(bazelController, context);
+    // extensionConfiguration.registerCommands(bazelController, context);
 }

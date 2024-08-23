@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2023 NVIDIA Corporation
+// Copyright (c) 2021-2024 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,7 +22,26 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-interface Storage {
-    get<T>(key: string): T | undefined;
-    update(key: string, data: any): void;
+import { BazelTargetManager } from '../models/bazel-target-manager';
+import { BazelTarget } from '../models/bazel-target';
+
+export class BazelTargetController {
+    constructor(private model: BazelTargetManager) {}
+
+    public async buildTarget(target: BazelTarget): Promise<void> {
+        // Only handle the logic, no UI interaction
+        // Insert bazel build command logic here
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Mock build
+
+        // this.model.saveTargets();
+    }
+
+    public addTarget(label: string, action: string) {
+        const target = new BazelTarget(label, action);
+        this.model.addTarget(target);
+    }
+
+    public removeTarget(target: BazelTarget) {
+        this.model.removeTarget(target);
+    }
 }

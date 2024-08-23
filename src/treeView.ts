@@ -25,10 +25,10 @@ import * as vscode from 'vscode';
 import { TreeItem } from 'vscode';
 import { BazelController } from './controller';
 import { BazelModel } from './model';
-import { ConfigurationManager } from './configurationManager';
+import { ConfigurationManager } from './services/configuration-manager';
 import * as common from './common';
-import { MultiPropTreeItem } from './multiPropTreeItem';
-import { SinglePropTreeItem } from './singlePropTreeItem';
+import { MultiPropTreeItem } from './ui/multi-prop-tree-item';
+import { SinglePropTreeItem } from './ui/single-prop-tree-item';
 
 export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     _onDidChangeTreeData: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();

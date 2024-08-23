@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2023 NVIDIA Corporation
+// Copyright (c) 2021-2024 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,32 +21,29 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+
 import * as vscode from 'vscode';
+import { ConfigurationManager } from '../services/configuration-manager';
+import { UserCommandsController } from './user-commands-controller';
 
-export function quickPick(quickPickData: string[], onChange: (data: any)=>void) {
-    const quickItems: vscode.QuickPickItem[] = [{ label: '' }];
-    quickPickData.forEach(arg => { if (arg !== undefined && arg.trim().length > 0) { quickItems.push({ label: arg }); } });
-
-    const quickPick = vscode.window.createQuickPick();
-    quickPick.items = quickItems;
-    // Don't hide until a selection is made
-    quickPick.ignoreFocusOut = true;
-
-    quickPick.onDidChangeValue(value => {
-        quickItems[0].label = value;
-        quickPick.items = quickItems;
+export function registerUserCommands(context: vscode.ExtensionContext,
+    configurationManager: ConfigurationManager,
+    userCommandsController: UserCommandsController
+): void {
+    // Traverses through the configuration and registers commands with method names.
+    const customButtons = configurationManager.getCustomButtons();
+    if (customButtons === undefined) {
+        return;
+    }
+    customButtons.forEach(section => {
+        const buttons = section.buttons;
+        if (buttons !== undefined) {
+            buttons.forEach(button => {
+                const disposableCommand = vscode.commands.registerCommand(button.methodName, async (command: string) => {
+                    await userCommandsController.runCustomTask(button.command);
+                });
+                context.subscriptions.push(disposableCommand);
+            });
+        }
     });
-
-    quickPick.onDidChangeSelection(items => {
-        const item = items[0];
-        quickPick.value = item.label;
-        quickPick.hide();
-        vscode.window.showInputBox({ value: item.label }).then(data => {
-            if (data !== undefined) {
-                onChange(data);
-            }
-        });
-    });
-
-    quickPick.show();
 }

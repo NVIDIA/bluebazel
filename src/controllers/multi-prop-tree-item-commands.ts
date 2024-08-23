@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2023 NVIDIA Corporation
+// Copyright (c) 2021-2024 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,41 +22,25 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-export const BUILD_RUN_TARGET_STR = '<Run Target>';
-export const BAZEL_BIN = 'bazel-bin';
+import * as vscode from 'vscode';
+import { MultiPropTreeItem, MultiPropTreeItemChild } from '../ui/multi-prop-tree-item';
+import { ExtensionUtils } from '../services/extension-utils';
 
-export enum TargetType {
-    BUILD = 'build',
-    RUN = 'run',
-    TEST = 'test'
+export function registerMultiPropTreeItemCommands(context: vscode.ExtensionContext) {
+    const extensionName = ExtensionUtils.getExtensionName(context);
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand(`${extensionName}.addToMultiPropTreeItem`, (node: MultiPropTreeItem) => {
+            node.runAdd(node);
+        }),
+        vscode.commands.registerCommand(`${extensionName}.editMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
+            node.getParent().runEdit(node);
+        }),
+        vscode.commands.registerCommand(`${extensionName}.removeMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
+            node.getParent().runRemove(node);
+        }),
+        vscode.commands.registerCommand(`${extensionName}.copyMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
+            node.getParent().runCopy(node);
+        })
+    );
 }
-
-export const WORKSPACE_KEYS = {
-    buildTarget: 'buildTarget',
-    runTarget: 'runTarget',
-    testTarget: 'testTarget',
-    buildEnvVars: 'buildEnvVar',
-    runEnvVars: 'runEnvVars',
-    testEnvVars: 'testEnvVars',
-    buildConfigs: 'buildConfigs',
-    runConfigs: 'runConfigs',
-    testConfigs: 'testConfigs',
-    bazelBuildArgs: 'bazelBuildArgs',
-    bazelRunArgs: 'bazelRunArgs',
-    bazelTestArgs: 'bazelTestArgs',
-    runArgs: 'runArgs',
-    testArgs: 'testArgs',
-    setupEnvVars: 'setupEnvVars',
-    targetSections: 'targetSections'
-};
-
-export const CONFIG_SECTIONS = {
-    build: 'Build',
-    run: 'Run',
-    test: 'Test'
-};
-
-export function getWorkspaceKeyUniqueToTarget(key: string, target: string): string {
-    return `${key}For${target}`;
-}
-

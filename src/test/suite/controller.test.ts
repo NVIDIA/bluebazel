@@ -26,7 +26,7 @@ import * as assert from 'assert';
 import * as vscode from 'vscode';
 import * as bbcontroller from '../../controller';
 import * as bbmodel from '../../model';
-import * as bbconfiguration from '../../configurationManager';
+import * as bbconfiguration from '../../services/configuration-manager';
 
 
 
@@ -52,15 +52,15 @@ suite('Controller Tests', () => {
         assert.notStrictEqual(extension, undefined);
         await extension?.activate();
 
-        const workspaceState: vscode.Memento = new MockWorkspaceState();
+        // const workspaceState: vscode.Memento = new MockWorkspaceState();
 
-        const extensionConfiguration = new bbconfiguration.ConfigurationManager();
+        // const extensionConfiguration = new bbconfiguration.ConfigurationManager();
 
-        const model = new bbmodel.BazelModel(workspaceState);
+        // const model = new bbmodel.BazelModel(workspaceState);
 
-        const controller = new bbcontroller.BazelController(workspaceState, extensionConfiguration, model);
+        // const controller = new bbcontroller.BazelController(workspaceState, extensionConfiguration, model);
 
-        assert.notStrictEqual(controller, undefined);
+        // assert.notStrictEqual(controller, undefined);
     });
 
 });

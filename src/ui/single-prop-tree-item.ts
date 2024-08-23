@@ -23,22 +23,15 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 
 import * as vscode from 'vscode';
-import { quickPick } from './quickPicker';
-import { History } from './history';
-
-vscode.commands.registerCommand('bluebazel.editSinglePropTreeItem', (node: SinglePropTreeItem) => {
-    node.runEdit();
-});
-
-vscode.commands.registerCommand('bluebazel.copySinglePropTreeItem', (node: SinglePropTreeItem) => {
-    node.runCopy();
-});
+import { showQuickPick } from './quick-pick';
+import { BazelTargetPropertyHistory } from '../models/bazel-target-property-history';
+import { Storage } from '../models/storage';
 
 export class SinglePropTreeItem extends vscode.TreeItem {
     private m_edit: () => void;
     private m_originalLabel: string;
     private m_value: string;
-    private m_history: History;
+    private m_history: BazelTargetPropertyHistory;
 
     constructor(label: string,
         private readonly workspaceKey: string,
@@ -49,7 +42,7 @@ export class SinglePropTreeItem extends vscode.TreeItem {
         onEdit?: (itemOld: string, itemNew: string) => void) {
         super(label);
         this.m_originalLabel = label;
-        this.m_history = new History(workspaceState, `${this.workspaceKey}History`, 10);
+        this.m_history = new BazelTargetPropertyHistory(workspaceState, this.workspaceKey, 10);
         contextValuePrefix = contextValuePrefix || '';
         this.contextValue = `${contextValuePrefix}SinglePropTreeItem`;
         this.m_value = workspaceState.get<string>(this.workspaceKey) || '';
@@ -64,7 +57,7 @@ export class SinglePropTreeItem extends vscode.TreeItem {
         this.m_edit = () => {
             getAddOptions(this.workspaceKey)
                 .then(data => {
-                    quickPick(data, (data: string) => {
+                    showQuickPick(data, (data: string) => {
                         this.edit(data);
                         if (onEdit) {
                             onEdit(this.m_value, data);

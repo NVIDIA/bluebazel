@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2023 NVIDIA Corporation
+// Copyright (c) 2023 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,42 +21,32 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+import * as vscode from 'vscode';
 
-export const BUILD_RUN_TARGET_STR = '<Run Target>';
-export const BAZEL_BIN = 'bazel-bin';
+export function showQuickPick(quickPickData: string[], onChange: (data: any)=>void) {
+    const quickItems: vscode.QuickPickItem[] = [{ label: '' }];
+    quickPickData.forEach(arg => { if (arg !== undefined && arg.trim().length > 0) { quickItems.push({ label: arg }); } });
 
-export enum TargetType {
-    BUILD = 'build',
-    RUN = 'run',
-    TEST = 'test'
+    const quickPick = vscode.window.createQuickPick();
+    quickPick.items = quickItems;
+    // Don't hide until a selection is made
+    quickPick.ignoreFocusOut = true;
+
+    quickPick.onDidChangeValue(value => {
+        quickItems[0].label = value;
+        quickPick.items = quickItems;
+    });
+
+    quickPick.onDidChangeSelection(items => {
+        const item = items[0];
+        quickPick.value = item.label;
+        quickPick.hide();
+        vscode.window.showInputBox({ value: item.label }).then(data => {
+            if (data !== undefined) {
+                onChange(data);
+            }
+        });
+    });
+
+    quickPick.show();
 }
-
-export const WORKSPACE_KEYS = {
-    buildTarget: 'buildTarget',
-    runTarget: 'runTarget',
-    testTarget: 'testTarget',
-    buildEnvVars: 'buildEnvVar',
-    runEnvVars: 'runEnvVars',
-    testEnvVars: 'testEnvVars',
-    buildConfigs: 'buildConfigs',
-    runConfigs: 'runConfigs',
-    testConfigs: 'testConfigs',
-    bazelBuildArgs: 'bazelBuildArgs',
-    bazelRunArgs: 'bazelRunArgs',
-    bazelTestArgs: 'bazelTestArgs',
-    runArgs: 'runArgs',
-    testArgs: 'testArgs',
-    setupEnvVars: 'setupEnvVars',
-    targetSections: 'targetSections'
-};
-
-export const CONFIG_SECTIONS = {
-    build: 'Build',
-    run: 'Run',
-    test: 'Test'
-};
-
-export function getWorkspaceKeyUniqueToTarget(key: string, target: string): string {
-    return `${key}For${target}`;
-}
-

@@ -22,33 +22,35 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
+import { Storage } from './storage';
+
 interface HistoryMap {
     [key: string]: string[]
 }
 
-export class History {
+export class BazelTargetPropertyHistory {
 
-    private m_historyMap: HistoryMap = {};
+    private historyMap: HistoryMap = {};
     private readonly DEFAULT_TARGET: string = 'DEFAULT_TARGET';
 
     constructor(private readonly workspaceState: Storage,
         readonly name: string,
         readonly size: number) {
 
-        const res = workspaceState.get<HistoryMap>(name);
+        const historyName = `${name}History`;
+        const res = workspaceState.get<HistoryMap>(historyName);
         if (res === undefined) {
             const newRes: HistoryMap = {};
-            this.m_historyMap = newRes;
-            workspaceState.update(name, this.m_historyMap);
+            this.historyMap = newRes;
+            workspaceState.update(historyName, this.historyMap);
         } else {
-            this.m_historyMap = res;
+            this.historyMap = res;
         }
     }
 
     public getFirstHistoryItem(target?: string): string {
         target = target || this.DEFAULT_TARGET;
-        const result = this.m_historyMap[target];
+        const result = this.historyMap[target];
         if (result !== undefined && result.length > 0) {
             return result[0];
         }
@@ -57,15 +59,15 @@ export class History {
 
     public getHistory(target?: string): string[] {
         target = target || this.DEFAULT_TARGET;
-        if (this.m_historyMap[target] === undefined) {
+        if (this.historyMap[target] === undefined) {
             return [];
         }
-        return this.m_historyMap[target];
+        return this.historyMap[target];
     }
 
     public add(value: string, target?: string) {
         target = target || this.DEFAULT_TARGET;
-        let history = this.m_historyMap[target];
+        let history = this.historyMap[target];
         if (history === undefined) {
             history = [];
         }
@@ -81,7 +83,7 @@ export class History {
         if (history.length > this.size) {
             history.pop();
         }
-        this.m_historyMap[target] = history;
-        this.workspaceState.update(this.name, this.m_historyMap);
+        this.historyMap[target] = history;
+        this.workspaceState.update(this.name, this.historyMap);
     }
 }

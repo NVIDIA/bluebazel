@@ -16,7 +16,7 @@
     "activationEvents": [
         "workspaceContains:WORKSPACE"
     ],
-    "main": "./out/main.js",
+    "main": "./out/extension.js",
     "contributes": {
         "views": {
             "bluebazelContainer": [

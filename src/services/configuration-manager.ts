@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2023 NVIDIA Corporation
+// Copyright (c) 2021-2024 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,11 +21,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+import { WorkspaceConfiguration } from 'vscode';
+import { FileService } from './file-service';
+import { MergedConfiguration } from './configuration-utils';
+import { ExtensionUtils } from './extension-utils';
 import * as vscode from 'vscode';
-import { workspace, WorkspaceConfiguration } from 'vscode';
-import { BazelController } from './controller';
-import * as path from 'path';
-import * as fs from 'fs';
+
 export interface CustomButton {
     'title': string,
     'command': string,
@@ -46,93 +47,25 @@ export interface ShellCommand {
     'command': string
 }
 
-class MergedConfiguration implements WorkspaceConfiguration {
-    defaultSettings: any;
-    constructor(defaultSettings: JSON) {
-        // Additional initialization if needed
-        this.defaultSettings = defaultSettings;
-    }
 
-    readonly [key: string]: any;
-
-    has(section: string): boolean {
-        return this.getUserSettings().has(section) || section in this.defaultSettings;
-    }
-
-    inspect<T>(section: string): { key: string; defaultValue?: T | undefined; globalValue?: T | undefined; workspaceValue?: T | undefined; workspaceFolderValue?: T | undefined; defaultLanguageValue?: T | undefined; globalLanguageValue?: T | undefined; workspaceLanguageValue?: T | undefined; workspaceFolderLanguageValue?: T | undefined; languageIds?: string[] | undefined; } | undefined {
-        return this.getUserSettings().inspect<T>(section);
-    }
-
-    update(section: string, value: any, configurationTarget?: boolean | vscode.ConfigurationTarget | undefined, overrideInLanguage?: boolean | undefined): Thenable<void> {
-        return this.getUserSettings().update(section, value, configurationTarget, overrideInLanguage);
-    }
-
-    get<T>(section: string, defaultValue?: T): T | undefined {
-        const settingValue = this.getUserSettings().get<T>(section);
-        const settingsInspection = this.getUserSettings().inspect(section);
-        const isModifiedByUser = settingValue !== undefined &&
-            (settingsInspection?.globalValue !== undefined ||
-                settingsInspection?.workspaceFolderValue !== undefined ||
-                settingsInspection?.workspaceValue !== undefined);
-        if (isModifiedByUser) {
-            return settingValue;
-        } else if (section in this.defaultSettings) {
-            return this.defaultSettings[section] as T;
-        } else if (defaultValue) {
-            return defaultValue;
-        } else {
-            return settingValue;
-        }
-    }
-
-    getUserSettings(): WorkspaceConfiguration {
-        return workspace.getConfiguration('bluebazel');
-    }
-}
 
 export class ConfigurationManager {
 
-    private m_config: WorkspaceConfiguration;
-    constructor() {
-        const defaultSettings = this.getDefaultSettings();
-        this.m_config = new MergedConfiguration(defaultSettings);
+    private config: WorkspaceConfiguration;
+    constructor(private context: vscode.ExtensionContext) {
+        const defaultSettings = FileService.getExtensionDefaultSettings(ExtensionUtils.getExtensionName(context));
+        this.config = new MergedConfiguration(defaultSettings);
     }
 
-    private getDefaultSettings(): JSON {
-        const workspaceFolders = vscode.workspace.workspaceFolders;
-        if (!workspaceFolders) {
-            console.error('No workspace folder found.');
-            return JSON.parse('{}');
+    public getExtensionDisplayName(): string {
+        if (this.context === undefined) {
+            throw new Error('Error: context must be defined before calling getExtensionDisplayName');
         }
-
-        const defaultSettings = [];
-        for (const folder of workspaceFolders) {
-            const rootPath = folder.uri.fsPath;
-
-            // Construct the path to the .vscode directory
-            const defaultSettingsPath = path.join(rootPath, '.vscode', 'bluebazel.json');
-
-            try {
-                const fileContent = fs.readFileSync(defaultSettingsPath, 'utf8');
-                defaultSettings.push(JSON.parse(fileContent));
-            } catch (error) {
-                console.log('Failed to parse default settings', error);
-            }
-        }
-
-        const contents = Object.assign({}, ...defaultSettings);
-        Object.keys(contents).forEach((oldKey) => {
-            if (oldKey.includes('bluebazel.')) {
-                const newKey = oldKey.replace('bluebazel.', '');
-                contents[newKey] = contents[oldKey];
-            }
-            delete contents[oldKey];
-        });
-        return contents;
+        return ExtensionUtils.getExtensionDisplayName(this.context);
     }
 
     private getConfig(): WorkspaceConfiguration {
-        return this.m_config;
+        return this.config;
     }
 
     public getCustomButtons(): Array<CustomSection> {
@@ -186,28 +119,6 @@ export class ConfigurationManager {
             return result;
         }
         return 'run //:format';
-    }
-
-    public registerCommands(targetSelector: BazelController,
-        context: vscode.ExtensionContext): void {
-        // Traverses through the configuration and registers commands with method names.
-        const config = this.getConfig();
-        const customButtons = config.get<Array<CustomSection>>('customButtons');
-        if (customButtons === undefined) {
-            return;
-        }
-
-        customButtons.forEach(section => {
-            const buttons = section.buttons;
-            if (buttons !== undefined) {
-                buttons.forEach(button => {
-                    const disposableCommand = vscode.commands.registerCommand(button.methodName, async (command: string) => {
-                        await targetSelector.runCustomTask(button.command);
-                    });
-                    context.subscriptions.push(disposableCommand);
-                });
-            }
-        });
     }
 
     public isShowShellCommandOutput(): boolean

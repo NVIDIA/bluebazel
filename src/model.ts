@@ -112,31 +112,6 @@ export class BazelModel {
         return vars;
     }
 
-    public getRunEnvVariablesAsArray(): Array<{[key: string]: string}> {
-        const vars: Array<{[key: string]: string}> = [];
-        const set = this.getRunEnvVars();
-        set.forEach((item, index) => {
-            const [key, value] = item.split('=');
-            const nameValuePair = {
-                name: key,
-                value: value
-            };
-            vars.push(nameValuePair);
-        });
-        return vars;
-    }
-
-    public getRunEnvVariablesAsObject(): { [key: string]: string } {
-        const envVariables: { [key: string]: string } = {};
-        const set = this.getRunEnvVars();
-        set.forEach((item, index) => {
-            const [key, value] = item.split('=');
-            envVariables[key] = value;
-        });
-
-        return envVariables;
-    }
-
     public getTestEnvVariables(): string {
         let vars = '';
         const set = this.getTestEnvVars();
@@ -144,41 +119,6 @@ export class BazelModel {
             vars += `--test_env=${value} `;
         });
         return vars;
-    }
-
-    public getSetupEnvVariables(): string {
-        let vars = '';
-        const set = this.getSetupEnvVars();
-        set.forEach((value, index) => {
-            vars += `export ${value} && `;
-        });
-
-        return vars;
-    }
-
-    public getSetupEnvVariablesAsArray(): Array<{ [key: string]: string }> {
-        const vars: Array<{[key: string]: string}> = [];
-        const set = this.getSetupEnvVars();
-        set.forEach((item, index) => {
-            const [key, value] = item.split('=');
-            const nameValuePair = {
-                name: key,
-                value: value
-            };
-            vars.push(nameValuePair);
-        });
-        return vars;
-    }
-
-    public getSetupEnvVariablesAsObject() {
-        const envVariables: { [key: string]: string } = {};
-        const set = this.getSetupEnvVars();
-        set.forEach((item, index) => {
-            const [key, value] = item.split('=');
-            envVariables[key] = value;
-        });
-
-        return envVariables;
     }
 
     public getBazelBuildArgs()
