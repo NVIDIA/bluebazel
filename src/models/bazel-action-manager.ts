@@ -22,27 +22,32 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 import * as vscode from 'vscode';
-import { fetchBazelActions } from '../services/bazel-service';
+import { BazelService } from '../services/bazel-service';
 
-export class BazelCommandManager {
-    private commands: string[] = [];
-    private commandsPromise: Promise<string[]>;
+/**
+ * Model for retrieving all possible commands in bazel.
+ */
+export class BazelActionManager {
+    private actions: string[] = [];
+    private actionsPromise: Promise<string[]>;
 
-    constructor(private context: vscode.ExtensionContext) {
-        this.commandsPromise = this.loadCommands();
+    constructor(private context: vscode.ExtensionContext,
+        private readonly bazelService: BazelService,
+    ) {
+        this.actionsPromise = this.loadActions();
     }
 
-    private async loadCommands(): Promise<string[]> {
-        this.commands = await fetchBazelActions();
-        return this.commands;
+    private async loadActions(): Promise<string[]> {
+        this.actions = await this.bazelService.fetchBazelActions();
+        return this.actions;
     }
 
-    public async getCommands(): Promise<string[]> {
-        return this.commandsPromise;
+    public async getActions(): Promise<string[]> {
+        return this.actionsPromise;
     }
 
-    public async refreshCommands() {
-        this.commands = await fetchBazelActions();
-        this.commandsPromise = Promise.resolve(this.commands);
+    public async refreshActions() {
+        this.actions = await this.bazelService.fetchBazelActions();
+        this.actionsPromise = Promise.resolve(this.actions);
     }
 }

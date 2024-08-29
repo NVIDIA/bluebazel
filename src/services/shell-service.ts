@@ -1,7 +1,6 @@
 
 import * as vscode from 'vscode';
 import * as child from 'child_process';
-import { EnvVarsUtils } from './env-vars-utils';
 import { showProgress } from '../ui/progress';
 
 export class ShellService {

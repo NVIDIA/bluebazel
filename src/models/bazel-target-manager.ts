@@ -22,35 +22,63 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 import * as vscode from 'vscode';
-import { BazelTarget } from './bazel-target';
+import { BazelAction, BazelTarget } from './bazel-target';
 
+/**
+ * Manager for handling Bazel targets across different actions.
+ */
 export class BazelTargetManager {
-    private targets: BazelTarget[] = [];
+    private targets: Map<BazelAction, BazelTarget[]> = new Map();
 
     constructor(private context: vscode.ExtensionContext) {
         this.loadTargets();
     }
 
     private loadTargets() {
-        const storedTargets = this.context.workspaceState.get<BazelTarget[]>('bazelTargets', []);
-        this.targets = storedTargets.map(target => new BazelTarget(target.label, target.action));
+        const storedTargets = this.context.workspaceState.get<{ [key: string]: BazelTarget[] }>('bazelTargets', {});
+        this.targets = new Map(Object.entries(storedTargets));
     }
 
     public addTarget(target: BazelTarget) {
-        this.targets.push(target);
+        const action = target.action;
+        if (!this.targets.has(action)) {
+            this.targets.set(action, []);
+        }
+        const actionTargets = this.targets.get(action)!;
+        actionTargets.push(target);
         this.saveTargets();
     }
 
     public removeTarget(target: BazelTarget) {
-        this.targets = this.targets.filter(t => t !== target);
-        this.saveTargets();
+        const action = target.action;
+        if (this.targets.has(action)) {
+            const updatedTargets = this.targets.get(action)!.filter(t => t.label !== target.label);
+            if (updatedTargets.length > 0) {
+                this.targets.set(action, updatedTargets);
+            } else {
+                this.targets.delete(action);
+            }
+            this.saveTargets();
+        }
     }
 
-    public getTargets(): BazelTarget[] {
-        return this.targets;
+    public getTargets(action?: BazelAction): BazelTarget[] {
+        if (action) {
+            return this.targets.get(action) || [];
+        } else {
+            const allTargets: BazelTarget[] = [];
+            this.targets.forEach(targetsArray => {
+                allTargets.push(...targetsArray);
+            });
+            return allTargets;
+        }
     }
 
     private saveTargets() {
-        this.context.workspaceState.update('bazelTargets', this.targets);
+        const serializedTargets: { [key: string]: BazelTarget[] } = {};
+        this.targets.forEach((value, key) => {
+            serializedTargets[key] = value;
+        });
+        this.context.workspaceState.update('bazelTargets', serializedTargets);
     }
 }

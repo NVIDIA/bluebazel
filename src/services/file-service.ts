@@ -26,7 +26,7 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 
 /**
- * Service for reading configuration files.
+ * Service for dealing with files.
  */
 export class FileService {
     public static getExtensionDefaultSettings(extensionName: string): JSON {

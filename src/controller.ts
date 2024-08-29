@@ -36,6 +36,8 @@ import { WorkspaceService } from './services/workspace-service';
 import { clearTerminal } from './ui/terminal';
 import { TaskService } from './services/task-service';
 import { EnvVarsUtils } from './services/env-vars-utils';
+import { BazelService } from './services/bazel-service';
+import { EnvironmentService } from './services/environment-service';
 
 interface RunTarget {
     label: string,
@@ -58,7 +60,10 @@ export class BazelController {
         private readonly context: vscode.ExtensionContext,
         private readonly workspaceState: vscode.Memento,
         private readonly configurationManager: ConfigurationManager,
-        private readonly model: BazelModel) {
+        private readonly model: BazelModel,
+        private readonly bazelService: BazelService,
+        private readonly environmentService: EnvironmentService
+    ) {
         this.m_outputChannel = vscode.window.createOutputChannel(configurationManager.getExtensionDisplayName());
 
         // Load the run targets
@@ -79,81 +84,10 @@ export class BazelController {
 
     private updateSetupEnvVars() {
         this.model.update(common.WORKSPACE_KEYS.setupEnvVars, '');
-        const envSetupCommand = this.configurationManager.getSetupEnvironmentCommand();
-        const envDelimiter = '---bluebazel setup---';
-        if (envSetupCommand) {
-            this.shellService.runShellCommand(`${envSetupCommand} && echo ${envDelimiter} && printenv`, false).then((value) => {
-                const env = value.stdout.replace(new RegExp(`[\\s\\S]*?${envDelimiter}\n`, 'g'), '').split('\n');
-                const envArray: string[] = [];
-                let currentVariable = '';
-                for (const line of env) {
-                    if (line.includes('=')) {
-                        if (currentVariable) {
-                            const [name, value] = currentVariable.split('=');
-                            envArray.push(`${name}=${value}`);
-                        }
-                        currentVariable = line;
-                    } else if (currentVariable) {
-                        currentVariable += `\n${line}`;
-                    }
-                }
-
-                if (currentVariable) {
-                    const [name, value] = currentVariable.split('=');
-                    envArray.push(`${name}=${value}`);
-                }
-
-                this.model.update(common.WORKSPACE_KEYS.setupEnvVars, envArray);
-            });
-        }
+        this.environmentService.fetchSetupEnvironment().then((envArray: string[]) => {
+            this.model.update(common.WORKSPACE_KEYS.setupEnvVars, envArray);
+        });
     }
-
-    private getActualBuildTarget(target: string): string | undefined {
-        let actualTarget = target;
-        if (target === common.BUILD_RUN_TARGET_STR) {
-            // Find run target
-            const runTarget = this.workspaceState.get<RunTarget>(common.WORKSPACE_KEYS.runTarget);
-            if (runTarget !== undefined &&
-                typeof runTarget === 'object' &&
-                runTarget !== null &&
-                Object.keys(runTarget).includes('value')) {
-                actualTarget = path.relative(common.BAZEL_BIN, runTarget.value);
-            } else {
-                return undefined;
-            }
-        }
-        return actualTarget;
-    }
-
-    public getBuildTargetCommand(target: string): string | undefined {
-        const actualTarget = this.getActualBuildTarget(target);
-        if (!actualTarget) {
-            return undefined;
-        }
-
-        const executable = this.configurationManager.getExecutableCommand();
-        const buildArgs = this.model.getBazelBuildArgs();
-        const configArgs = this.model.getBuildConfigArgs();
-        const buildEnvVars = this.model.getBuildEnvVariables();
-        return `${executable} build ${buildArgs} ${configArgs} ${actualTarget} ${buildEnvVars}\n`;
-    }
-
-    public async buildTarget(target: string) {
-        const actualTarget = this.getActualBuildTarget(target);
-        if (!actualTarget) {
-            vscode.window.showErrorMessage('Build failed. Could not find run target.');
-            return;
-        }
-
-        const buildCommand = this.getBuildTargetCommand(target);
-        if (!buildCommand) {
-            vscode.window.showErrorMessage('Build failed. Could not find run target.');
-            return;
-        }
-
-        return this.taskService.runTask(`build ${actualTarget}`, `build ${actualTarget}`, buildCommand, this.configurationManager.isClearTerminalBeforeAction());
-    }
-
 
     public async format() {
         const executable = this.configurationManager.getExecutableCommand();
@@ -232,87 +166,6 @@ export class BazelController {
         return this.taskService.runTask(taskType, taskLabel, testCommand, this.configurationManager.isClearTerminalBeforeAction());
     }
 
-    public async getRunCommand(target: string): Promise<string | undefined> {
-        if (!target) {
-            return undefined;
-        }
-        if (!this.configurationManager.shouldRunBinariesDirect()) {
-            return this.getRunInBazelCommand(target);
-        } else {
-            return this.getRunDirectCommand(target);
-        }
-    }
-
-    private getRunInBazelCommand(target: string): string | undefined {
-        if (!target) {
-            return undefined;
-        }
-        const configArgs = this.model.getRunConfigArgs();
-        const executable = this.configurationManager.getExecutableCommand();
-        const bazelArgs = this.model.getBazelRunArgs();
-        const bazelTarget = this.getBazelTarget(target);
-        let runArgs = this.model.getRunArgs(target);
-        if (runArgs.length > 0) {
-            runArgs = '-- ' + runArgs;
-        }
-        return `${executable} run ${bazelArgs} ${configArgs} ${bazelTarget} ${runArgs}\n`;
-    }
-
-    private async getRunDirectCommand(target: string): Promise<string | undefined> {
-        if (!target) {
-            return undefined;
-        }
-
-        const targetPath = await this.getBazelTargetBuildPath(target);
-        // Program (executable) path with respect to workspace.
-        const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
-        const runArgs = this.model.getRunArgs(target);
-        return `${programPath} ${runArgs}`;
-    }
-
-    public async run(target: string) {
-        if (!this.configurationManager.shouldRunBinariesDirect()) {
-            return this.runInBazel(target);
-        } else {
-            return this.runDirect(target);
-        }
-    }
-
-    private async runInBazel(target: string) {
-
-        const envVars = EnvVarsUtils.listToObject(this.model.getRunEnvVars());
-        // target is in the form of a relative path: bazel-bin/path/executable
-        // bazelTarget is in the form of //path:executable
-        const bazelTarget = this.getBazelTarget(target);
-
-        const runCommand = this.getRunInBazelCommand(target);
-        if (!runCommand) {
-            vscode.window.showErrorMessage('Run failed. Could not get run target.');
-            return;
-        }
-
-        return this.taskService.runTask(
-            `run ${bazelTarget}`,
-            `run ${bazelTarget}`,
-            runCommand,
-            this.configurationManager.isClearTerminalBeforeAction(),
-            envVars);
-    }
-
-    private async runDirect(target: string) {
-        if (this.configurationManager.isBuildBeforeLaunch()) {
-            await this.buildTarget(common.BUILD_RUN_TARGET_STR);
-        }
-
-        const targetPath = await this.getBazelTargetBuildPath(target);
-        // Program (executable) path with respect to workspace.
-        const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
-
-        const args = this.model.getRunArgs(target);
-        const envVars = EnvVarsUtils.listToObject(this.model.getRunEnvVars());
-
-        this.taskService.runTask(`run ${programPath}`, `run ${programPath}`, `${programPath} ${args}`, this.configurationManager.isClearTerminalBeforeAction(), envVars, 'process');
-    }
 
     public async debug(target: string) {
         if (!this.configurationManager.shouldRunBinariesDirect()) {
@@ -561,65 +414,22 @@ export class BazelController {
         });
     }
 
-    public async getRunPaths(root: string = common.BAZEL_BIN) {
-        const execs: vscode.QuickPickItem[] = [];
-        const folders: vscode.QuickPickItem[] = [];
-
-        const rootFolder: string = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, root);
-        return fs.promises.readdir(rootFolder).then(
-            data => {
-                data.forEach((value, index) => {
-                    const filepath: string = path.join(rootFolder, value);
-                    const relativePath: string = path.join(root, value);
-                    if (path.extname(filepath).length === 0 && isExecutable(filepath) && value.charAt(0) !== '.') {
-                        execs.push({ label: `$(play) ${relativePath}` });
-                    }
-                    else if (fs.lstatSync(path.join(rootFolder, value)).isDirectory()) {
-                        folders.push({ label: `$(folder) ${relativePath}` });
-                    }
-                });
-                return execs.concat(folders);
-            }
-        );
-    }
-
-    public getWorkspacePath(): string {
-        return WorkspaceService.getInstance().getWorkspaceFolder().uri.path;
-    }
-
     public refreshRunTargets(): Promise<void> {
         if (this.m_isRefreshingRunTargets) {
             vscode.window.showWarningMessage('Run targets are still being refreshed...');
             return Promise.resolve();
         }
         else {
-            const executable = this.configurationManager.getExecutableCommand();
-            const cmd = this.configurationManager.getGenerateRunTargetsCommand();
 
             this.m_isRefreshingRunTargets = true;
-            return this.shellService.runShellCommand(`${executable} ${cmd}`, false).then(data => {
-                const all_outputs = data.stdout.split('\n');
-                const targets: vscode.QuickPickItem[] = [];
-                all_outputs.forEach(element => {
-                    if (element.length >= 2 && element.substring(0, 2).includes('//')) {
-                        const target_names = element.split(':');
-                        const target_name = target_names.pop();
-                        const target_path = target_names[0];
-                        if (target_name !== undefined) {
-                            targets.push({
-                                label: target_name,
-                                detail: path.join(common.BAZEL_BIN, ...target_path.split('/'), target_name)
-                            });
-                        }
-                    }
-                });
-                // Sort targets
-                targets.sort((a: vscode.QuickPickItem, b: vscode.QuickPickItem) => { return a.label < b.label ? -1 : 1; });
-                this.m_runTargets = targets;
-                this.workspaceState.update(BazelController.RunTargets, this.m_runTargets);
-                this.m_isRefreshingRunTargets = false;
+            return this.bazelService.fetchRunTargets().then((runTargets: { label: string, detail: string }[]) => {
+                const items = runTargets.map(value => ({
+                    label: value.label,
+                    detail: value.detail
+                }));
 
-                return Promise.resolve();
+                this.workspaceState.update(BazelController.RunTargets, items);
+                this.m_runTargets = items;
             });
         }
     }

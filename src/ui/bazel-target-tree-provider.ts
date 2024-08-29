@@ -24,7 +24,7 @@
 
 import * as vscode from 'vscode';
 import { BazelTarget } from '../models/bazel-target';
-import { BazelTargetController } from '../controllers/bazel-target-controller';
+import { BazelTargetController } from '../controllers/target-controllers/bazel-target-controller';
 
 export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTarget> {
     private _onDidChangeTreeData: vscode.EventEmitter<BazelTarget | undefined | void> = new vscode.EventEmitter<BazelTarget | undefined | void>();

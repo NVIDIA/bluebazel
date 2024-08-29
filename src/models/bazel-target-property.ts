@@ -22,26 +22,37 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import { BazelTargetManager } from '../models/bazel-target-manager';
-import { BazelTarget } from '../models/bazel-target';
+import * as vscode from 'vscode';
+import { BazelTarget } from './bazel-target';
+import { ModelAccessor } from './model-accessor';
 
-export class BazelTargetController {
-    constructor(private model: BazelTargetManager) {}
+export class BazelTargetProperty {
+    private readonly key: string = '';
 
-    public async buildTarget(target: BazelTarget): Promise<void> {
-        // Only handle the logic, no UI interaction
-        // Insert bazel build command logic here
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Mock build
-
-        // this.model.saveTargets();
+    constructor(
+        name: string,
+        target: BazelTarget,
+        private readonly workspaceState: vscode.Memento,
+        private readonly toStringFn: (bazelTargetProperty: BazelTargetProperty) => string
+    ) {
+        this.key = `${target.action}${name}For${target.detail}`;
     }
 
-    public addTarget(label: string, action: string) {
-        const target = new BazelTarget(label, action);
-        this.model.addTarget(target);
+    public update<T>(value: T) {
+        this.workspaceState.update(this.key, value);
     }
 
-    public removeTarget(target: BazelTarget) {
-        this.model.removeTarget(target);
+    public get<T>(): T | undefined {
+        const value = this.workspaceState.get<T>(this.key);
+        return value;
+    }
+
+    public toStringArray(): string[] {
+        return ModelAccessor.getStringArray(this);
+    }
+
+    public toString(): string {
+        return this.toStringFn(this);
     }
 }
+

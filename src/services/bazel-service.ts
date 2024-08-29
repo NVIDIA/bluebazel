@@ -21,25 +21,71 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as cp from 'child_process';
+import * as path from 'path';
+import { BazelTarget } from '../models/bazel-target';
+import { ShellService } from './shell-service';
+import { ConfigurationManager } from './configuration-manager';
+import * as common from '../common';
 
-/**
- * Fetches the list of available Bazel commands.
- * @returns A promise that resolves to an array of command strings.
- */
-export async function fetchBazelActions(): Promise<string[]> {
-    return new Promise((resolve, reject) => {
-        cp.exec('bazel help | sed -n \'/Available commands:/,/^$/p\' | tail -n +2 | awk \'{print $1}\' | sed \'/^$/d\'', (error, stdout) => {
-            if (error) {
-                reject('Error fetching Bazel actions');
-                return;
-            }
+export class BazelService {
 
-            // Parse stdout to extract actions
-            const lines = stdout.split('\n');
-            const actions = lines.filter(line => line.startsWith('  ')).map(line => line.trim().split(' ')[0]);
+    constructor(private readonly configurationManager: ConfigurationManager,
+        private readonly shellService: ShellService
+    ) { }
+    /**
+     * Fetches the list of available Bazel commands.
+     * @returns A promise that resolves to an array of command strings.
+     */
+    public async fetchBazelActions(): Promise<string[]> {
+        const executable = this.configurationManager.getExecutableCommand();
+        const result = await this.shellService.runShellCommand(`${executable} help | sed -n '/Available commands:/,/^$/pf' | tail -n +2 | awk '{print $1}' | sed '/^$/d'`, false);
+        const lines = result.stdout.split('\n');
+        const actions = lines.filter(line => line.startsWith('  ')).map(line => line.trim().split(' ')[0]);
+        return actions;
+    }
 
-            resolve(actions);
-        });
-    });
+    public async getBazelTargetBuildPath(target: BazelTarget): Promise<string> {
+        const bazelTarget = this.getBazelTarget(target.detail);
+        const executable = this.configurationManager.getExecutableCommand();
+        const configs = target.getConfigArgs();
+        const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
+
+        const result = await this.shellService.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, false);
+        return result.stdout;
+    }
+
+    private getBazelTarget(target: string): string {
+        const result = target;
+        const resultSplitted = result.split('/');
+        resultSplitted.shift(); // Removes bazel-bin
+        const targetName = resultSplitted[resultSplitted.length - 1];
+        return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
+    }
+
+    public async fetchRunTargets(): Promise<{label: string, detail: string}[]> {
+        const executable = this.configurationManager.getExecutableCommand();
+        const cmd = this.configurationManager.getGenerateRunTargetsCommand();
+
+        const data = await this.shellService.runShellCommand(`${executable} ${cmd}`, false);
+        const allOutputs = data.stdout.split('\n');
+
+        const targets: {label: string, detail: string}[] = allOutputs
+            .filter(element => element.length >= 2 && element.startsWith('//'))
+            .map(element => {
+                const [targetPath, targetName] = element.split(':');
+                if (targetName) {
+                    return {
+                        label: targetName,
+                        detail: path.join(common.BAZEL_BIN, ...targetPath.split('/'), targetName)
+                    };
+                }
+                return {label: '', detail: ''};
+            })
+            .filter(target => target.label !== '');
+
+        // Sort the targets alphabetically
+        targets.sort((a: {label: string, detail: string}, b: {label: string, detail: string}) => { return a.label < b.label ? -1 : 1; });
+        return targets;
+    }
+
 }

@@ -47,4 +47,32 @@ export class EnvVarsUtils {
 
         return envVariables;
     }
+
+    public static toBuildEnvVars(envVars: string[]): string {
+        let vars = '';
+        const set = envVars;
+        set.forEach((value, index) => {
+            vars += `--action_env=${value} `;
+        });
+        return vars;
+    }
+
+    public toRunEnvVars(envVars: string[]): string {
+        let vars = '';
+        const set = envVars;
+        set.forEach((value, index) => {
+            vars += `export ${value} && `;
+        });
+
+        return vars;
+    }
+
+    public toTestEnvVars(envVars: string[]): string {
+        let vars = '';
+        const set = envVars;
+        set.forEach((value, index) => {
+            vars += `--test_env=${value} `;
+        });
+        return vars;
+    }
 }
