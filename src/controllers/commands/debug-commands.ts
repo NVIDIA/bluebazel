@@ -21,46 +21,18 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-
-import * as assert from 'assert';
 import * as vscode from 'vscode';
-import * as bbcontroller from '../../controller';
-import * as bbmodel from '../../model';
-import * as bbconfiguration from '../../services/configuration-manager';
 
+import { DebugController } from '../target-controllers/debug-controller';
+import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelTarget } from '../../models/bazel-target';
 
+export function registerDebugCommands(context: vscode.ExtensionContext,
+    debugController: DebugController) {
 
-class MockWorkspaceState implements vscode.Memento {
-    keys(): readonly string[] {
-        throw new Error('Method not implemented.');
-    }
-    private state: { [key: string]: any } = {};
+    const extensionName = ExtensionUtils.getExtensionName(context);
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.debug`, (target: BazelTarget) => {
+        debugController.execute(target);
+    }));
 
-    get<T>(key: string, defaultValue?: T): T | undefined {
-        return key in this.state ? this.state[key] : defaultValue;
-    }
-
-    update(key: string, value: any): Thenable<void> {
-        this.state[key] = value;
-        return Promise.resolve();
-    }
 }
-
-suite('Controller Tests', () => {
-    test('Contstruction', async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
-
-        // const workspaceState: vscode.Memento = new MockWorkspaceState();
-
-        // const extensionConfiguration = new bbconfiguration.ConfigurationManager();
-
-        // const model = new bbmodel.BazelModel(workspaceState);
-
-        // const controller = new bbcontroller.BazelController(workspaceState, extensionConfiguration, model);
-
-        // assert.notStrictEqual(controller, undefined);
-    });
-
-});

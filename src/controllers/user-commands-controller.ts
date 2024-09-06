@@ -22,10 +22,11 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 import * as vscode from 'vscode';
+
+import { BazelEnvironment } from '../models/bazel-environment';
+import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
 import { ShellService } from '../services/shell-service';
-import { BazelModel } from '../model';
-import { TargetType } from '../common';
 import { TaskService } from '../services/task-service';
 
 /**
@@ -61,7 +62,7 @@ export class UserCommandsController {
         private readonly configurationManager: ConfigurationManager,
         private readonly shellService: ShellService, // Inject the services
         private readonly taskService: TaskService,
-        private readonly model: BazelModel
+        private readonly bazelEnvironment: BazelEnvironment
     ) { }
 
     public async runCustomTask(command: string): Promise<void> {
@@ -71,29 +72,37 @@ export class UserCommandsController {
         this.taskService.runTask(`${completeCommand}`, completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction());
     }
 
+    private static formatTestArgs(testArgs: string): string {
+        const value = testArgs;
+        const pattern = /(--\S+)/g;
+        const result = value.replace(pattern, '--test_arg $1');
+        return result;
+    }
     private resolveKeyword(keyword: string): string {
+        const buildTarget = this.bazelEnvironment.getSelectedBuildTarget();
+        const runTarget = this.bazelEnvironment.getSelectedRunTarget();
+        const testTarget = this.bazelEnvironment.getSelectedTestTarget();
+
+
         const keywordMap: Map<string, () => string> = new Map([
-            [UserCommandsController.CONFIG_KEYWORDS.runArgs, () => this.model.getRunArgs(this.model.getTarget(TargetType.RUN).value)],
-            [UserCommandsController.CONFIG_KEYWORDS.testArgs, () => this.model.getTestArgs(this.model.getTarget(TargetType.TEST).value)],
+            [UserCommandsController.CONFIG_KEYWORDS.runArgs, () => runTarget.getRunArgs().toString()],
+            [UserCommandsController.CONFIG_KEYWORDS.testArgs, () => UserCommandsController.formatTestArgs(testTarget.getRunArgs().toString())],
             [UserCommandsController.CONFIG_KEYWORDS.runTarget, () => {
-                const result = this.model.getTarget(TargetType.RUN).value;
-                const resultSplitted = result.split('/');
-                resultSplitted.shift(); // Removes bazel-bin
-                const targetName = resultSplitted[resultSplitted.length - 1];
-                return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
+                return BazelService.formatBazelTargetFromPath(runTarget.detail);
             }],
-            [UserCommandsController.CONFIG_KEYWORDS.testTarget, () => this.model.getTarget(TargetType.TEST).value],
-            [UserCommandsController.CONFIG_KEYWORDS.buildConfigs, () => this.model.getBuildConfigArgs()],
-            [UserCommandsController.CONFIG_KEYWORDS.runConfigs, () => this.model.getRunConfigArgs()],
-            [UserCommandsController.CONFIG_KEYWORDS.testConfigs, () => this.model.getTestConfigArgs()],
-            [UserCommandsController.CONFIG_KEYWORDS.bazelBuildArgs, () => this.model.getBazelBuildArgs()],
-            [UserCommandsController.CONFIG_KEYWORDS.bazelRunArgs, () => this.model.getBazelRunArgs()],
-            [UserCommandsController.CONFIG_KEYWORDS.bazelTestArgs, () => this.model.getBazelTestArgs()],
-            [UserCommandsController.CONFIG_KEYWORDS.buildEnvVars, () => this.model.getBuildEnvVars().join(' ')],
-            [UserCommandsController.CONFIG_KEYWORDS.runEnvVars, () => this.model.getRunEnvVars().join(' ')],
-            [UserCommandsController.CONFIG_KEYWORDS.testEnvVars, () => this.model.getTestEnvVars().join(' ')],
-            [UserCommandsController.CONFIG_KEYWORDS.buildTarget, () => this.model.getTarget(TargetType.BUILD).value],
+            [UserCommandsController.CONFIG_KEYWORDS.testTarget, () => testTarget.detail],
+            [UserCommandsController.CONFIG_KEYWORDS.buildConfigs, () => buildTarget.getConfigArgs().toString()],
+            [UserCommandsController.CONFIG_KEYWORDS.runConfigs, () => runTarget.getConfigArgs().toString()],
+            [UserCommandsController.CONFIG_KEYWORDS.testConfigs, () => testTarget.getConfigArgs().toString()],
+            [UserCommandsController.CONFIG_KEYWORDS.bazelBuildArgs, () => buildTarget.getBazelArgs().toString()],
+            [UserCommandsController.CONFIG_KEYWORDS.bazelRunArgs, () => runTarget.getBazelArgs().toString()],
+            [UserCommandsController.CONFIG_KEYWORDS.bazelTestArgs, () => testTarget.getBazelArgs().toString()],
+            [UserCommandsController.CONFIG_KEYWORDS.buildEnvVars, () => buildTarget.getEnvVars().toStringArray().join(' ')],
+            [UserCommandsController.CONFIG_KEYWORDS.runEnvVars, () => runTarget.getEnvVars().toStringArray().join(' ')],
+            [UserCommandsController.CONFIG_KEYWORDS.testEnvVars, () => buildTarget.getEnvVars().toStringArray().join(' ')],
+            [UserCommandsController.CONFIG_KEYWORDS.buildTarget, () => testTarget.detail],
             [UserCommandsController.CONFIG_KEYWORDS.executable, () => this.configurationManager.getExecutableCommand()],
+            [UserCommandsController.CONFIG_KEYWORDS.formatCommand, () => this.configurationManager.getFormatCommand()],
         ]);
 
         const getValue = keywordMap.get(keyword);

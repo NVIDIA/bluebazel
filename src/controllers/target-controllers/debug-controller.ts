@@ -22,62 +22,123 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
-import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetController } from './bazel-target-controller';
+import { BuildController } from './build-controller';
+import { BazelEnvironment } from '../../models/bazel-environment';
+import { BazelTarget } from '../../models/bazel-target';
+import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
+import { EnvVarsUtils } from '../../services/env-vars-utils';
+import { LaunchConfigService } from '../../services/launch-config-service';
 import { TaskService } from '../../services/task-service';
-import { BUILD_RUN_TARGET_STR } from '../../common';
+import { WorkspaceService } from '../../services/workspace-service';
+import { showProgress } from '../../ui/progress';
+import { clearTerminal } from '../../ui/terminal';
+import * as vscode from 'vscode';
 
-export class BuildController implements BazelTargetController {
+
+export class DebugController implements BazelTargetController {
+    private debugConfigService: LaunchConfigService;
+
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
-        private readonly taskService: TaskService
-    ) { }
+        bazelService: BazelService,
+        bazelEnvironment: BazelEnvironment,
+        private readonly buildController: BuildController
+    ) {
+        this.debugConfigService = new LaunchConfigService(context,
+            configurationManager,
+            bazelService,
+            EnvVarsUtils.listToArrayOfObjects(bazelEnvironment.getEnvVars()));
+    }
 
     public async execute(target: BazelTarget): Promise<any> {
-        const actualTarget = this.getActualBuildTarget(target.label);
-        if (!actualTarget) {
-            vscode.window.showErrorMessage('Build failed. Could not find run target.');
-            return;
+        if (!this.configurationManager.shouldRunBinariesDirect()) {
+            return this.debugInBazel(target);
+        } else {
+            return this.debugDirect(target);
         }
-
-        const buildCommand = await this.getExecuteCommand(target);
-        if (!buildCommand) {
-            vscode.window.showErrorMessage('Build failed. Could not find run target.');
-            return;
-        }
-
-        return this.taskService.runTask(`${target.action} ${actualTarget}`, `${target.action} ${actualTarget}`, buildCommand, this.configurationManager.isClearTerminalBeforeAction());
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {
-        const actualTarget = this.getActualBuildTarget(target.label);
-        if (!actualTarget) {
-            return undefined;
-        }
-
-        const executable = this.configurationManager.getExecutableCommand();
-        const buildArgs = target.getBazelArgs();
-        const configArgs = target.getConfigArgs();
-        const buildEnvVars = target.getEnvVars();
-        return `${executable} build ${buildArgs} ${configArgs} ${actualTarget} ${buildEnvVars}\n`;
+        return '';
     }
 
-    private getActualBuildTarget(target: string): string | undefined {
-        let actualTarget = target;
-        if (target === BUILD_RUN_TARGET_STR) {
-            // Find run target
-            const runTarget = this.workspaceState.get<RunTarget>(common.WORKSPACE_KEYS.runTarget);
-            if (runTarget !== undefined &&
-                typeof runTarget === 'object' &&
-                runTarget !== null &&
-                Object.keys(runTarget).includes('value')) {
-                actualTarget = path.relative(common.BAZEL_BIN, runTarget.value);
-            } else {
-                return undefined;
-            }
+    private async debugInBazel(target: BazelTarget) {
+        this.debugConfigService.createRunUnderLaunchConfig(target).then(debugConf => {
+            this.createLocalDebugScript(target).then(res => {
+                // Sandbox deploy is finished. Try to execute.
+                this.debugWithProgress(target, debugConf);
+            }).catch(e => {
+                console.log(e);
+            });
+        });
+    }
+
+    private async debugDirect(target: BazelTarget) {
+        this.debugConfigService.createDirectLaunchConfig(target).then(debugConf => {
+            this.debugWithProgress(target, debugConf);
+        });
+    }
+
+    private async debugWithProgress(target: BazelTarget, debugConf: vscode.DebugConfiguration) {
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+
+        // Show a notification that we're debugging.
+        showProgress(`debug ${bazelTarget}`,
+            (cancellationToken) => {
+                return new Promise((resolve, reject) => {
+                    if (this.configurationManager.isBuildBeforeLaunch()) {
+                        this.buildController.execute(target).then(res => {
+                            vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), debugConf);
+                        });
+                    } else {
+                        vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), debugConf);
+                    }
+
+                    cancellationToken.onCancellationRequested(() => {
+                        vscode.commands.executeCommand('workbench.action.debug.stop');
+                        reject(`debug ${bazelTarget} cancelled.`);
+                    });
+                });
+            });
+    }
+
+    private async createLocalDebugScript(target: BazelTarget):  Promise<void> {
+        // Create a task to get the environment variables when we source bazel script
+        const executable = this.configurationManager.getExecutableCommand();
+        const envVars = EnvVarsUtils.toRunEnvVars(target.getEnvVars().toStringArray());
+        const envSetupCommand = this.configurationManager.getSetupEnvironmentCommand();
+
+        const task = new vscode.Task(
+            {
+                type: `debug ${target}`
+            },
+            WorkspaceService.getInstance().getWorkspaceFolder(),
+            `debug ${target}`,
+            TaskService.generateUniqueTaskSource(this.context),
+            new vscode.ShellExecution(`bash -c "echo '#!/bin/bash\n${envSetupCommand}\n${envVars} ${executable} run --run_under=gdb \\"\\$@\\"\n' > ${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh" && chmod +x ${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh\n`,
+                { cwd: WorkspaceService.getInstance().getWorkspaceFolder().uri.path })
+        );
+        // We don't want to see the task's output.
+        task.presentationOptions.reveal = vscode.TaskRevealKind.Silent;
+        task.presentationOptions.echo = false;
+        task.presentationOptions.panel = vscode.TaskPanelKind.Shared;
+
+        if (this.configurationManager.isClearTerminalBeforeAction()) {
+            clearTerminal();
         }
-        return actualTarget;
+
+        const execution = await vscode.tasks.executeTask(task);
+        return new Promise<void>(resolve => {
+            const disposable = vscode.tasks.onDidEndTaskProcess(e => {
+                if (e.execution === execution) {
+                    if (e.exitCode != 0)
+                        throw new Error(`Could not run prelaunch task. Exit code: ${e.exitCode}.`);
+                    disposable.dispose();
+                    resolve();
+                }
+            });
+        });
     }
 }

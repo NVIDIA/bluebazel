@@ -21,26 +21,26 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+
 import * as vscode from 'vscode';
+import { MultiPropTreeItem, MultiPropTreeItemChild } from '../../ui/multi-prop-tree-item';
+import { ExtensionUtils } from '../../services/extension-utils';
 
-/**
- * Utility class for retrieving extension-specific information.
- */
-export class ExtensionUtils {
-    /**
-     * Gets the name of the extension dynamically.
-     * @param context The extension context.
-     * @returns The extension name.
-     */
-    public static getExtensionName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.name;
-    }
+export function registerMultiPropTreeItemCommands(context: vscode.ExtensionContext) {
+    const extensionName = ExtensionUtils.getExtensionName(context);
 
-    public static getExtensionDisplayName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.displayName;
-    }
-
-    public static getPublisherName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.publisher;
-    }
+    context.subscriptions.push(
+        vscode.commands.registerCommand(`${extensionName}.addToMultiPropTreeItem`, (node: MultiPropTreeItem) => {
+            node.runAdd(node);
+        }),
+        vscode.commands.registerCommand(`${extensionName}.editMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
+            node.getParent().runEdit(node);
+        }),
+        vscode.commands.registerCommand(`${extensionName}.removeMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
+            node.getParent().runRemove(node);
+        }),
+        vscode.commands.registerCommand(`${extensionName}.copyMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
+            node.getParent().runCopy(node);
+        })
+    );
 }

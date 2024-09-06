@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2023 NVIDIA Corporation
+// Copyright (c) 2023-2024 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,36 +21,42 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+import { BazelEnvironment } from '../../models/bazel-environment';
+import { BazelTarget } from '../../models/bazel-target';
+import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { RunController } from '../target-controllers/run-controller';
+import { TestController } from '../target-controllers/test-controller';
 import * as vscode from 'vscode';
 
-import * as common from './common';
-import { BazelController as BazelController } from './controller';
-import { BazelModel } from './model';
-import { BazelTreeDataProvider } from './treeView';
 
 
 export function registerTestCommands(context: vscode.ExtensionContext,
-    bazelController: BazelController,
-    bazelModel: BazelModel,
-    bazelTree: BazelTreeDataProvider) {
+    testController: TestController,
+    runController: RunController,
+    bazelEnvironment: BazelEnvironment,
+    bazelTree: BazelTargetTreeProvider) {
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.copyTestCommand', () => {
-        const target = bazelModel.getTarget(common.TargetType.TEST).value;
+    const extensionName = ExtensionUtils.getExtensionName(context);
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.copyTestCommand`, (target: BazelTarget) => {
+        testController.getExecuteCommand(target).then(result => {
+            vscode.env.clipboard.writeText(result || '');
 
-        vscode.env.clipboard.writeText(bazelController.getTestCommand(target) || '');
-
-        vscode.window.showInformationMessage('Copied to clipboard');
+            vscode.window.showInformationMessage('Copied to clipboard');
+        });
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.pickTestTarget', () => {
-        bazelController.getRunTargets()
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.pickTestTarget`, (target: BazelTarget) => {
+        runController.getRunTargets()
             .then(data => vscode.window.showQuickPick(data))
             .then(res => {
                 if (res !== undefined && res.detail !== undefined) {
-                    const testTargets = bazelController.getTestTargets(res.detail);
+                    const testTarget = res.target;
+                    testTarget.action = 'test';
+                    const testTargets = testController.getTestTargets(testTarget);
                     testTargets.then(data => vscode.window.showQuickPick(data)).then(resolve => {
                         if (resolve !== undefined && resolve.detail !== undefined) {
-                            bazelModel.update(common.WORKSPACE_KEYS.testTarget, { label: resolve.label.split('/').slice(-1)[0], value: resolve.detail });
+                            bazelEnvironment.updateSelectedTestTarget(res.target);
                             bazelTree.refresh();
                         }
                     });
@@ -59,16 +65,15 @@ export function registerTestCommands(context: vscode.ExtensionContext,
             .catch(err => vscode.window.showErrorMessage(err));
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.test', () => {
-        const target = bazelModel.getTarget(common.TargetType.TEST).value;
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.test`, (target: BazelTarget) => {
         if (!target) {
-            vscode.commands.executeCommand('bluebazel.pickTestTarget', (target: string) => {
+            vscode.commands.executeCommand(`${extensionName}.pickTestTarget`, (target: BazelTarget) => {
                 if (target !== undefined) {
-                    bazelController.test(target);
+                    testController.execute(target);
                 }
             });
         } else {
-            bazelController.test(target);
+            testController.execute(target);
         }
     }));
 

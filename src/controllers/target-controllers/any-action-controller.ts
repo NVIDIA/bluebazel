@@ -23,17 +23,34 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 
 import * as vscode from 'vscode';
-import { SinglePropTreeItem } from '../ui/single-prop-tree-item';
-import { ExtensionUtils } from '../services/extension-utils';
 
-export function registerSinglePropTreeItemCommands(context: vscode.ExtensionContext) {
-    const extensionName = ExtensionUtils.getExtensionName(context);
-    context.subscriptions.push(
-        vscode.commands.registerCommand(`${extensionName}.copySinglePropTreeItem`, (node: SinglePropTreeItem) => {
-            node.runCopy();
-        }),
-        vscode.commands.registerCommand(`${extensionName}.editSinglePropTreeItem`, (node: SinglePropTreeItem) => {
-            node.runEdit();
-        })
-    );
+import { BazelTarget } from '../../models/bazel-target';
+import { BazelTargetController } from './bazel-target-controller';
+import { ConfigurationManager } from '../../services/configuration-manager';
+import { TaskService } from '../../services/task-service';
+
+export class AnyActionController implements BazelTargetController {
+    constructor(private readonly context: vscode.ExtensionContext,
+        private readonly configurationManager: ConfigurationManager,
+        private readonly taskService: TaskService
+    ) { }
+
+    public async execute(target: BazelTarget): Promise<any> {
+        const executable = this.configurationManager.getExecutableCommand();
+        await this.taskService.runTask(
+            target.action, // task type
+            target.action, // task name
+            `${executable} ${target.action} ${target.detail}`,
+            this.configurationManager.isClearTerminalBeforeAction()
+        );
+    }
+
+    public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {
+        const executable = this.configurationManager.getExecutableCommand();
+        const args = target.getBazelArgs();
+        const configArgs = target.getConfigArgs();
+        const envVars = target.getEnvVars();
+        return `${executable} ${target.action} ${args} ${configArgs} ${target.detail} ${envVars}\n`;
+    }
+
 }

@@ -22,18 +22,25 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
-import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetController } from './bazel-target-controller';
+import { BazelEnvironment } from '../../models/bazel-environment';
+import { BazelTarget } from '../../models/bazel-target';
+import { BAZEL_BIN } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
-import { TaskService } from '../../services/task-service';
-import { BUILD_RUN_TARGET_STR } from '../../common';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
+import { TaskService } from '../../services/task-service';
+import * as path from 'path';
+import * as vscode from 'vscode';
+
+
+
+export const BUILD_RUN_TARGET_STR = '<Run Target>';
 
 export class BuildController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
-        private readonly taskService: TaskService
+        private readonly taskService: TaskService,
+        private readonly bazelEnvironment: BazelEnvironment
     ) { }
 
     public async execute(target: BazelTarget): Promise<any> {
@@ -69,12 +76,12 @@ export class BuildController implements BazelTargetController {
         let actualTarget = target;
         if (target === BUILD_RUN_TARGET_STR) {
             // Find run target
-            const runTarget = this.workspaceState.get<RunTarget>(common.WORKSPACE_KEYS.runTarget);
+            const runTarget = this.bazelEnvironment.getSelectedRunTarget();
             if (runTarget !== undefined &&
                 typeof runTarget === 'object' &&
                 runTarget !== null &&
-                Object.keys(runTarget).includes('value')) {
-                actualTarget = path.relative(common.BAZEL_BIN, runTarget.value);
+                Object.keys(runTarget).includes('detail')) {
+                actualTarget = path.relative(BAZEL_BIN, runTarget.detail);
             } else {
                 return undefined;
             }

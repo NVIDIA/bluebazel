@@ -22,28 +22,28 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
 import { BazelTarget } from './bazel-target';
 import { ModelAccessor } from './model-accessor';
+import * as vscode from 'vscode';
 
 export class BazelTargetProperty {
     private readonly key: string = '';
 
     constructor(
+        private readonly context: vscode.ExtensionContext,
         name: string,
         target: BazelTarget,
-        private readonly workspaceState: vscode.Memento,
         private readonly toStringFn: (bazelTargetProperty: BazelTargetProperty) => string
     ) {
         this.key = `${target.action}${name}For${target.detail}`;
     }
 
     public update<T>(value: T) {
-        this.workspaceState.update(this.key, value);
+        this.context.workspaceState.update(this.key, value);
     }
 
     public get<T>(): T | undefined {
-        const value = this.workspaceState.get<T>(this.key);
+        const value = this.context.workspaceState.get<T>(this.key);
         return value;
     }
 

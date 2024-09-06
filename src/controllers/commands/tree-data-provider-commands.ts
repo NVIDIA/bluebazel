@@ -21,26 +21,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+
+import { ExtensionUtils } from '../../services/extension-utils';
 import * as vscode from 'vscode';
 
-/**
- * Utility class for retrieving extension-specific information.
- */
-export class ExtensionUtils {
-    /**
-     * Gets the name of the extension dynamically.
-     * @param context The extension context.
-     * @returns The extension name.
-     */
-    public static getExtensionName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.name;
-    }
-
-    public static getExtensionDisplayName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.displayName;
-    }
-
-    public static getPublisherName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.publisher;
-    }
+export function registerTreeDataProviderCommands(context: vscode.ExtensionContext) {
+    const extensionName = ExtensionUtils.getExtensionName(context);
+    vscode.commands.registerCommand(`${extensionName}.collapseAll`, () => {
+        vscode.commands.executeCommand('workbench.actions.treeView.bluebazelView.collapseAll');
+    });
 }

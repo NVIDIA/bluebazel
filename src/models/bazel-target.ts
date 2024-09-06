@@ -21,10 +21,9 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as vscode from 'vscode';
-import { Storage } from './storage';
 import { BazelTargetProperty } from './bazel-target-property';
 import { ModelAccessor } from './model-accessor';
+import * as vscode from 'vscode';
 
 export type BazelAction = string; //'build' | 'run' | 'clean' | 'test' | etc.
 export class BazelTarget {
@@ -35,23 +34,21 @@ export class BazelTarget {
 
 
     constructor(
+        private readonly context: vscode.ExtensionContext,
         public label: string,
         public detail: string,
-        public action: BazelAction,
-        private readonly workspaceState: vscode.Memento
+        public action: BazelAction
     ) {
 
-        this.envVars = new BazelTargetProperty('EnvVars',
+        this.envVars = new BazelTargetProperty(context, 'EnvVars',
             this,
-            this.workspaceState,
             function (bazelTargetProperty: BazelTargetProperty): string {
                 const ev = ModelAccessor.getStringArray(bazelTargetProperty);
                 return ev.join(' && ');
             });
 
-        this.bazelArgs = new BazelTargetProperty('BazelArgs',
+        this.bazelArgs = new BazelTargetProperty(context, 'BazelArgs',
             this,
-            this.workspaceState,
             function (bazelTargetProperty: BazelTargetProperty): string {
                 let bazelArgs = '';
                 const args = ModelAccessor.getStringArray(bazelTargetProperty);
@@ -61,9 +58,8 @@ export class BazelTarget {
                 return bazelArgs;
             });
 
-        this.configArgs = new BazelTargetProperty('ConfigArgs',
+        this.configArgs = new BazelTargetProperty(context, 'ConfigArgs',
             this,
-            this.workspaceState,
             function (bazelTargetProperty: BazelTargetProperty): string {
                 let configArgs = '';
                 const args = ModelAccessor.getStringArray(bazelTargetProperty);
@@ -73,9 +69,8 @@ export class BazelTarget {
                 return configArgs;
             });
 
-        this.runArgs = new BazelTargetProperty('RunArgs',
+        this.runArgs = new BazelTargetProperty(context, 'RunArgs',
             this,
-            this.workspaceState,
             function (bazelTargetProperty: BazelTargetProperty): string {
                 const value = ModelAccessor.getString(bazelTargetProperty);
                 return value;

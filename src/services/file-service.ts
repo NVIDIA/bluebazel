@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
@@ -21,9 +24,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as path from 'path';
-import * as fs from 'fs';
-import * as vscode from 'vscode';
 
 /**
  * Service for dealing with files.
@@ -74,4 +74,5 @@ export class FileService {
         // Return the settings as a key-value paired object
         return contents;
     }
+
 }

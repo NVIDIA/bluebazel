@@ -21,37 +21,46 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as vscode from 'vscode';
+import { BazelEnvironment } from '../../models/bazel-environment';
+import { BazelTarget } from '../../models/bazel-target';
+import { ExtensionUtils } from '../../services/extension-utils';
+import { WorkspaceService } from '../../services/workspace-service';
+import { BazelTargetQuickPickItem } from '../../ui/bazel-target-quick-pick-item';
+import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { BUILD_RUN_TARGET_STR, BuildController } from '../target-controllers/build-controller';
 import * as path from 'path';
+import * as vscode from 'vscode';
 
-import * as common from './common';
-import { BazelController as BazelController } from './controller';
-import { BazelModel } from './model';
-import { BazelTreeDataProvider } from './treeView';
 
 let currentTargetPath = '';
 
-function pickBuildTarget(bazelController: BazelController,
-    bazelModel: BazelModel,
-    bazelTree: BazelTreeDataProvider)
+function pickBuildTarget(context: vscode.ExtensionContext,
+    bazelEnvironment: BazelEnvironment,
+    bazelTree: BazelTargetTreeProvider)
 {
-    bazelController.getPaths(currentTargetPath.replace('//', ''))
+    const extensionName = ExtensionUtils.getExtensionName(context);
+
+    WorkspaceService.getInstance().getSubdirectoryPaths(currentTargetPath.replace('//', ''))
         .then(data => {
             // Prepend current run target option if we are in the root directory
             if (currentTargetPath.trim().length === 0) {
-                data.unshift(common.BUILD_RUN_TARGET_STR);
+                data.unshift(BUILD_RUN_TARGET_STR);
             }
             return data;
         })
         .then(data => {
             const quickPick = vscode.window.createQuickPick();
-            quickPick.items = data.map(label => ({ label }));
+            quickPick.items = data.map(label => ({
+                label: label,
+                detail: label,
+                target: new BazelTarget(context, label, label, 'build')
+            } as BazelTargetQuickPickItem));
             if (currentTargetPath.trim().length !== 0) {
                 quickPick.buttons = [vscode.QuickInputButtons.Back];
                 quickPick.onDidTriggerButton(item => {
                     if (item === vscode.QuickInputButtons.Back) {
                         currentTargetPath = path.dirname(currentTargetPath);
-                        vscode.commands.executeCommand('bluebazel.pickBuildTarget');
+                        vscode.commands.executeCommand(`${extensionName}.pickBuildTarget`);
                     }
                 });
             }
@@ -59,15 +68,16 @@ function pickBuildTarget(bazelController: BazelController,
             quickPick.onDidChangeSelection(value => {
                 currentTargetPath = '';
                 if (value[0]) {
-                    const res = value[0].label;
+                    const item = value[0] as BazelTargetQuickPickItem;
+                    const res = item.label;
                     if (res !== undefined) {
-                        if (typeof res === 'string' && !res.includes('...') && res !== common.BUILD_RUN_TARGET_STR) {
+                        if (typeof res === 'string' && !res.includes('...') && res !== BUILD_RUN_TARGET_STR) {
                             currentTargetPath = res;
-                            vscode.commands.executeCommand('bluebazel.pickBuildTarget');
+                            vscode.commands.executeCommand(`${extensionName}.pickBuildTarget`);
                         } else {
                             currentTargetPath = '';
                             quickPick.hide();
-                            bazelModel.update(common.WORKSPACE_KEYS.buildTarget, { label: res, value: res });
+                            bazelEnvironment.updateSelectedBuildTarget(item.target);
                             bazelTree.refresh();
                         }
                     }
@@ -78,45 +88,34 @@ function pickBuildTarget(bazelController: BazelController,
         });
 }
 
-
 export function registerBuildCommands(context: vscode.ExtensionContext,
-    bazelController: BazelController,
-    bazelModel: BazelModel,
-    bazelTree: BazelTreeDataProvider) {
+    buildController: BuildController,
+    bazelEnvironment: BazelEnvironment,
+    bazelTree: BazelTargetTreeProvider) {
 
+    const extensionName = ExtensionUtils.getExtensionName(context);
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.copyBuildCommand', () => {
-        const target = bazelModel.getTarget(common.TargetType.BUILD).value;
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.copyBuildCommand`, (target: BazelTarget) => {
 
-        vscode.env.clipboard.writeText(bazelController.getBuildTargetCommand(target) || '');
+        buildController.getExecuteCommand(target).then(result => {
+            vscode.env.clipboard.writeText(result || '');
 
-        vscode.window.showInformationMessage('Copied to clipboard');
+            vscode.window.showInformationMessage('Copied to clipboard');
+        });
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.pickBuildTarget', () => {
-        pickBuildTarget(bazelController, bazelModel, bazelTree);
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.pickBuildTarget`, () => {
+        pickBuildTarget(context, bazelEnvironment, bazelTree);
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.format', () => {
-        bazelController.format();
-    }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.clean', () => {
-        bazelController.clean();
-    }));
-
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.buildCurrentFile', () => {
-        bazelController.buildSingle();
-    }));
-
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.build', () => {
-        const target = bazelModel.getTarget(common.TargetType.BUILD).value;
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.build`, (target: BazelTarget) => {
         if (!target) {
-            vscode.commands.executeCommand('bluebazel.pickBuildTarget', (target: string) => {
-                bazelController.buildTarget(target);
+            vscode.commands.executeCommand(`${extensionName}.pickBuildTarget`, (target: BazelTarget) => {
+                buildController.execute(target);
             });
         } else {
-            bazelController.buildTarget(target);
+            buildController.execute(target);
         }
     }));
 }

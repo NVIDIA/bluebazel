@@ -21,60 +21,50 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+import { BazelEnvironment } from '../../models/bazel-environment';
+import { BazelTarget } from '../../models/bazel-target';
+import { ExtensionUtils } from '../../services/extension-utils';
+import { LaunchConfigService as LaunchConfigService } from '../../services/launch-config-service';
+import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { RunController } from '../target-controllers/run-controller';
 import * as vscode from 'vscode';
 
-import * as common from './common';
-import { BazelController as BazelController } from './controller';
-import { BazelModel } from './model';
-import { BazelTreeDataProvider } from './treeView';
 
 export function registerRunCommands(context: vscode.ExtensionContext,
-    bazelController: BazelController,
-    bazelModel: BazelModel,
-    bazelTree: BazelTreeDataProvider) {
+    runController: RunController,
+    launchConfigService: LaunchConfigService,
+    bazelEnvironment: BazelEnvironment,
+    bazelTree: BazelTargetTreeProvider) {
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.copyRunCommand', () => {
-        const target = bazelModel.getTarget(common.TargetType.RUN).value;
+    const extensionName = ExtensionUtils.getExtensionName(context);
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.copyRunCommand`, (target: BazelTarget) => {
+        runController.getExecuteCommand(target).then(result => {
+            vscode.env.clipboard.writeText(result || '');
 
-        bazelController.getRunCommand(target).then((value) => {
-            vscode.env.clipboard.writeText(value || '');
             vscode.window.showInformationMessage('Copied to clipboard');
         });
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.pickRunTarget', () => {
-        bazelController.getRunTargets()
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.pickRunTarget`, (target: BazelTarget) => {
+        runController.getRunTargets()
             .then(data => vscode.window.showQuickPick(data))
             .then(res => {
                 if (res !== undefined && res.detail !== undefined) {
-                    bazelModel.update(common.WORKSPACE_KEYS.runTarget, { label: res.label, value: res.detail });
-                    bazelController.refreshLaunchConfigs(res.detail);
+                    bazelEnvironment.updateSelectedRunTarget(res.target);
+                    launchConfigService.refreshLaunchConfigs(res.target);
                     bazelTree.refresh();
                 }
             })
             .catch(err => vscode.window.showErrorMessage(err));
     }));
 
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.refreshRunTargets', () => {
-        bazelController.refreshRunTargets()
-            .then(() => { /* Nothing to do */ })
-            .catch(err => vscode.window.showErrorMessage(err));
-    }));
-
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.run', () => {
-        const target = bazelModel.getTarget(common.TargetType.RUN).value;
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.run`, (target: BazelTarget) => {
         if (!target) {
-            vscode.commands.executeCommand('bluebazel.pickRunTarget', (target: string) => {
-                bazelController.run(target);
+            vscode.commands.executeCommand('bluebazel.pickRunTarget', (target: BazelTarget) => {
+                runController.execute(target);
             });
         } else {
-            bazelController.run(target);
+            runController.execute(target);
         }
     }));
-
-    context.subscriptions.push(vscode.commands.registerCommand('bluebazel.debug', () => {
-        const runTarget = bazelModel.getTarget(common.TargetType.RUN).value;
-        bazelController.debug(runTarget);
-    }));
-
 }

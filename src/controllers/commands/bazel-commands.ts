@@ -1,7 +1,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2023 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -21,26 +21,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-
 import * as vscode from 'vscode';
-import { MultiPropTreeItem, MultiPropTreeItemChild } from '../ui/multi-prop-tree-item';
-import { ExtensionUtils } from '../services/extension-utils';
 
-export function registerMultiPropTreeItemCommands(context: vscode.ExtensionContext) {
+import { BazelController } from '../bazel-controller';
+import { ExtensionUtils } from '../../services/extension-utils';
+
+
+export function registerBazelCommands(context: vscode.ExtensionContext,
+    bazelController: BazelController) {
+
     const extensionName = ExtensionUtils.getExtensionName(context);
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand(`${extensionName}.addToMultiPropTreeItem`, (node: MultiPropTreeItem) => {
-            node.runAdd(node);
-        }),
-        vscode.commands.registerCommand(`${extensionName}.editMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
-            node.getParent().runEdit(node);
-        }),
-        vscode.commands.registerCommand(`${extensionName}.removeMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
-            node.getParent().runRemove(node);
-        }),
-        vscode.commands.registerCommand(`${extensionName}.copyMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
-            node.getParent().runCopy(node);
-        })
-    );
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.format`, () => {
+        bazelController.format();
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.clean`, () => {
+        bazelController.clean();
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.buildCurrentFile`, () => {
+        bazelController.buildSingle();
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.refreshRunTargets`, () => {
+        bazelController.refreshRunTargets()
+            .then(() => { /* Nothing to do */ })
+            .catch(err => vscode.window.showErrorMessage(err));
+    }));
+
 }

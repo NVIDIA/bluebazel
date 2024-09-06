@@ -1,8 +1,8 @@
-
 import * as vscode from 'vscode';
-import { showProgress } from '../ui/progress';
+
 import { ExtensionUtils } from './extension-utils';
 import { clearTerminal } from '../ui/terminal';
+import { showProgress } from '../ui/progress';
 
 export class TaskService {
 
@@ -10,6 +10,10 @@ export class TaskService {
         private readonly workspaceFolder: vscode.WorkspaceFolder,
         private readonly setupEnvVars: {[key: string]: string}) { }
 
+
+    public static generateUniqueTaskSource(context: vscode.ExtensionContext) {
+        return ExtensionUtils.getExtensionName(context) + this.getRandomInt(100000);
+    }
 
     public async runTask(taskType: string, taskName: string, command: string, clearTerminalFirst: boolean, envVars: { [key: string]: string } = {}, executionType: 'shell' | 'process' = 'shell') {
         const workspaceFolder = this.workspaceFolder;
@@ -27,7 +31,7 @@ export class TaskService {
             { type: taskType },
             workspaceFolder,
             taskName,
-            this.getTaskSource(),
+            TaskService.generateUniqueTaskSource(this.context),
             execution,
             '$gcc'  // Adjust this as necessary
         );
@@ -40,12 +44,8 @@ export class TaskService {
         return this.showProgressOfTask(taskName, taskExecution);
     }
 
-    private getRandomInt(max: number) {
+    private static getRandomInt(max: number) {
         return Math.floor(Math.random() * Math.floor(max));
-    }
-
-    private getTaskSource(): string {
-        return ExtensionUtils.getExtensionName(this.context) + this.getRandomInt(100000);
     }
 
     private showProgressOfTask(title: string, execution: vscode.TaskExecution) {

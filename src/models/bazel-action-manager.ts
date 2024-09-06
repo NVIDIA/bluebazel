@@ -21,8 +21,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as vscode from 'vscode';
 import { BazelService } from '../services/bazel-service';
+import * as vscode from 'vscode';
 
 /**
  * Model for retrieving all possible commands in bazel.

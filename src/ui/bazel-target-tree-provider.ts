@@ -22,43 +22,55 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
+import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelTarget } from '../models/bazel-target';
-import { BazelTargetController } from '../controllers/target-controllers/bazel-target-controller';
+import { BazelTargetManager } from '../models/bazel-target-manager';
+import { ExtensionUtils } from '../services/extension-utils';
+import * as vscode from 'vscode';
 
 export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTarget> {
     private _onDidChangeTreeData: vscode.EventEmitter<BazelTarget | undefined | void> = new vscode.EventEmitter<BazelTarget | undefined | void>();
     readonly onDidChangeTreeData: vscode.Event<BazelTarget | undefined | void> = this._onDidChangeTreeData.event;
 
-    constructor(private controller: BazelTargetController) {}
+    constructor(private context: vscode.ExtensionContext,
+        private readonly bazelTargetManager: BazelTargetManager,
+        private readonly bazelActionManager: BazelActionManager
+    ) {}
 
-    getTreeItem(element: BazelTarget): vscode.TreeItem {
+    /**
+     * Convert the templated BazelTarget into a display item for the tree.
+     * Because the TreeDataProvider is templated and BazelTarget is the template
+     * param, this function must be present to convert from the template
+     * param (BazelTarget) to a display item in the tree (vscode.TreeItem).
+     * @param element The instance of a BazelTarget.
+     * @returns A TreeItem for display in the tree.
+     */
+    public getTreeItem(element: BazelTarget): vscode.TreeItem {
+        const extensionName = ExtensionUtils.getExtensionName(this.context);
         const treeItem = new vscode.TreeItem(element.label, vscode.TreeItemCollapsibleState.None);
         treeItem.contextValue = element.action;
         treeItem.iconPath = new vscode.ThemeIcon('tools'); // Icon customization based on action
         treeItem.command = {
-            command: 'bazelTasks.buildTarget',
-            title: 'Build Bazel Target',
+            command: `${extensionName}.${element.action}`,
+            title: `${element.action} ${element.label}`,
             arguments: [element]
         };
         return treeItem;
     }
 
-    // Method to get root-level children (e.g., directories)
+    // Method to get root-level children (e.g., bazel targets)
     private getRootChildren(): Thenable<BazelTarget[]> {
-        // Logic to get the root-level elements
-        return Promise.resolve([
-            new BazelTarget('build', 'build'),
-            new BazelTarget('test', 'test')
-        ]);
+        const bazelTargets = this.bazelTargetManager.getTargets();
+        return Promise.resolve(bazelTargets);
     }
 
-    // Method to get children of a specific element (e.g., files within a directory)
+    // Method to get children of a specific element (e.g., bazel target properties)
     private getChildrenForElement(element: BazelTarget): Thenable<BazelTarget[]> {
         // Logic to get children for the given element
+
         return Promise.resolve([
-            new BazelTarget('sub-build', 'build'),
-            new BazelTarget('sub-test', 'test')
+            // new BazelTarget('sub-build', 'build'),
+            // new BazelTarget('sub-test', 'test')
         ]);
     }
 

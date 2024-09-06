@@ -21,26 +21,19 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+
 import * as vscode from 'vscode';
+import { SinglePropTreeItem } from '../../ui/single-prop-tree-item';
+import { ExtensionUtils } from '../../services/extension-utils';
 
-/**
- * Utility class for retrieving extension-specific information.
- */
-export class ExtensionUtils {
-    /**
-     * Gets the name of the extension dynamically.
-     * @param context The extension context.
-     * @returns The extension name.
-     */
-    public static getExtensionName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.name;
-    }
-
-    public static getExtensionDisplayName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.displayName;
-    }
-
-    public static getPublisherName(context: vscode.ExtensionContext): string {
-        return context.extension.packageJSON.publisher;
-    }
+export function registerSinglePropTreeItemCommands(context: vscode.ExtensionContext) {
+    const extensionName = ExtensionUtils.getExtensionName(context);
+    context.subscriptions.push(
+        vscode.commands.registerCommand(`${extensionName}.copySinglePropTreeItem`, (node: SinglePropTreeItem) => {
+            node.runCopy();
+        }),
+        vscode.commands.registerCommand(`${extensionName}.editSinglePropTreeItem`, (node: SinglePropTreeItem) => {
+            node.runEdit();
+        })
+    );
 }

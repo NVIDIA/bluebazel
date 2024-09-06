@@ -21,17 +21,23 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as path from 'path';
-import { BazelTarget } from '../models/bazel-target';
-import { ShellService } from './shell-service';
+
 import { ConfigurationManager } from './configuration-manager';
-import * as common from '../common';
+import { ShellService } from './shell-service';
+import { WorkspaceService } from './workspace-service';
+import { BazelTarget } from '../models/bazel-target';
+import * as fs from 'fs';
+import * as path from 'path';
+
+
+export const BAZEL_BIN = 'bazel-bin';
 
 export class BazelService {
 
     constructor(private readonly configurationManager: ConfigurationManager,
         private readonly shellService: ShellService
     ) { }
+
     /**
      * Fetches the list of available Bazel commands.
      * @returns A promise that resolves to an array of command strings.
@@ -45,7 +51,7 @@ export class BazelService {
     }
 
     public async getBazelTargetBuildPath(target: BazelTarget): Promise<string> {
-        const bazelTarget = this.getBazelTarget(target.detail);
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
         const executable = this.configurationManager.getExecutableCommand();
         const configs = target.getConfigArgs();
         const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
@@ -54,8 +60,8 @@ export class BazelService {
         return result.stdout;
     }
 
-    private getBazelTarget(target: string): string {
-        const result = target;
+    public static formatBazelTargetFromPath(path: string): string {
+        const result = path;
         const resultSplitted = result.split('/');
         resultSplitted.shift(); // Removes bazel-bin
         const targetName = resultSplitted[resultSplitted.length - 1];
@@ -76,7 +82,7 @@ export class BazelService {
                 if (targetName) {
                     return {
                         label: targetName,
-                        detail: path.join(common.BAZEL_BIN, ...targetPath.split('/'), targetName)
+                        detail: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
                     };
                 }
                 return {label: '', detail: ''};
@@ -87,5 +93,23 @@ export class BazelService {
         targets.sort((a: {label: string, detail: string}, b: {label: string, detail: string}) => { return a.label < b.label ? -1 : 1; });
         return targets;
     }
+
+    public async fetchConfigsForAction(action: 'build' | 'run' | 'test' | 'query'): Promise<string[]> {
+        // Check if bazel-complete.bash exists
+        const bash_complete_script = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, '3rdparty', 'bazel', 'bazel', 'bazel-complete.bash');
+        const does_path_exist = fs.existsSync(bash_complete_script);
+        if (!does_path_exist) {
+            console.warn(`Cannot find ${bash_complete_script} to receive available configurations.`);
+            return [];
+        }
+        else {
+            // Get configs from bazel commands on shell for both run and build.
+            // Combine them, convert to set to remove duplicates and back to list.
+            const configs = await this.shellService.runShellCommand(`bash -c 'source ${bash_complete_script} && echo $(_bazel__expand_config . ${action})'`, false).then(data => { return data.stdout.split(' '); });
+            const config_set = new Set(configs);
+            return Array.from(config_set.values());
+        }
+    }
+
 
 }

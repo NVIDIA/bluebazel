@@ -1,22 +1,17 @@
-import * as vscode from 'vscode';
 import { ConfigurationManager } from './configuration-manager';
 import { ExtensionUtils } from './extension-utils';
 import { ShellService } from './shell-service';
+import { WorkspaceService } from './workspace-service';
+import * as vscode from 'vscode';
 
 
 export class EnvironmentService {
 
-    constructor(private readonly context: vscode.ExtensionContext,
-        private readonly configurationManager: ConfigurationManager,
-        private readonly shellService: ShellService
-    ) { }
-
-    public async fetchSetupEnvironment(): Promise<string[]> {
-        const envSetupCommand = this.configurationManager.getSetupEnvironmentCommand();
-        const extName = ExtensionUtils.getExtensionName(this.context);
+    public static async fetchSetupEnvironment(context: vscode.ExtensionContext, envSetupCommand: string): Promise<string[]> {
+        const extName = ExtensionUtils.getExtensionName(context);
         const envDelimiter = `---${extName} setup---`;
         if (envSetupCommand) {
-            const result = await this.shellService.runShellCommand(`${envSetupCommand} && echo ${envDelimiter} && printenv`, false)
+            const result = await ShellService.run(`${envSetupCommand} && echo ${envDelimiter} && printenv`, WorkspaceService.getInstance().getWorkspaceFolder().uri.path, {});
 
             const env = result.stdout.replace(new RegExp(`[\\s\\S]*?${envDelimiter}\n`, 'g'), '').split('\n');
             const envArray: string[] = [];

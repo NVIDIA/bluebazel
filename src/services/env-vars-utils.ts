@@ -23,7 +23,12 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 
 export class EnvVarsUtils {
-    public static listToArray(envVars: string[]): Array<{ [key: string]: string }> {
+    /**
+     * Converts a list of environement variables into a list of objects.
+     * @param envVars A list of environment variables in the form of ['A=first', 'B=second', ...].
+     * @returns A list of objects in the form of [{name: 'A', value: 'first}, {name: 'B', value: 'second'}, ...].
+     */
+    public static listToArrayOfObjects(envVars: string[]): Array<{ [key: string]: string }> {
         const vars: Array<{[key: string]: string}> = [];
         const set = envVars;
         set.forEach((item, index) => {
@@ -37,6 +42,11 @@ export class EnvVarsUtils {
         return vars;
     }
 
+    /**
+     * Converts a list of environment variables into an object literal or a map.
+     * @param envVars A list of environment variables in the form of ['A=first', 'B=second', ...].
+     * @returns An object literal or map in the form of {A: 'first', B: 'second', ...}.
+     */
     public static listToObject(envVars: string[]): {[key: string]: string} {
         const envVariables: { [key: string]: string } = {};
         const set = envVars;
@@ -48,6 +58,12 @@ export class EnvVarsUtils {
         return envVariables;
     }
 
+    /**
+     * Converts a list of environment variables into bazel speific build environment variables.
+     * @param envVars A list of environment variables in the form of ['A=first', 'B=second', ...].
+     * @returns A concatenated string of all the environment variables suitable for bazel build args
+     * in the form of '--action_env=A=first --action_env=B=second --action_env=...'.
+     */
     public static toBuildEnvVars(envVars: string[]): string {
         let vars = '';
         const set = envVars;
@@ -57,7 +73,13 @@ export class EnvVarsUtils {
         return vars;
     }
 
-    public toRunEnvVars(envVars: string[]): string {
+    /**
+     * Converts a list of environment variables into run environment variables.
+     * @param envVars A list of environment variables in the form of ['A=first', 'B=second', ...].
+     * @returns A concatenated string of all the environment variables suitable for run args
+     * in the form of 'export A=first && export B=second && export ...'.
+     */
+    public static toRunEnvVars(envVars: string[]): string {
         let vars = '';
         const set = envVars;
         set.forEach((value, index) => {
@@ -67,7 +89,13 @@ export class EnvVarsUtils {
         return vars;
     }
 
-    public toTestEnvVars(envVars: string[]): string {
+    /**
+     * Converts a list of environment variables into bazel speific test environment variables.
+     * @param envVars A list of environment variables in the form of ['A=first', 'B=second', ...].
+     * @returns A concatenated string of all the environment variables suitable for bazel test args
+     * in the form of '--test_env=A=first --test_env=B=second --test_env=...'.
+     */
+    public static toTestEnvVars(envVars: string[]): string {
         let vars = '';
         const set = envVars;
         set.forEach((value, index) => {

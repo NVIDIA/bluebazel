@@ -21,29 +21,32 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-
+import { ExtensionUtils } from '../services/extension-utils';
+import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
-import { ConfigurationManager } from '../services/configuration-manager';
-import { UserCommandsController } from './user-commands-controller';
 
-export function registerUserCommands(context: vscode.ExtensionContext,
-    configurationManager: ConfigurationManager,
-    userCommandsController: UserCommandsController
-): void {
-    // Traverses through the configuration and registers commands with method names.
-    const customButtons = configurationManager.getCustomButtons();
-    if (customButtons === undefined) {
-        return;
+export class WorkspaceEventsController {
+    constructor(private context: vscode.ExtensionContext, private bazelTree: BazelTargetTreeProvider) {
+        this.registerConfigurationChangeHandler();
     }
-    customButtons.forEach(section => {
-        const buttons = section.buttons;
-        if (buttons !== undefined) {
-            buttons.forEach(button => {
-                const disposableCommand = vscode.commands.registerCommand(button.methodName, async (command: string) => {
-                    await userCommandsController.runCustomTask(button.command);
-                });
-                context.subscriptions.push(disposableCommand);
-            });
-        }
-    });
+
+    private registerConfigurationChangeHandler() {
+        vscode.workspace.onDidChangeConfiguration((e) => {
+            if (e.affectsConfiguration(ExtensionUtils.getExtensionName(this.context))) {
+                this.bazelTree.refresh();
+
+                const action = 'Reload';
+                vscode.window
+                    .showInformationMessage(
+                        'Reload window in order for changes in bazel extension configuration to take effect.',
+                        action
+                    )
+                    .then(selectedAction => {
+                        if (selectedAction === action) {
+                            vscode.commands.executeCommand('workbench.action.reloadWindow');
+                        }
+                    });
+            }
+        });
+    }
 }

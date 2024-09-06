@@ -22,22 +22,29 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
 import * as path from 'path';
+import * as vscode from 'vscode';
+
+import { BazelService } from '../../services/bazel-service';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetController } from './bazel-target-controller';
+import { BuildController } from './build-controller';
 import { ConfigurationManager } from '../../services/configuration-manager';
-import { TaskService } from '../../services/task-service';
-import { BUILD_RUN_TARGET_STR } from '../../common';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
+import { TaskService } from '../../services/task-service';
 import { WorkspaceService } from '../../services/workspace-service';
-import { BazelService } from '../../services/bazel-service';
+import { BazelEnvironment } from '../../models/bazel-environment';
+import { BazelTargetQuickPickItem } from '../../ui/bazel-target-quick-pick-item';
+import { BazelController } from '../bazel-controller';
 
 export class RunController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
-        private readonly bazelService: BazelService
+        private readonly bazelService: BazelService,
+        private readonly bazelController: BazelController,
+        private readonly buildController: BuildController,
+        private readonly bazelEnvironment: BazelEnvironment
     ) { }
 
     public async execute(target: BazelTarget): Promise<any> {
@@ -48,20 +55,12 @@ export class RunController implements BazelTargetController {
         }
     }
 
-    private getBazelTargetName(target: string): string {
-        const result = target;
-        const resultSplitted = result.split('/');
-        resultSplitted.shift(); // Removes bazel-bin
-        const targetName = resultSplitted[resultSplitted.length - 1];
-        return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
-    }
-
     private async runInBazel(target: BazelTarget) {
 
         const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
         // target is in the form of a relative path: bazel-bin/path/executable
         // bazelTarget is in the form of //path:executable
-        const bazelTarget = this.getBazelTargetName(target.detail);
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
 
         const runCommand = this.getRunInBazelCommand(target);
         if (!runCommand) {
@@ -77,9 +76,25 @@ export class RunController implements BazelTargetController {
             envVars);
     }
 
+    public async getRunTargets(): Promise<BazelTargetQuickPickItem[]> {
+        let runTargets = this.bazelEnvironment.getRunTargets();
+        if (runTargets.length == 0) {
+            await this.bazelController.refreshRunTargets();
+            runTargets = this.bazelEnvironment.getRunTargets();
+        }
+
+        const items: BazelTargetQuickPickItem[] = [];
+        runTargets.forEach(runTarget => {
+            items.push({ label: runTarget.label, detail: runTarget.detail, target: runTarget });
+        });
+        return items;
+    }
+
     private async runDirect(target: BazelTarget) {
         if (this.configurationManager.isBuildBeforeLaunch()) {
-            await this.buildTarget(BUILD_RUN_TARGET_STR);
+            // TODO (jabbott): This won't likely work because it was different before when there was
+            // only one run target.
+            await this.buildController.execute(target);
         }
 
         const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
@@ -110,7 +125,7 @@ export class RunController implements BazelTargetController {
         const configArgs = target.getConfigArgs();
         const executable = this.configurationManager.getExecutableCommand();
         const bazelArgs = target.getBazelArgs();
-        const bazelTarget = this.getBazelTargetName(target.detail);
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
         let runArgs = target.getRunArgs().toString();
         if (runArgs.length > 0) {
             runArgs = '-- ' + runArgs;
@@ -134,7 +149,4 @@ export class RunController implements BazelTargetController {
         const runArgs = target.getRunArgs().toString();
         return `${programPath} ${runArgs}`;
     }
-
-
-
 }

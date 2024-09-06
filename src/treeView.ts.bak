@@ -21,14 +21,50 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as vscode from 'vscode';
-import { TreeItem } from 'vscode';
-import { BazelController } from './controller';
-import { BazelModel } from './model';
+import { BazelService } from './services/bazel-service';
 import { ConfigurationManager } from './services/configuration-manager';
-import * as common from './common';
 import { MultiPropTreeItem } from './ui/multi-prop-tree-item';
 import { SinglePropTreeItem } from './ui/single-prop-tree-item';
+import { TreeItem } from 'vscode';
+import * as vscode from 'vscode';
+
+enum TargetType {
+    BUILD = 'build',
+    RUN = 'run',
+    TEST = 'test'
+}
+
+
+
+const CONFIG_SECTIONS = {
+    build: 'Build',
+    run: 'Run',
+    test: 'Test'
+};
+
+function getWorkspaceKeyUniqueToTarget(key: string, target: string): string {
+    return `${key}For${target}`;
+}
+
+
+const WORKSPACE_KEYS = {
+    buildTarget: 'buildTarget',
+    runTarget: 'runTarget',
+    testTarget: 'testTarget',
+    buildEnvVars: 'buildEnvVar',
+    runEnvVars: 'runEnvVars',
+    testEnvVars: 'testEnvVars',
+    buildConfigs: 'buildConfigs',
+    runConfigs: 'runConfigs',
+    testConfigs: 'testConfigs',
+    bazelBuildArgs: 'bazelBuildArgs',
+    bazelRunArgs: 'bazelRunArgs',
+    bazelTestArgs: 'bazelTestArgs',
+    runArgs: 'runArgs',
+    testArgs: 'testArgs',
+    setupEnvVars: 'setupEnvVars',
+    targetSections: 'targetSections'
+};
 
 export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     _onDidChangeTreeData: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
@@ -36,35 +72,32 @@ export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.Tre
 
     context: vscode.ExtensionContext;
 
-    m_bazelController: BazelController;
     m_configuration: ConfigurationManager;
 
     constructor(context: vscode.ExtensionContext,
         configuration: ConfigurationManager,
-        private readonly bazelModel: BazelModel,
-        bazelController: BazelController) {
+        private readonly bazelService: BazelService) {
         this.context = context;
-        this.m_bazelController = bazelController;
         this.m_configuration = configuration;
     }
 
     getSections(): vscode.ProviderResult<vscode.TreeItem[]> {
         const customSections = this.m_configuration.getCustomButtons();
-        const sectionTitles = Object.values(common.CONFIG_SECTIONS);
+        const sectionTitles = Object.values(CONFIG_SECTIONS);
 
         const sectionMap: Map<string, number> =  new Map(sectionTitles.map((key, index) => [key, index]));
 
         const sections = sectionTitles.map(title => new TreeItem(title, vscode.TreeItemCollapsibleState.Collapsed));
-        for (const section of sections) {
-            section.contextValue = section.label?.toString();
-            if (section.contextValue === common.CONFIG_SECTIONS.build) {
-                section.label = common.CONFIG_SECTIONS.build + ` ${this.bazelModel.getTarget(common.TargetType.BUILD).value}`;
-            } else if (section.contextValue === common.CONFIG_SECTIONS.run) {
-                section.label = common.CONFIG_SECTIONS.run + ` ${this.bazelModel.getTarget(common.TargetType.RUN).label}`;
-            } else if (section.contextValue === common.CONFIG_SECTIONS.test) {
-                section.label = common.CONFIG_SECTIONS.test + ` ${this.bazelModel.getTarget(common.TargetType.TEST).label}`;
-            }
-        }
+        // for (const section of sections) {
+        //     section.contextValue = section.label?.toString();
+        //     if (section.contextValue === CONFIG_SECTIONS.build) {
+        //         section.label = CONFIG_SECTIONS.build + ` ${this.bazelModel.getTarget(TargetType.BUILD).value}`;
+        //     } else if (section.contextValue === CONFIG_SECTIONS.run) {
+        //         section.label = CONFIG_SECTIONS.run + ` ${this.bazelModel.getTarget(TargetType.RUN).label}`;
+        //     } else if (section.contextValue === CONFIG_SECTIONS.test) {
+        //         section.label = CONFIG_SECTIONS.test + ` ${this.bazelModel.getTarget(TargetType.TEST).label}`;
+        //     }
+        // }
         customSections.forEach(element => {
             const sectionTitle = element.title;
             if (!sectionTitles.includes(sectionTitle)) {
@@ -108,32 +141,33 @@ export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.Tre
         workspaceKeyBazelArgs: string,
         workspaceKeyEnvVars: string,
         configType: string
-    ):vscode.TreeItem[] {
-        const envvar = new MultiPropTreeItem('Environment',
-            workspaceKeyEnvVars,
-            this.bazelModel,
-            () => { this.refresh(); }
-        );
+    ): vscode.TreeItem[] {
+        return [];
+        // const envvar = new MultiPropTreeItem('Environment',
+        //     workspaceKeyEnvVars,
+        //     this.bazelModel,
+        //     () => { this.refresh(); }
+        // );
 
-        const config = new MultiPropTreeItem('Config',
-            workspaceKeyConfig,
-            this.bazelModel,
-            () => { this.refresh(); },
-            () => {
-                return this.m_bazelController.getConfigs(configType);
-            }
-        );
+        // const config = new MultiPropTreeItem('Config',
+        //     workspaceKeyConfig,
+        //     this.bazelModel,
+        //     () => { this.refresh(); },
+        //     () => {
+        //         return this.bazelService.fetchConfigsForAction(configType);
+        //     }
+        // );
 
-        const buildArgs = new MultiPropTreeItem('Args',
-            workspaceKeyBazelArgs,
-            this.bazelModel,
-            () => { this.refresh(); }
-        );
+        // const buildArgs = new MultiPropTreeItem('Args',
+        //     workspaceKeyBazelArgs,
+        //     this.bazelModel,
+        //     () => { this.refresh(); }
+        // );
 
-        return [config,
-            buildArgs,
-            envvar
-        ];
+        // return [config,
+        //     buildArgs,
+        //     envvar
+        // ];
     }
 
     getChildren(element?: vscode.TreeItem | undefined): vscode.ProviderResult<vscode.TreeItem[]> {
@@ -144,12 +178,12 @@ export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.Tre
         }
         else {
 
-            if (element.contextValue === common.CONFIG_SECTIONS.build) {
+            if (element.contextValue === CONFIG_SECTIONS.build) {
 
                 const buildSectionItems = this.getChildrenForSection(
-                    common.WORKSPACE_KEYS.buildConfigs,
-                    common.WORKSPACE_KEYS.bazelBuildArgs,
-                    common.WORKSPACE_KEYS.buildEnvVars,
+                    WORKSPACE_KEYS.buildConfigs,
+                    WORKSPACE_KEYS.bazelBuildArgs,
+                    WORKSPACE_KEYS.buildEnvVars,
                     'build');
 
                 const clean = new TreeItem('Clean');
@@ -162,15 +196,15 @@ export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.Tre
                 ]);
                 return buildSectionItems.concat(this.getCustomButtonsForSection(element.contextValue));
             }
-            else if (element.contextValue === common.CONFIG_SECTIONS.run) {
+            else if (element.contextValue === CONFIG_SECTIONS.run) {
                 const runSectionItems = this.getChildrenForSection(
-                    common.WORKSPACE_KEYS.runConfigs,
-                    common.WORKSPACE_KEYS.bazelRunArgs,
-                    common.WORKSPACE_KEYS.runEnvVars,
+                    WORKSPACE_KEYS.runConfigs,
+                    WORKSPACE_KEYS.bazelRunArgs,
+                    WORKSPACE_KEYS.runEnvVars,
                     'run');
-                const target = this.bazelModel.getTarget(common.TargetType.RUN).value;
+                const target = this.bazelModel.getTarget(TargetType.RUN).value;
                 const runArgs = new SinglePropTreeItem('Run Args',
-                    common.getWorkspaceKeyUniqueToTarget(common.WORKSPACE_KEYS.runArgs, target),
+                    getWorkspaceKeyUniqueToTarget(WORKSPACE_KEYS.runArgs, target),
                     this.bazelModel,
                     () => { this.refresh(); }
                 );
@@ -180,15 +214,15 @@ export class BazelTreeDataProvider implements vscode.TreeDataProvider<vscode.Tre
                 runSectionItems.push(...[ runArgs,
                     refreshRunTargets]);
                 return runSectionItems.concat(this.getCustomButtonsForSection(element.contextValue));
-            } else if (element.contextValue === common.CONFIG_SECTIONS.test) {
+            } else if (element.contextValue === CONFIG_SECTIONS.test) {
                 const testSectionItems = this.getChildrenForSection(
-                    common.WORKSPACE_KEYS.testConfigs,
-                    common.WORKSPACE_KEYS.bazelTestArgs,
-                    common.WORKSPACE_KEYS.testEnvVars,
+                    WORKSPACE_KEYS.testConfigs,
+                    WORKSPACE_KEYS.bazelTestArgs,
+                    WORKSPACE_KEYS.testEnvVars,
                     'test');
-                const target = this.bazelModel.getTarget(common.TargetType.TEST).value;
+                const target = this.bazelModel.getTarget(TargetType.TEST).value;
                 const runArgs = new SinglePropTreeItem('Test Args',
-                    common.getWorkspaceKeyUniqueToTarget(common.WORKSPACE_KEYS.testArgs, target),
+                    getWorkspaceKeyUniqueToTarget(WORKSPACE_KEYS.testArgs, target),
                     this.bazelModel,
                     () => { this.refresh(); }
                 );
