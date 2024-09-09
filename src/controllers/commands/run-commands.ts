@@ -60,7 +60,7 @@ export function registerRunCommands(context: vscode.ExtensionContext,
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.run`, (target: BazelTarget) => {
         if (!target) {
-            vscode.commands.executeCommand('bluebazel.pickRunTarget', (target: BazelTarget) => {
+            vscode.commands.executeCommand(`${extensionName}.pickRunTarget`, (target: BazelTarget) => {
                 runController.execute(target);
             });
         } else {

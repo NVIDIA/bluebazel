@@ -22,16 +22,16 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
 import { showQuickPick } from './quick-pick';
 import { BazelTargetPropertyHistory } from '../models/bazel-target-property-history';
 import { Model } from '../models/model';
+import * as vscode from 'vscode';
 
 export class SinglePropTreeItem extends vscode.TreeItem {
-    private m_edit: () => void;
-    private m_originalLabel: string;
-    private m_value: string;
-    private m_history: BazelTargetPropertyHistory;
+    private editFunc: () => void;
+    private originalLabel: string;
+    private value: string;
+    private history: BazelTargetPropertyHistory;
 
     constructor(context: vscode.ExtensionContext,
         label: string,
@@ -41,26 +41,26 @@ export class SinglePropTreeItem extends vscode.TreeItem {
         onAddOptions?: (key: string) => Promise<string[]>,
         onEdit?: (itemOld: string, itemNew: string) => void) {
         super(label);
-        this.m_originalLabel = label;
-        this.m_history = new BazelTargetPropertyHistory(context, model.name, 10);
+        this.originalLabel = label;
+        this.history = new BazelTargetPropertyHistory(context, model.name, 10);
         contextValuePrefix = contextValuePrefix || '';
         this.contextValue = `${contextValuePrefix}SinglePropTreeItem`;
-        this.m_value = model.get<string>() || '';
+        this.value = model.get<string>() || '';
 
-        this.label = `${this.m_originalLabel} ${this.m_value}`;
+        this.label = `${this.originalLabel} ${this.value}`;
         const getAddOptions = onAddOptions || ((key: string) => {
             return new Promise<string[]>((resolve, reject) => {
-                resolve(this.m_history.getHistory());
+                resolve(this.history.getHistory());
             });
         });
 
-        this.m_edit = () => {
+        this.editFunc = () => {
             getAddOptions(model.name)
                 .then(data => {
                     showQuickPick(data, (data: string) => {
                         this.edit(data);
                         if (onEdit) {
-                            onEdit(this.m_value, data);
+                            onEdit(this.value, data);
                         }
                     });
                 }).catch(err => vscode.window.showErrorMessage(err));
@@ -70,11 +70,11 @@ export class SinglePropTreeItem extends vscode.TreeItem {
     }
 
     public runEdit() {
-        this.m_edit();
+        this.editFunc();
     }
 
     public runCopy() {
-        vscode.env.clipboard.writeText(this.m_value);
+        vscode.env.clipboard.writeText(this.value);
     }
 
     private updateModel() {
@@ -82,14 +82,14 @@ export class SinglePropTreeItem extends vscode.TreeItem {
     }
 
     public edit(newValue: string) {
-        this.m_value = newValue;
-        this.label = `${this.m_originalLabel} ${this.m_value}`;
-        this.m_history.add(newValue);
+        this.value = newValue;
+        this.label = `${this.originalLabel} ${this.value}`;
+        this.history.add(newValue);
         this.updateModel();
         this.onUpdate();
     }
 
     public getValue(): string {
-        return this.m_value;
+        return this.value;
     }
 }

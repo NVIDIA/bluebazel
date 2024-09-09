@@ -79,8 +79,20 @@ function makeExtensionVisible(context: vscode.ExtensionContext) {
 
 function attachTreeDataProviderToView(context: vscode.ExtensionContext,
     treeDataProvider: BazelTargetTreeProvider) {
+    /* const extensionName = ExtensionUtils.getExtensionName(context);
+    vscode.window.registerTreeDataProvider(`${extensionName}View`, treeDataProvider); */
     const extensionName = ExtensionUtils.getExtensionName(context);
-    vscode.window.registerTreeDataProvider(`${extensionName}View`, treeDataProvider);
+
+    // Create the TreeView and register the data provider
+    const treeView = vscode.window.createTreeView(`${extensionName}View`, {
+        treeDataProvider: treeDataProvider
+    });
+
+    // Attach listeners for expand/collapse events
+    treeDataProvider.registerTreeViewListeners(treeView);
+
+    // Add the TreeView to the subscriptions so it is properly disposed when the extension is deactivated
+    context.subscriptions.push(treeView);
 }
 
 function initExtension(context: vscode.ExtensionContext) {

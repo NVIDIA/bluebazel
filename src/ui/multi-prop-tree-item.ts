@@ -44,15 +44,15 @@ export class MultiPropTreeItemChild extends vscode.TreeItem {
 }
 
 export class MultiPropTreeItem extends vscode.TreeItem {
-    private m_children: MultiPropTreeItemChild[];
-    private m_add: (node: vscode.TreeItem) => void;
-    private m_edit: (node: MultiPropTreeItemChild) => void;
-    private m_remove: (node: MultiPropTreeItemChild) => void;
-    private m_history: BazelTargetPropertyHistory;
+    private children: MultiPropTreeItemChild[];
+    private addFunc: (node: vscode.TreeItem) => void;
+    private editFunc: (node: MultiPropTreeItemChild) => void;
+    private removeFunc: (node: MultiPropTreeItemChild) => void;
+    private history: BazelTargetPropertyHistory;
 
     constructor(context: vscode.ExtensionContext,
         label: string,
-        private model: Model,
+        public readonly model: Model,
         private onUpdate: () => void,
         onAddOptions?: (key: string) => Promise<string[]>,
         onAdd?: (item: string) => void,
@@ -60,21 +60,21 @@ export class MultiPropTreeItem extends vscode.TreeItem {
         onRemove?: (item: string) => void,
         collapsibleState?: vscode.TreeItemCollapsibleState) {
         super(label, collapsibleState);
-        this.m_history = new BazelTargetPropertyHistory(context, model.name, 10);
+        this.history = new BazelTargetPropertyHistory(context, model.name, 10);
 
         this.contextValue = 'MultiPropTreeItem';
 
-        this.m_children = this.childrenFromStringArray(this.model.get<string[]>() || []);
-        if (this.m_children.length > 0) {
+        this.children = this.childrenFromStringArray(this.model.get<string[]>() || []);
+        if (this.children.length > 0) {
             this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
         }
         const getAddOptions = onAddOptions || ((key: string) => {
             return new Promise<string[]>((resolve, reject) => {
-                resolve(this.m_history.getHistory());
+                resolve(this.history.getHistory());
             });
         });
 
-        this.m_add = (node: vscode.TreeItem) => {
+        this.addFunc = (node: vscode.TreeItem) => {
             getAddOptions(model.name)
                 .then(data => {
                     showQuickPick(data, (data: string) => {
@@ -86,7 +86,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
                 }).catch(err => vscode.window.showErrorMessage(err));
         };
 
-        this.m_edit = (node: MultiPropTreeItemChild) => {
+        this.editFunc = (node: MultiPropTreeItemChild) => {
             // Edit this in the list
             vscode.window.showInputBox({
                 value: node.label?.toString() || ''
@@ -104,7 +104,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
             });
         };
 
-        this.m_remove = (node: MultiPropTreeItemChild) => {
+        this.removeFunc = (node: MultiPropTreeItemChild) => {
             this.remove(node);
             if (onRemove) {
                 onRemove(node.label?.toString() || '');
@@ -113,15 +113,15 @@ export class MultiPropTreeItem extends vscode.TreeItem {
     }
 
     public runAdd(node: vscode.TreeItem) {
-        this.m_add(node);
+        this.addFunc(node);
     }
 
     public runEdit(node: MultiPropTreeItemChild) {
-        this.m_edit(node);
+        this.editFunc(node);
     }
 
     public runRemove(node: MultiPropTreeItemChild) {
-        this.m_remove(node);
+        this.removeFunc(node);
     }
 
     public runCopy(node: MultiPropTreeItemChild) {
@@ -136,8 +136,8 @@ export class MultiPropTreeItem extends vscode.TreeItem {
 
     public add(label: string) {
         const item = new MultiPropTreeItemChild(label, this.contextValue || '', this);
-        this.m_children.push(item);
-        this.m_history.add(label);
+        this.children.push(item);
+        this.history.add(label);
         this.updateModel();
         this.onUpdate();
     }
@@ -149,9 +149,9 @@ export class MultiPropTreeItem extends vscode.TreeItem {
     }
 
     public remove(child: MultiPropTreeItemChild) {
-        const tmp = new Set<MultiPropTreeItemChild>(this.m_children);
+        const tmp = new Set<MultiPropTreeItemChild>(this.children);
         tmp.delete(child);
-        this.m_children = Array.from(tmp);
+        this.children = Array.from(tmp);
         this.updateModel();
         this.onUpdate();
     }
@@ -169,7 +169,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
 
     private getChildrenAsStringArray(): string[] {
         const result: string[] = [];
-        for (const child of this.m_children) {
+        for (const child of this.children) {
             if (child.label) {
                 result.push(child.label?.toString());
             }
@@ -178,6 +178,6 @@ export class MultiPropTreeItem extends vscode.TreeItem {
     }
 
     public getChildren(): vscode.TreeItem[] {
-        return this.m_children;
+        return this.children;
     }
 }

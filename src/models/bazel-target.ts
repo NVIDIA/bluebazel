@@ -33,6 +33,7 @@ export class BazelTarget {
     private bazelArgs: BazelTargetProperty;
     private configArgs: BazelTargetProperty;
     private runArgs: BazelTargetProperty;
+    public readonly id: string = '';
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -40,6 +41,7 @@ export class BazelTarget {
         public detail: string,
         public action: BazelAction
     ) {
+        this.id = `${action}For${detail}`;
 
         this.envVars = new BazelTargetProperty(context, 'Environment', 'EnvVars',
             this,

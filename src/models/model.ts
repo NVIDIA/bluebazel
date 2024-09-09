@@ -24,6 +24,7 @@
 
 export interface Model {
     name: string;
+    id: string;
     update<T>(value: T): void;
     get<T>(): T | undefined;
 }
