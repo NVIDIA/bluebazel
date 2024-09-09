@@ -182,117 +182,117 @@
                 {
                     "command": "bluebazel.pickBuildTarget",
                     "group": "inline@3",
-                    "when": "viewItem == Build && view == bluebazelView"
+                    "when": "viewItem == build && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.format",
                     "group": "inline@1",
-                    "when": "viewItem == BuildFormat && view == bluebazelView"
+                    "when": "viewItem == buildFormat && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.clean",
                     "group": "inline@1",
-                    "when": "viewItem == BuildClean && view == bluebazelView"
+                    "when": "viewItem == buildClean && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.buildCurrentFile",
                     "group": "inline@2",
-                    "when": "viewItem == Build && view == bluebazelView"
+                    "when": "viewItem == build && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.build",
                     "group": "inline@1",
-                    "when": "viewItem == Build && view == bluebazelView"
+                    "when": "viewItem == build && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.copyBuildCommand",
                     "group": "@4",
-                    "when": "viewItem == Build && view == bluebazelView"
+                    "when": "viewItem == build && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.pickBuildTarget",
                     "group": "@3",
-                    "when": "viewItem == Build && view == bluebazelView"
+                    "when": "viewItem == build && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.buildCurrentFile",
                     "group": "@2",
-                    "when": "viewItem == Build && view == bluebazelView"
+                    "when": "viewItem == build && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.build",
                     "group": "@1",
-                    "when": "viewItem == Build && view == bluebazelView"
+                    "when": "viewItem == build && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.pickRunTarget",
                     "group": "inline@3",
-                    "when": "viewItem == Run && view == bluebazelView"
+                    "when": "viewItem == run && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.debug",
                     "group": "inline@2",
-                    "when": "viewItem == Run && view == bluebazelView"
+                    "when": "viewItem == run && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.run",
                     "group": "inline@1",
-                    "when": "viewItem == Run && view == bluebazelView"
+                    "when": "viewItem == run && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.refreshRunTargets",
                     "group": "inline@1",
-                    "when": "viewItem == RefreshRunTargets && view == bluebazelView"
+                    "when": "viewItem == refreshRunTargets && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.copyRunCommand",
                     "group": "@4",
-                    "when": "viewItem == Run && view == bluebazelView"
+                    "when": "viewItem == run && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.pickRunTarget",
                     "group": "@3",
-                    "when": "viewItem == Run && view == bluebazelView"
+                    "when": "viewItem == run && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.debug",
                     "group": "@2",
-                    "when": "viewItem == Run && view == bluebazelView"
+                    "when": "viewItem == run && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.run",
                     "group": "@1",
-                    "when": "viewItem == Run && view == bluebazelView"
+                    "when": "viewItem == run && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.pickTestTarget",
                     "group": "inline@2",
-                    "when": "viewItem == Test && view == bluebazelView"
+                    "when": "viewItem == test && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.test",
                     "group": "inline@1",
-                    "when": "viewItem == Test && view == bluebazelView"
+                    "when": "viewItem == test && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.copyTestCommand",
                     "group": "@3",
-                    "when": "viewItem == Test && view == bluebazelView"
+                    "when": "viewItem == test && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.pickTestTarget",
                     "group": "@2",
-                    "when": "viewItem == Test && view == bluebazelView"
+                    "when": "viewItem == test && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.test",
                     "group": "@1",
-                    "when": "viewItem == Test && view == bluebazelView"
+                    "when": "viewItem == test && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.customButton",
                     "group": "inline@1",
-                    "when": "viewItem == CustomButton && view == bluebazelView"
+                    "when": "viewItem == customButton && view == bluebazelView"
                 }
             ]
         },

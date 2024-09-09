@@ -25,13 +25,14 @@ import { BazelTargetProperty } from './bazel-target-property';
 import { ModelAccessor } from './model-accessor';
 import * as vscode from 'vscode';
 
+export type SerializedBazelTarget = { label: string, detail: string, action: BazelAction };
+
 export type BazelAction = string; //'build' | 'run' | 'clean' | 'test' | etc.
 export class BazelTarget {
     private envVars: BazelTargetProperty;
     private bazelArgs: BazelTargetProperty;
     private configArgs: BazelTargetProperty;
     private runArgs: BazelTargetProperty;
-
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -40,14 +41,14 @@ export class BazelTarget {
         public action: BazelAction
     ) {
 
-        this.envVars = new BazelTargetProperty(context, 'EnvVars',
+        this.envVars = new BazelTargetProperty(context, 'Environment', 'EnvVars',
             this,
             function (bazelTargetProperty: BazelTargetProperty): string {
                 const ev = ModelAccessor.getStringArray(bazelTargetProperty);
                 return ev.join(' && ');
             });
 
-        this.bazelArgs = new BazelTargetProperty(context, 'BazelArgs',
+        this.bazelArgs = new BazelTargetProperty(context, 'Args', 'BazelArgs',
             this,
             function (bazelTargetProperty: BazelTargetProperty): string {
                 let bazelArgs = '';
@@ -58,7 +59,7 @@ export class BazelTarget {
                 return bazelArgs;
             });
 
-        this.configArgs = new BazelTargetProperty(context, 'ConfigArgs',
+        this.configArgs = new BazelTargetProperty(context, 'Config', 'ConfigArgs',
             this,
             function (bazelTargetProperty: BazelTargetProperty): string {
                 let configArgs = '';
@@ -69,7 +70,7 @@ export class BazelTarget {
                 return configArgs;
             });
 
-        this.runArgs = new BazelTargetProperty(context, 'RunArgs',
+        this.runArgs = new BazelTargetProperty(context, 'Run args', 'RunArgs',
             this,
             function (bazelTargetProperty: BazelTargetProperty): string {
                 const value = ModelAccessor.getString(bazelTargetProperty);
@@ -91,6 +92,20 @@ export class BazelTarget {
 
     public getRunArgs(): BazelTargetProperty {
         return this.runArgs;
+    }
+
+    // Method to get a serializable version of the BazelTarget object
+    public serialize(): SerializedBazelTarget {
+        return {
+            label: this.label,
+            detail: this.detail,
+            action: this.action
+        };
+    }
+
+    // Static method to create a BazelTarget object from serialized data
+    public static deserialize(context: vscode.ExtensionContext, data: SerializedBazelTarget): BazelTarget {
+        return new BazelTarget(context, data.label, data.detail, data.action);
     }
 }
 

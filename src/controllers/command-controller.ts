@@ -39,6 +39,7 @@ import { DebugController } from './target-controllers/debug-controller';
 import { RunController } from './target-controllers/run-controller';
 import { TestController } from './target-controllers/test-controller';
 import { BazelEnvironment } from '../models/bazel-environment';
+import { BazelTargetManager } from '../models/bazel-target-manager';
 import { LaunchConfigService } from '../services/launch-config-service';
 import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
@@ -48,6 +49,7 @@ export function registerCommands(context: vscode.ExtensionContext,
     bazelTargetControllerManager: BazelTargetControllerManager,
     launchConfigService: LaunchConfigService,
     bazelEnvironment: BazelEnvironment,
+    bazelTargetManager: BazelTargetManager,
     bazelTreeDataProvider: BazelTargetTreeProvider
 ) {
     registerTreeDataProviderCommands(context);
@@ -59,7 +61,7 @@ export function registerCommands(context: vscode.ExtensionContext,
     const testController = bazelTargetControllerManager.getController('test') as TestController;
     const debugController = bazelTargetControllerManager.getController('debug') as DebugController;
     const anyActionController = bazelTargetControllerManager.getController('*') as AnyActionController;
-    registerBuildCommands(context, buildController, bazelEnvironment, bazelTreeDataProvider);
+    registerBuildCommands(context, buildController, bazelEnvironment, bazelTargetManager, bazelTreeDataProvider);
     registerRunCommands(context, runController, launchConfigService, bazelEnvironment, bazelTreeDataProvider);
     registerDebugCommands(context, debugController);
     registerTestCommands(context, testController, runController, bazelEnvironment, bazelTreeDataProvider);

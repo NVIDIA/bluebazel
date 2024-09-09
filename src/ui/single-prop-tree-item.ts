@@ -25,7 +25,7 @@
 import * as vscode from 'vscode';
 import { showQuickPick } from './quick-pick';
 import { BazelTargetPropertyHistory } from '../models/bazel-target-property-history';
-import { Storage } from '../models/storage';
+import { Model } from '../models/model';
 
 export class SinglePropTreeItem extends vscode.TreeItem {
     private m_edit: () => void;
@@ -33,19 +33,19 @@ export class SinglePropTreeItem extends vscode.TreeItem {
     private m_value: string;
     private m_history: BazelTargetPropertyHistory;
 
-    constructor(label: string,
-        private readonly workspaceKey: string,
-        private workspaceState: Storage,
+    constructor(context: vscode.ExtensionContext,
+        label: string,
+        private model: Model,
         private onUpdate: () => void,
         contextValuePrefix?: string,
         onAddOptions?: (key: string) => Promise<string[]>,
         onEdit?: (itemOld: string, itemNew: string) => void) {
         super(label);
         this.m_originalLabel = label;
-        this.m_history = new BazelTargetPropertyHistory(workspaceState, this.workspaceKey, 10);
+        this.m_history = new BazelTargetPropertyHistory(context, model.name, 10);
         contextValuePrefix = contextValuePrefix || '';
         this.contextValue = `${contextValuePrefix}SinglePropTreeItem`;
-        this.m_value = workspaceState.get<string>(this.workspaceKey) || '';
+        this.m_value = model.get<string>() || '';
 
         this.label = `${this.m_originalLabel} ${this.m_value}`;
         const getAddOptions = onAddOptions || ((key: string) => {
@@ -55,7 +55,7 @@ export class SinglePropTreeItem extends vscode.TreeItem {
         });
 
         this.m_edit = () => {
-            getAddOptions(this.workspaceKey)
+            getAddOptions(model.name)
                 .then(data => {
                     showQuickPick(data, (data: string) => {
                         this.edit(data);
@@ -78,7 +78,7 @@ export class SinglePropTreeItem extends vscode.TreeItem {
     }
 
     private updateModel() {
-        this.workspaceState.update(this.workspaceKey, this.getValue());
+        this.model.update(this.getValue());
     }
 
     public edit(newValue: string) {

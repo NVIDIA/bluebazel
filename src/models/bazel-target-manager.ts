@@ -21,8 +21,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as vscode from 'vscode';
 import { BazelAction, BazelTarget } from './bazel-target';
+import * as vscode from 'vscode';
 
 /**
  * Manager for handling Bazel targets across different actions.
@@ -35,8 +35,32 @@ export class BazelTargetManager {
     }
 
     private loadTargets() {
-        const storedTargets = this.context.workspaceState.get<{ [key: string]: BazelTarget[] }>('bazelTargets', {});
-        this.targets = new Map(Object.entries(storedTargets));
+        const storedTargets = this.context.workspaceState.get<{ [key: string]: { label: string, detail: string, action: BazelAction }[] }>('bazelTargets', {});
+
+        const deserializedTargets = new Map<BazelAction, BazelTarget[]>();
+
+        // Deserialize each stored target and recreate the Map
+        Object.entries(storedTargets).forEach(([action, targets]) => {
+            deserializedTargets.set(action as BazelAction, targets.map(t => BazelTarget.deserialize(this.context, t)));
+        });
+
+        // Define some mock Bazel targets
+        const mockTargets: { [key: string]: BazelTarget[] } = {
+            build: [
+                new BazelTarget(this.context, '//...', '//...', 'build'),
+                new BazelTarget(this.context, '//src/bar:dude', '//src/bar:dude', 'build'),
+            ],
+            test: [
+                new BazelTarget(this.context, '//tests/this:...', '//tests/this:...', 'test'),
+                new BazelTarget(this.context, '//tests/other:one', '//tests/other:one', 'test'),
+            ],
+            run: [
+                new BazelTarget(this.context, '//tools/this:app', '//tools/this:app', 'run'),
+                new BazelTarget(this.context, '//samples/other:one', '//samples/other:one', 'run'),
+            ]
+        };
+
+        this.targets = new Map(Object.entries(mockTargets));
     }
 
     public addTarget(target: BazelTarget) {
@@ -44,7 +68,7 @@ export class BazelTargetManager {
         if (!this.targets.has(action)) {
             this.targets.set(action, []);
         }
-        const actionTargets = this.targets.get(action)!;
+        const actionTargets = this.targets.get(action) || [];
         actionTargets.push(target);
         this.saveTargets();
     }
@@ -52,7 +76,8 @@ export class BazelTargetManager {
     public removeTarget(target: BazelTarget) {
         const action = target.action;
         if (this.targets.has(action)) {
-            const updatedTargets = this.targets.get(action)!.filter(t => t.label !== target.label);
+            const targets = this.targets.get(action) || [];
+            const updatedTargets = targets.filter(t => t.label !== target.label);
             if (updatedTargets.length > 0) {
                 this.targets.set(action, updatedTargets);
             } else {
@@ -75,10 +100,14 @@ export class BazelTargetManager {
     }
 
     private saveTargets() {
-        const serializedTargets: { [key: string]: BazelTarget[] } = {};
-        this.targets.forEach((value, key) => {
-            serializedTargets[key] = value;
+        const serializedTargets: { [key: string]: { label: string, detail: string, action: BazelAction }[] } = {};
+
+        // Serialize the targets before saving
+        this.targets.forEach((targets, action) => {
+            serializedTargets[action] = targets.map(target => target.serialize());
         });
+
+        // Update the workspace state with the serialized targets
         this.context.workspaceState.update('bazelTargets', serializedTargets);
     }
 }

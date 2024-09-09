@@ -111,5 +111,55 @@ export class BazelService {
         }
     }
 
+    /**
+     * Method to get Bazel build targets from a directory
+     * This assumes targets are defined in BUILD files.
+     */
+    public static async fetchBuildTargets(directoryPath: string, cwd: string): Promise<string[]> {
+        const directory = path.join(cwd, directoryPath);
+        const buildFilePaths = [path.join(directory, 'BUILD'), path.join(directory, 'BUILD.bazel')];
+
+        // Iterate through the list of build file paths and resolve the first valid file
+        for (const buildFilePath of buildFilePaths) {
+            try {
+                // Check if the file exists asynchronously
+                if (fs.existsSync(buildFilePath)) {
+                    // Read the file asynchronously using promises
+                    const data = await fs.promises.readFile(buildFilePath, 'utf8');
+
+                    // Extract targets from the BUILD file
+                    const targets = BazelService.extractBuildTargetsFromFile(data);
+
+                    return targets; // Resolve with the extracted targets
+                }
+            } catch (err) {
+                console.error(`Error reading build file: ${buildFilePath}`, err);
+                throw err; // Re-throw the error to propagate it up the call chain
+            }
+        }
+
+        // If no valid BUILD or BUILD.bazel file was found, return an empty array
+        return [];
+    }
+
+    /**
+     * Helper method to extract Bazel targets from the contents of a BUILD file
+     * This is a simplistic implementation. You can adjust it based on how targets are defined.
+     */
+    private static extractBuildTargetsFromFile(buildFileContent: string): string[] {
+        const targets: string[] = [];
+
+        // This is a basic regex pattern to match Bazel targets in the BUILD file
+        const targetRegex = /name\s*=\s*["']([^"']+)["']/g;
+        let match;
+
+        // Loop over all matches of the regex in the file content
+        while ((match = targetRegex.exec(buildFileContent)) !== null) {
+            targets.push(match[1]); // Capture the name of the target
+        }
+
+        return targets;
+    }
+
 
 }

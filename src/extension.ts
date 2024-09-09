@@ -28,7 +28,6 @@ import { UserCommandsController } from './controllers/user-commands-controller';
 import { WorkspaceEventsController } from './controllers/workspace-events-controller';
 import { BazelActionManager } from './models/bazel-action-manager';
 import { BazelEnvironment } from './models/bazel-environment';
-import { BazelTarget } from './models/bazel-target';
 import { BazelTargetManager } from './models/bazel-target-manager';
 import { BazelService } from './services/bazel-service';
 import { ConfigurationManager } from './services/configuration-manager';
@@ -171,6 +170,7 @@ function initExtension(context: vscode.ExtensionContext) {
         bazelTargetControllerManager,
         launchConfigService,
         bazelEnvironment,
+        bazelTargetManager,
         bazelTargetTreeProvider);
 
 }

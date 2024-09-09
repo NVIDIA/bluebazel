@@ -22,8 +22,7 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import { Storage } from './storage';
-
+import * as vscode from 'vscode'
 interface HistoryMap {
     [key: string]: string[]
 }
@@ -32,17 +31,17 @@ export class BazelTargetPropertyHistory {
 
     private historyMap: HistoryMap = {};
     private readonly DEFAULT_TARGET: string = 'DEFAULT_TARGET';
-
-    constructor(private readonly workspaceState: Storage,
+    private readonly key: string;
+    constructor(private readonly context: vscode.ExtensionContext,
         readonly name: string,
         readonly size: number) {
 
-        const historyName = `${name}History`;
-        const res = workspaceState.get<HistoryMap>(historyName);
+        this.key = `${name}History`;
+        const res = this.context.workspaceState.get<HistoryMap>(this.key);
         if (res === undefined) {
             const newRes: HistoryMap = {};
             this.historyMap = newRes;
-            workspaceState.update(historyName, this.historyMap);
+            this.context.workspaceState.update(this.key, this.historyMap);
         } else {
             this.historyMap = res;
         }
@@ -84,6 +83,6 @@ export class BazelTargetPropertyHistory {
             history.pop();
         }
         this.historyMap[target] = history;
-        this.workspaceState.update(this.name, this.historyMap);
+        this.context.workspaceState.update(this.key, this.historyMap);
     }
 }

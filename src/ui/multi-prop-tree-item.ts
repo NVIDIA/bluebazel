@@ -22,10 +22,10 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
 import { showQuickPick } from './quick-pick';
 import { BazelTargetPropertyHistory } from '../models/bazel-target-property-history';
-import { Storage } from '../models/storage';
+import { Model } from '../models/model';
+import * as vscode from 'vscode';
 
 export class MultiPropTreeItemChild extends vscode.TreeItem {
     private m_parent: MultiPropTreeItem;
@@ -50,9 +50,9 @@ export class MultiPropTreeItem extends vscode.TreeItem {
     private m_remove: (node: MultiPropTreeItemChild) => void;
     private m_history: BazelTargetPropertyHistory;
 
-    constructor(label: string,
-        private readonly workspaceKey: string,
-        private workspaceState: Storage,
+    constructor(context: vscode.ExtensionContext,
+        label: string,
+        private model: Model,
         private onUpdate: () => void,
         onAddOptions?: (key: string) => Promise<string[]>,
         onAdd?: (item: string) => void,
@@ -60,11 +60,11 @@ export class MultiPropTreeItem extends vscode.TreeItem {
         onRemove?: (item: string) => void,
         collapsibleState?: vscode.TreeItemCollapsibleState) {
         super(label, collapsibleState);
-        this.m_history = new BazelTargetPropertyHistory(workspaceState, this.workspaceKey, 10);
+        this.m_history = new BazelTargetPropertyHistory(context, model.name, 10);
 
         this.contextValue = 'MultiPropTreeItem';
 
-        this.m_children = this.childrenFromStringArray(this.workspaceState.get<string[]>(this.workspaceKey) || []);
+        this.m_children = this.childrenFromStringArray(this.model.get<string[]>() || []);
         if (this.m_children.length > 0) {
             this.collapsibleState = vscode.TreeItemCollapsibleState.Collapsed;
         }
@@ -75,7 +75,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
         });
 
         this.m_add = (node: vscode.TreeItem) => {
-            getAddOptions(this.workspaceKey)
+            getAddOptions(model.name)
                 .then(data => {
                     showQuickPick(data, (data: string) => {
                         this.add(data);
@@ -131,7 +131,7 @@ export class MultiPropTreeItem extends vscode.TreeItem {
 
     private updateModel() {
         const childSet = Array.from(new Set<string>(this.getChildrenAsStringArray()));
-        this.workspaceState.update(this.workspaceKey, childSet);
+        this.model.update(childSet);
     }
 
     public add(label: string) {

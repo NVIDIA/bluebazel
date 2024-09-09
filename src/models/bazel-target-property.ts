@@ -31,7 +31,8 @@ export class BazelTargetProperty {
 
     constructor(
         private readonly context: vscode.ExtensionContext,
-        name: string,
+        public readonly label: string,
+        public readonly name: string,
         target: BazelTarget,
         private readonly toStringFn: (bazelTargetProperty: BazelTargetProperty) => string
     ) {
