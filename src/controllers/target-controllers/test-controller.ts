@@ -61,8 +61,8 @@ export class TestController implements BazelTargetController {
         const executable = this.configurationManager.getExecutableCommand();
         const bazelArgs = target.getBazelArgs();
         const configArgs = target.getConfigArgs();
-        const envVars = target.getEnvVars();
-        const testArgs = EnvVarsUtils.toTestEnvVars(target.getRunArgs().toStringArray());
+        const envVars =   EnvVarsUtils.toTestEnvVars(target.getEnvVars().toStringArray());
+        const testArgs = target.getRunArgs();
 
         // target is in the form of a relative path: bazel-bin/path/executable
         // bazelTarget is in the form of //path:executable

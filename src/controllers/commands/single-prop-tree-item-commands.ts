@@ -22,18 +22,24 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
-import { SinglePropTreeItem } from '../../ui/single-prop-tree-item';
+import { BazelTargetProperty } from '../../models/bazel-target-property';
 import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { showQuickPick } from '../../ui/quick-pick';
+import * as vscode from 'vscode';
 
-export function registerSinglePropTreeItemCommands(context: vscode.ExtensionContext) {
+export function registerSinglePropTreeItemCommands(context: vscode.ExtensionContext, treeDataProvider: BazelTargetTreeProvider) {
     const extensionName = ExtensionUtils.getExtensionName(context);
     context.subscriptions.push(
-        vscode.commands.registerCommand(`${extensionName}.copySinglePropTreeItem`, (node: SinglePropTreeItem) => {
-            node.runCopy();
+        vscode.commands.registerCommand(`${extensionName}.copySinglePropTreeItem`, (property: BazelTargetProperty) => {
+            vscode.env.clipboard.writeText(property.get());
         }),
-        vscode.commands.registerCommand(`${extensionName}.editSinglePropTreeItem`, (node: SinglePropTreeItem) => {
-            node.runEdit();
+        vscode.commands.registerCommand(`${extensionName}.editSinglePropTreeItem`, (property: BazelTargetProperty) => {
+            const data: string[] = property.getHistory();
+            showQuickPick(data, (data: string) => {
+                property.update(data);
+                treeDataProvider.refresh();
+            });
         })
     );
 }

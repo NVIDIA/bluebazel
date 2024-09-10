@@ -21,11 +21,11 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import { WorkspaceConfiguration } from 'vscode';
-import { FileService } from './file-service';
 import { MergedConfiguration } from './configuration-utils';
 import { ExtensionUtils } from './extension-utils';
+import { FileService } from './file-service';
 import * as vscode from 'vscode';
+import { WorkspaceConfiguration } from 'vscode';
 
 export interface CustomButton {
     'title': string,
@@ -54,7 +54,7 @@ export class ConfigurationManager {
     private config: WorkspaceConfiguration;
     constructor(private context: vscode.ExtensionContext) {
         const defaultSettings = FileService.getExtensionDefaultSettings(ExtensionUtils.getExtensionName(context));
-        this.config = new MergedConfiguration(defaultSettings);
+        this.config = new MergedConfiguration(context, defaultSettings);
     }
 
     public getExtensionDisplayName(): string {

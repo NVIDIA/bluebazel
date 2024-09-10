@@ -21,51 +21,58 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+import { BazelTargetMultiProperty } from './bazel-target-multi-property';
 import { BazelTargetProperty } from './bazel-target-property';
-import { ModelAccessor } from './model-accessor';
+import { v4 as uuidv4 } from 'uuid';
 import * as vscode from 'vscode';
 
-export type SerializedBazelTarget = { label: string, detail: string, action: BazelAction };
+export type SerializedBazelTarget = { label: string, detail: string, action: BazelAction, id: string };
 
 export type BazelAction = string; //'build' | 'run' | 'clean' | 'test' | etc.
 export class BazelTarget {
-    private envVars: BazelTargetProperty;
-    private bazelArgs: BazelTargetProperty;
-    private configArgs: BazelTargetProperty;
+    private envVars: BazelTargetMultiProperty;
+    private bazelArgs: BazelTargetMultiProperty;
+    private configArgs: BazelTargetMultiProperty;
     private runArgs: BazelTargetProperty;
-    public readonly id: string = '';
+    public readonly id: string;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
         public label: string,
         public detail: string,
-        public action: BazelAction
-    ) {
-        this.id = `${action}For${detail}`;
+        public action: BazelAction,
+        id?: string
+    )
+    {
+        if (id === undefined) {
+            this.id = `${action}For${detail}-${uuidv4()}`;
+        } else {
+            this.id = id;
+        }
 
-        this.envVars = new BazelTargetProperty(context, 'Environment', 'EnvVars',
+        this.envVars = new BazelTargetMultiProperty(context, 'Environment', 'EnvVars',
             this,
-            function (bazelTargetProperty: BazelTargetProperty): string {
-                const ev = ModelAccessor.getStringArray(bazelTargetProperty);
+            function (bazelTargetProperty: BazelTargetMultiProperty): string {
+                const ev = bazelTargetProperty.toStringArray();
                 return ev.join(' && ');
             });
 
-        this.bazelArgs = new BazelTargetProperty(context, 'Args', 'BazelArgs',
+        this.bazelArgs = new BazelTargetMultiProperty(context, 'Args', 'BazelArgs',
             this,
-            function (bazelTargetProperty: BazelTargetProperty): string {
+            function (bazelTargetProperty: BazelTargetMultiProperty): string {
                 let bazelArgs = '';
-                const args = ModelAccessor.getStringArray(bazelTargetProperty);
+                const args = bazelTargetProperty.toStringArray();
                 args.forEach((value:string, index:number) => {
                     bazelArgs += `--${value} `;
                 });
                 return bazelArgs;
             });
 
-        this.configArgs = new BazelTargetProperty(context, 'Config', 'ConfigArgs',
+        this.configArgs = new BazelTargetMultiProperty(context, 'Config', 'ConfigArgs',
             this,
-            function (bazelTargetProperty: BazelTargetProperty): string {
+            function (bazelTargetProperty: BazelTargetMultiProperty): string {
                 let configArgs = '';
-                const args = ModelAccessor.getStringArray(bazelTargetProperty);
+                const args = bazelTargetProperty.toStringArray();
                 args.forEach((value:string, index:number) => {
                     configArgs += `--config=${value} `;
                 });
@@ -75,20 +82,20 @@ export class BazelTarget {
         this.runArgs = new BazelTargetProperty(context, 'Run args', 'RunArgs',
             this,
             function (bazelTargetProperty: BazelTargetProperty): string {
-                const value = ModelAccessor.getString(bazelTargetProperty);
+                const value = bazelTargetProperty.get();
                 return value;
             });
     }
 
-    public getEnvVars(): BazelTargetProperty {
+    public getEnvVars(): BazelTargetMultiProperty {
         return this.envVars;
     }
 
-    public getBazelArgs(): BazelTargetProperty {
+    public getBazelArgs(): BazelTargetMultiProperty {
         return this.bazelArgs;
     }
 
-    public getConfigArgs(): BazelTargetProperty {
+    public getConfigArgs(): BazelTargetMultiProperty {
         return this.configArgs;
     }
 
@@ -97,17 +104,18 @@ export class BazelTarget {
     }
 
     // Method to get a serializable version of the BazelTarget object
-    public serialize(): SerializedBazelTarget {
+    public toJSON(): SerializedBazelTarget {
         return {
             label: this.label,
             detail: this.detail,
-            action: this.action
+            action: this.action,
+            id: this.id
         };
     }
 
     // Static method to create a BazelTarget object from serialized data
-    public static deserialize(context: vscode.ExtensionContext, data: SerializedBazelTarget): BazelTarget {
-        return new BazelTarget(context, data.label, data.detail, data.action);
+    public static fromJSON(context: vscode.ExtensionContext, data: SerializedBazelTarget): BazelTarget {
+        return new BazelTarget(context, data.label, data.detail, data.action, data.id);
     }
 }
 

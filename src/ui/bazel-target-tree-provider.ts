@@ -22,23 +22,18 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import { MultiPropTreeItem } from './multi-prop-tree-item';
-import { SinglePropTreeItem } from './single-prop-tree-item';
 import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
 import { BazelTargetManager } from '../models/bazel-target-manager';
+import { BazelTargetMultiProperty, BazelTargetMultiPropertyItem } from '../models/bazel-target-multi-property';
 import { BazelTargetProperty } from '../models/bazel-target-property';
 import * as vscode from 'vscode';
 
-class BazelTargetTreeItem extends vscode.TreeItem {
-    constructor(public target: BazelTarget, label: string | vscode.TreeItemLabel, collapsibleState?: vscode.TreeItemCollapsibleState) {
-        super(label, collapsibleState);
-    }
-}
+type BazelTreeElement = BazelTarget | BazelTargetMultiProperty | BazelTargetProperty | BazelTargetMultiPropertyItem;
 
-export class BazelTargetTreeProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
-    private _onDidChangeTreeData: vscode.EventEmitter<vscode.TreeItem | undefined | void> = new vscode.EventEmitter<BazelTarget | undefined | void>();
-    readonly onDidChangeTreeData: vscode.Event<vscode.TreeItem | undefined | void> = this._onDidChangeTreeData.event;
+export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTreeElement> {
+    private _onDidChangeTreeData: vscode.EventEmitter<BazelTreeElement | undefined | void> = new vscode.EventEmitter<BazelTreeElement | undefined | void>();
+    readonly onDidChangeTreeData: vscode.Event<BazelTreeElement | undefined | void> = this._onDidChangeTreeData.event;
 
     // Define a map of BazelAction to vscode.ThemeIcon
     private iconMap: Map<BazelAction, vscode.ThemeIcon> = new Map([
@@ -105,18 +100,9 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<vscode.T
     }
 
     // Method to get root-level children (e.g., bazel targets)
-    private getRootChildren(): Thenable<vscode.TreeItem[]> {
+    private getRootChildren(): Thenable<BazelTarget[]> {
         const bazelTargets = this.bazelTargetManager.getTargets();
-        // Sort targets based on the action order
-        bazelTargets.sort((a, b) => {
-            const orderA = this.getActionOrder(a.action);
-            const orderB = this.getActionOrder(b.action);
-            return orderA - orderB; // Sort ascending: lower number means higher priority
-        });
-
-        // Convert targets to tree items
-        const treeItems = bazelTargets.map(target => this.getTargetTreeItem(target));
-        return Promise.resolve(treeItems);
+        return Promise.resolve(bazelTargets);
     }
 
     /**
@@ -126,7 +112,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<vscode.T
         const isExpanded = this.getExpandedState(element.id);
         const collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
 
-        const treeItem = new BazelTargetTreeItem(element, element.label, collapsibleState);
+        const treeItem = new vscode.TreeItem(element.label, collapsibleState);
         treeItem.contextValue = element.action;
         treeItem.iconPath = this.getIcon(element); // Icon customization based on action
         treeItem.label = `${this.capitalizeFirstLetter(element.action)} ${element.detail}`;
@@ -135,50 +121,49 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<vscode.T
 
     // Converts BazelTargetProperty into a tree item
     private getPropertyTreeItem(property: BazelTargetProperty): vscode.TreeItem {
-        const isExpanded = this.getExpandedState(property.id);
-        const collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
-        const updateTree = () => { this.refresh(); };
-        let item: vscode.TreeItem;
-        switch (property.name) {
-        case 'EnvVars':
-        case 'ConfigArgs':
-        case 'BazelArgs':
-            item = new MultiPropTreeItem(this.context, property.label, property, updateTree);
-            item.collapsibleState = collapsibleState;
-            break;
-        case 'RunArgs':
-            item = new SinglePropTreeItem(this.context, property.label, property, updateTree);
-            break;
-        default:
-            throw Error(`No such BazelTargetProperty with name ${property.name}`);
-        }
+        const item = new vscode.TreeItem(property.label + ' ' + property.get(), vscode.TreeItemCollapsibleState.None);
+        item.contextValue = 'SinglePropTreeItem';
         return item;
     }
 
-    private getChildrenForBazelTarget(element: BazelTarget): Thenable<vscode.TreeItem[]> {
-        const properties = [
-            element.getEnvVars(),
-            element.getConfigArgs(),
-            element.getBazelArgs(),
-            element.getRunArgs()
-        ];
-
-        // Convert each BazelTargetProperty into a TreeItem
-        const propertyTreeItems = properties.map(prop => this.getPropertyTreeItem(prop));
-
-        return Promise.resolve(propertyTreeItems);
+    private getMultiPropertyTreeItem(property: BazelTargetMultiProperty): vscode.TreeItem {
+        const isExpanded = this.getExpandedState(property.id);
+        let collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+        if (property.toStringArray().length == 0) {
+            collapsibleState = vscode.TreeItemCollapsibleState.None;
+        }
+        const item = new vscode.TreeItem(property.label, collapsibleState);
+        item.contextValue = 'MultiPropTreeItem';
+        return item;
     }
 
-    private getChildrenForMultiPropTreeItem(element: MultiPropTreeItem): Thenable<vscode.TreeItem[]> {
-        return Promise.resolve(element.getChildren());
+    private getPropertyChildTreeItem(propertyItem: BazelTargetMultiPropertyItem): vscode.TreeItem {
+        const item = new vscode.TreeItem(propertyItem.get(), vscode.TreeItemCollapsibleState.None);
+        item.contextValue = 'MultiPropTreeItemChild';
+        return item;
+    }
+
+    private getChildrenForBazelTarget(target: BazelTarget): Thenable<(BazelTargetProperty | BazelTargetMultiProperty)[]> {
+        const properties = [
+            target.getEnvVars(),
+            target.getConfigArgs(),
+            target.getBazelArgs(),
+            target.getRunArgs()
+        ];
+
+        return Promise.resolve(properties);
+    }
+
+    private getChildrenForBazelTargetProperty(property: BazelTargetMultiProperty): Thenable<BazelTargetMultiPropertyItem[]> {
+        return Promise.resolve(property.get());
     }
 
     // Method to get children of a specific element (e.g., bazel target properties)
-    private getChildrenForElement(element: BazelTarget | MultiPropTreeItem): Thenable<vscode.TreeItem[]> {
-        if (element instanceof BazelTargetTreeItem) {
-            return this.getChildrenForBazelTarget(element.target);
-        } else if (element instanceof MultiPropTreeItem) {
-            return this.getChildrenForMultiPropTreeItem(element);
+    private getChildrenForElement(element: BazelTreeElement): Thenable<(BazelTargetProperty | BazelTargetMultiProperty | BazelTargetMultiPropertyItem)[]> {
+        if (element instanceof BazelTarget) {
+            return this.getChildrenForBazelTarget(element);
+        } else if (element instanceof BazelTargetMultiProperty) {
+            return this.getChildrenForBazelTargetProperty(element);
         } else {
             // Any other type has no children
             return Promise.resolve([]);
@@ -186,7 +171,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<vscode.T
     }
 
     // The getChildren method to fetch either root elements or child elements
-    getChildren(element?: BazelTarget | MultiPropTreeItem): Thenable<vscode.TreeItem[]> {
+    getChildren(element?: BazelTreeElement): Thenable<BazelTreeElement[]> {
         if (element === undefined) {
             // No element provided, return the root-level elements
             return this.getRootChildren();
@@ -200,8 +185,17 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<vscode.T
         this._onDidChangeTreeData.fire();
     }
 
-    getTreeItem(element: vscode.TreeItem): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        return element;
+    getTreeItem(element: BazelTreeElement): vscode.TreeItem | Thenable<vscode.TreeItem> {
+        if (element instanceof BazelTarget) {
+            return Promise.resolve(this.getTargetTreeItem(element as BazelTarget));
+        } else if (element instanceof BazelTargetProperty) {
+            return Promise.resolve(this.getPropertyTreeItem(element as BazelTargetProperty));
+        } else if (element instanceof BazelTargetMultiProperty) {
+            return Promise.resolve(this.getMultiPropertyTreeItem(element as BazelTargetMultiProperty));
+        } else {
+            return Promise.resolve(this.getPropertyChildTreeItem(element as BazelTargetMultiPropertyItem));
+        }
+
     }
 
     // Store the expanded/collapsed state in workspaceState
@@ -217,28 +211,23 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<vscode.T
         return state[itemId] || false; // Default to collapsed if not stored
     }
 
-    private getTreeItemModelId(element: vscode.TreeItem): string {
-        let id = '';
-        if (element instanceof BazelTargetTreeItem) {
-            id = (element as BazelTargetTreeItem).target.id;
-        } else if (element instanceof MultiPropTreeItem) {
-            id = (element as MultiPropTreeItem).model.id;
-        }
-        return id;
+    private getTreeItemModelId(element: BazelTreeElement): string {
+        return element.id;
     }
     // Update the state when a tree item is expanded/collapsed
-    onDidExpandElement(event: vscode.TreeViewExpansionEvent<vscode.TreeItem>) {
+    onDidExpandElement(event: vscode.TreeViewExpansionEvent<BazelTreeElement>) {
         const id = this.getTreeItemModelId(event.element);
+        console.log(event, id);
         this.setExpandedState(id, true);
     }
 
-    onDidCollapseElement(event: vscode.TreeViewExpansionEvent<vscode.TreeItem>) {
+    onDidCollapseElement(event: vscode.TreeViewExpansionEvent<BazelTreeElement>) {
         const id = this.getTreeItemModelId(event.element);
         this.setExpandedState(id, false);
     }
 
     // To register the expansion/collapse listeners:
-    registerTreeViewListeners(treeView: vscode.TreeView<vscode.TreeItem>) {
+    registerTreeViewListeners(treeView: vscode.TreeView<BazelTreeElement>) {
         treeView.onDidExpandElement(this.onDidExpandElement, this);
         treeView.onDidCollapseElement(this.onDidCollapseElement, this);
     }

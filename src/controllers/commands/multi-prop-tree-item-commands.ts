@@ -22,25 +22,47 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode';
-import { MultiPropTreeItem, MultiPropTreeItemChild } from '../../ui/multi-prop-tree-item';
+import { BazelTargetMultiProperty, BazelTargetMultiPropertyItem } from '../../models/bazel-target-multi-property';
 import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { showQuickPick } from '../../ui/quick-pick';
+import * as vscode from 'vscode';
 
-export function registerMultiPropTreeItemCommands(context: vscode.ExtensionContext) {
+export function registerMultiPropTreeItemCommands(context: vscode.ExtensionContext,
+    treeDataProvider: BazelTargetTreeProvider
+) {
     const extensionName = ExtensionUtils.getExtensionName(context);
 
     context.subscriptions.push(
-        vscode.commands.registerCommand(`${extensionName}.addToMultiPropTreeItem`, (node: MultiPropTreeItem) => {
-            node.runAdd(node);
+        vscode.commands.registerCommand(`${extensionName}.addToMultiPropTreeItem`, (property: BazelTargetMultiProperty) => {
+            const data: string[] = property.getHistory();
+            showQuickPick(data, (data: string) => {
+                const values = property.toStringArray();
+                values.push(data);
+                property.add(data);
+                treeDataProvider.refresh();
+            });
         }),
-        vscode.commands.registerCommand(`${extensionName}.editMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
-            node.getParent().runEdit(node);
+        vscode.commands.registerCommand(`${extensionName}.editMultiPropTreeItem`, (item: BazelTargetMultiPropertyItem) => {
+            vscode.window.showInputBox({
+                value: item.get()
+            }).then(data => {
+                if (data !== undefined) {
+                    if (data.replace(/\s/g, '') === '') {
+                        item.remove();
+                    } else {
+                        item.update(data);
+                    }
+                }
+                treeDataProvider.refresh();
+            });
         }),
-        vscode.commands.registerCommand(`${extensionName}.removeMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
-            node.getParent().runRemove(node);
+        vscode.commands.registerCommand(`${extensionName}.removeMultiPropTreeItem`, (item: BazelTargetMultiPropertyItem) => {
+            item.remove();
+            treeDataProvider.refresh();
         }),
-        vscode.commands.registerCommand(`${extensionName}.copyMultiPropTreeItem`, (node: MultiPropTreeItemChild) => {
-            node.getParent().runCopy(node);
+        vscode.commands.registerCommand(`${extensionName}.copyMultiPropTreeItem`, (item: BazelTargetMultiPropertyItem) => {
+            vscode.env.clipboard.writeText(item.get());
         })
     );
 }

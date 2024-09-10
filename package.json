@@ -21,10 +21,10 @@
         "views": {
             "bluebazelContainer": [
                 {
-                "id": "bluebazelView",
-                "name": "Blue Bazel",
-                "icon": "images/icon_black_empty.svg",
-                "when":  "NVIDIA.bluebazel.active"
+                    "id": "bluebazelView",
+                    "name": "Blue Bazel",
+                    "icon": "images/icon_black_empty.svg",
+                    "when": "NVIDIA.bluebazel.active"
                 }
             ]
         },
@@ -381,6 +381,7 @@
         "@types/mocha": "^8.0.0",
         "@types/mock-fs": "^4.13.1",
         "@types/node": "^14.0.27",
+        "@types/uuid": "^10.0.0",
         "@types/vscode": "^1.92.0",
         "@typescript-eslint/eslint-plugin": "^5.59.7",
         "@typescript-eslint/parser": "^5.59.7",
@@ -399,7 +400,8 @@
         "fast-glob": "^3.2.4",
         "glob-parent": "^6.0.2",
         "istextorbinary": "^5.10.0",
-        "tmp": "^0.2.1"
+        "tmp": "^0.2.1",
+        "uuid": "^10.0.0"
     },
     "publisher": "NVIDIA",
     "repository": {

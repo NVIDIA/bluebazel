@@ -23,11 +23,12 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 
 import { BazelTarget } from './bazel-target';
-import { ModelAccessor } from './model-accessor';
+import { BazelTargetPropertyHistory } from './bazel-target-property-history';
 import * as vscode from 'vscode';
 
 export class BazelTargetProperty {
     public readonly id: string = '';
+    private readonly history: BazelTargetPropertyHistory;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -37,19 +38,21 @@ export class BazelTargetProperty {
         private readonly toStringFn: (bazelTargetProperty: BazelTargetProperty) => string
     ) {
         this.id = `${target.action}${name}For${target.detail}`;
+        this.history = new BazelTargetPropertyHistory(context, name, 10);
     }
 
-    public update<T>(value: T) {
+    public update(value: string) {
+        this.history.add(value);
         this.context.workspaceState.update(this.id, value);
     }
 
-    public get<T>(): T | undefined {
-        const value = this.context.workspaceState.get<T>(this.id);
+    public get(): string {
+        const value = this.context.workspaceState.get<string>(this.id) || '';
         return value;
     }
 
-    public toStringArray(): string[] {
-        return ModelAccessor.getStringArray(this);
+    public getHistory(): string[] {
+        return this.history.getHistory();
     }
 
     public toString(): string {

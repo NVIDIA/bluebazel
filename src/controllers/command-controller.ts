@@ -53,8 +53,8 @@ export function registerCommands(context: vscode.ExtensionContext,
     bazelTreeDataProvider: BazelTargetTreeProvider
 ) {
     registerTreeDataProviderCommands(context);
-    registerMultiPropTreeItemCommands(context);
-    registerSinglePropTreeItemCommands(context);
+    registerMultiPropTreeItemCommands(context, bazelTreeDataProvider);
+    registerSinglePropTreeItemCommands(context, bazelTreeDataProvider);
     registerBazelCommands(context, bazelController);
     const buildController = bazelTargetControllerManager.getController('build') as BuildController;
     const runController = bazelTargetControllerManager.getController('run') as RunController;

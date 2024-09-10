@@ -21,12 +21,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+import { ExtensionUtils } from './extension-utils';
 import { workspace, WorkspaceConfiguration } from 'vscode';
 import * as vscode from 'vscode';
 
 export class MergedConfiguration implements WorkspaceConfiguration {
-    defaultSettings: any;
-    constructor(defaultSettings: JSON) {
+    private defaultSettings: any;
+    constructor(private readonly context: vscode.ExtensionContext,
+        defaultSettings: JSON) {
         // Additional initialization if needed
         this.defaultSettings = defaultSettings;
     }
@@ -64,6 +66,7 @@ export class MergedConfiguration implements WorkspaceConfiguration {
     }
 
     getUserSettings(): WorkspaceConfiguration {
-        return workspace.getConfiguration('bluebazel');
+        const extensionName = ExtensionUtils.getExtensionName(this.context);
+        return workspace.getConfiguration(extensionName);
     }
 }

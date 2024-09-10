@@ -22,7 +22,7 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import * as vscode from 'vscode'
+import * as vscode from 'vscode';
 interface HistoryMap {
     [key: string]: string[]
 }
