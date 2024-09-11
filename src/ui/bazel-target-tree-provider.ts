@@ -29,7 +29,14 @@ import { BazelTargetMultiProperty, BazelTargetMultiPropertyItem } from '../model
 import { BazelTargetProperty } from '../models/bazel-target-property';
 import * as vscode from 'vscode';
 
-type BazelTreeElement = BazelTarget | BazelTargetMultiProperty | BazelTargetProperty | BazelTargetMultiPropertyItem;
+type BazelTreeElement = BazelTargetCategory | BazelTarget | BazelTargetMultiProperty | BazelTargetProperty | BazelTargetMultiPropertyItem;
+
+class BazelTargetCategory  {
+    public readonly id: string;
+    constructor(public readonly action: BazelAction) {
+        this.id = action;
+    }
+}
 
 export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTreeElement> {
     private _onDidChangeTreeData: vscode.EventEmitter<BazelTreeElement | undefined | void> = new vscode.EventEmitter<BazelTreeElement | undefined | void>();
@@ -68,7 +75,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         private readonly bazelActionManager: BazelActionManager
     ) {}
 
-    private getIcon(element: BazelTarget): vscode.ThemeIcon {
+    private getIcon(element: BazelTarget | BazelTargetCategory): vscode.ThemeIcon {
         // Return the icon based on the action, defaulting to the 'question' icon
         return this.iconMap.get(element.action) || this.defaultIcon;
     }
@@ -94,17 +101,74 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         // Any other actions have lower priority by default
     };
 
-    // Assign a default priority for actions not in the map
-    private getActionOrder(action: string): number {
-        return this.actionOrder[action] || 99;
+    private getRootChildren(): Thenable<BazelTargetCategory[]> {
+        // Get BazelActions and map them to BazelTargetCategory
+        const bazelActions: BazelAction[] = this.bazelTargetManager.getTargetActions();
+
+        // Map each BazelAction to BazelTargetCategory
+        const bazelTargetCategories = bazelActions.map(action => new BazelTargetCategory(action));
+
+        // Return the mapped categories as a resolved Promise
+        return Promise.resolve(bazelTargetCategories);
     }
 
-    // Method to get root-level children (e.g., bazel targets)
-    private getRootChildren(): Thenable<BazelTarget[]> {
-        const bazelTargets = this.bazelTargetManager.getTargets();
-        return Promise.resolve(bazelTargets);
+    private getChildrenForBazelTargetCategory(category: BazelTargetCategory): Thenable<BazelTarget[]> {
+        return Promise.resolve(this.bazelTargetManager.getTargets(category.action));
     }
 
+    private getChildrenForBazelTarget(target: BazelTarget): Thenable<(BazelTargetProperty | BazelTargetMultiProperty)[]> {
+        const properties = [
+            target.getEnvVars(),
+            target.getConfigArgs(),
+            target.getBazelArgs(),
+            target.getRunArgs()
+        ];
+
+        return Promise.resolve(properties);
+    }
+
+    private getChildrenForBazelTargetProperty(property: BazelTargetMultiProperty): Thenable<BazelTargetMultiPropertyItem[]> {
+        return Promise.resolve(property.get());
+    }
+
+    // Method to get children of a specific element (e.g., bazel target properties)
+    private getChildrenForElement(element: BazelTreeElement): Thenable<(BazelTarget | BazelTargetProperty | BazelTargetMultiProperty | BazelTargetMultiPropertyItem)[]> {
+        if (element instanceof BazelTargetCategory) {
+            return this.getChildrenForBazelTargetCategory(element);
+        } else if (element instanceof BazelTarget) {
+            return this.getChildrenForBazelTarget(element);
+        } else if (element instanceof BazelTargetMultiProperty) {
+            return this.getChildrenForBazelTargetProperty(element);
+        } else {
+            // Any other type has no children
+            return Promise.resolve([]);
+        }
+    }
+
+    // The getChildren method to fetch either root elements or child elements
+    getChildren(element?: BazelTreeElement): Thenable<BazelTreeElement[]> {
+        if (element === undefined) {
+            // No element provided, return the root-level elements
+            return this.getRootChildren();
+        } else {
+            // Element provided, return the children of this element
+            return this.getChildrenForElement(element);
+        }
+    }
+
+    refresh(): void {
+        this._onDidChangeTreeData.fire();
+    }
+
+    private getTargetCategoryTreeItem(element: BazelTargetCategory): vscode.TreeItem {
+        const isExpanded = this.getExpandedState(element.action);
+        const collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+
+        const treeItem = new vscode.TreeItem(`${this.capitalizeFirstLetter(element.action)}`, collapsibleState);
+        treeItem.contextValue = `${element.action}Category`;
+        treeItem.iconPath = this.getIcon(element); // Icon customization based on action
+        return treeItem;
+    }
     /**
      * Converts a BazelTarget into a display item for the tree.
      */
@@ -138,62 +202,23 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
     }
 
     private getPropertyChildTreeItem(propertyItem: BazelTargetMultiPropertyItem): vscode.TreeItem {
+        console.log('dude', propertyItem);
         const item = new vscode.TreeItem(propertyItem.get(), vscode.TreeItemCollapsibleState.None);
         item.contextValue = 'MultiPropTreeItemChild';
         return item;
     }
 
-    private getChildrenForBazelTarget(target: BazelTarget): Thenable<(BazelTargetProperty | BazelTargetMultiProperty)[]> {
-        const properties = [
-            target.getEnvVars(),
-            target.getConfigArgs(),
-            target.getBazelArgs(),
-            target.getRunArgs()
-        ];
-
-        return Promise.resolve(properties);
-    }
-
-    private getChildrenForBazelTargetProperty(property: BazelTargetMultiProperty): Thenable<BazelTargetMultiPropertyItem[]> {
-        return Promise.resolve(property.get());
-    }
-
-    // Method to get children of a specific element (e.g., bazel target properties)
-    private getChildrenForElement(element: BazelTreeElement): Thenable<(BazelTargetProperty | BazelTargetMultiProperty | BazelTargetMultiPropertyItem)[]> {
-        if (element instanceof BazelTarget) {
-            return this.getChildrenForBazelTarget(element);
-        } else if (element instanceof BazelTargetMultiProperty) {
-            return this.getChildrenForBazelTargetProperty(element);
-        } else {
-            // Any other type has no children
-            return Promise.resolve([]);
-        }
-    }
-
-    // The getChildren method to fetch either root elements or child elements
-    getChildren(element?: BazelTreeElement): Thenable<BazelTreeElement[]> {
-        if (element === undefined) {
-            // No element provided, return the root-level elements
-            return this.getRootChildren();
-        } else {
-            // Element provided, return the children of this element
-            return this.getChildrenForElement(element);
-        }
-    }
-
-    refresh(): void {
-        this._onDidChangeTreeData.fire();
-    }
-
     getTreeItem(element: BazelTreeElement): vscode.TreeItem | Thenable<vscode.TreeItem> {
-        if (element instanceof BazelTarget) {
-            return Promise.resolve(this.getTargetTreeItem(element as BazelTarget));
+        if (element instanceof BazelTargetCategory) {
+            return Promise.resolve(this.getTargetCategoryTreeItem(element));
+        } else if (element instanceof BazelTarget) {
+            return Promise.resolve(this.getTargetTreeItem(element));
         } else if (element instanceof BazelTargetProperty) {
-            return Promise.resolve(this.getPropertyTreeItem(element as BazelTargetProperty));
+            return Promise.resolve(this.getPropertyTreeItem(element));
         } else if (element instanceof BazelTargetMultiProperty) {
-            return Promise.resolve(this.getMultiPropertyTreeItem(element as BazelTargetMultiProperty));
+            return Promise.resolve(this.getMultiPropertyTreeItem(element));
         } else {
-            return Promise.resolve(this.getPropertyChildTreeItem(element as BazelTargetMultiPropertyItem));
+            return Promise.resolve(this.getPropertyChildTreeItem(element));
         }
 
     }

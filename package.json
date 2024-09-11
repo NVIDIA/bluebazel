@@ -62,12 +62,12 @@
             {
                 "command": "bluebazel.format",
                 "title": "Format",
-                "icon": "$(run)"
+                "icon": "$(symbol-namespace)"
             },
             {
                 "command": "bluebazel.clean",
                 "title": "Clean",
-                "icon": "$(run)"
+                "icon": "$(clear-all)"
             },
             {
                 "command": "bluebazel.copyBuildCommand",
@@ -144,7 +144,22 @@
             "view/title": [
                 {
                     "command": "bluebazel.collapseAll",
-                    "group": "navigation",
+                    "group": "navigation@4",
+                    "when": "view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.buildCurrentFile",
+                    "group": "navigation@3",
+                    "when": "view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.format",
+                    "group": "navigation@2",
+                    "when": "view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.clean",
+                    "group": "navigation@1",
                     "when": "view == bluebazelView"
                 }
             ],
@@ -182,21 +197,6 @@
                 {
                     "command": "bluebazel.pickBuildTarget",
                     "group": "inline@3",
-                    "when": "viewItem == build && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.format",
-                    "group": "inline@1",
-                    "when": "viewItem == buildFormat && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.clean",
-                    "group": "inline@1",
-                    "when": "viewItem == buildClean && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.buildCurrentFile",
-                    "group": "inline@2",
                     "when": "viewItem == build && view == bluebazelView"
                 },
                 {

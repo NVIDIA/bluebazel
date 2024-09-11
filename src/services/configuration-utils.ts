@@ -22,21 +22,69 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 import { ExtensionUtils } from './extension-utils';
+import * as fs from 'fs';
+import * as path from 'path';
 import { workspace, WorkspaceConfiguration } from 'vscode';
 import * as vscode from 'vscode';
 
+export function getExtensionDefaultSettings(extensionName: string): JSON {
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (!workspaceFolders) {
+        console.error('No workspace folder found.');
+        return JSON.parse('{}');
+    }
+
+    const defaultSettings = [];
+    for (const folder of workspaceFolders) {
+        const rootPath = folder.uri.fsPath;
+
+        // Construct the path to the .vscode directory
+        const defaultSettingsPath = path.join(rootPath, '.vscode', `${extensionName}.json`);
+
+        // If this default settings file does not exist,
+        // skip this workspace folder.
+        if (!fs.existsSync(defaultSettingsPath)) {
+            continue;
+        }
+
+        try {
+            const fileContent = fs.readFileSync(defaultSettingsPath, 'utf8');
+            defaultSettings.push(JSON.parse(fileContent));
+        } catch (error) {
+            console.log('Failed to parse default settings', error);
+        }
+    }
+
+
+    // Assign the array to a dictionary
+    const contents = Object.assign({}, ...defaultSettings);
+    const keyPrefix = `${extensionName}.`;
+    // Remove the extension name from the front of every key
+    Object.keys(contents).forEach((oldKey) => {
+        // Remove the extension name from the prefix of the settings
+        if (oldKey.includes(keyPrefix)) {
+            const newKey = oldKey.replace(keyPrefix, '');
+            contents[newKey] = contents[oldKey];
+        }
+        delete contents[oldKey];
+    });
+
+    // Return the settings as a key-value paired object
+    return contents;
+}
+
 export class MergedConfiguration implements WorkspaceConfiguration {
-    private defaultSettings: any;
+    private defaultConfig: any;
     constructor(private readonly context: vscode.ExtensionContext,
-        defaultSettings: JSON) {
+        defaultConfig: JSON) {
         // Additional initialization if needed
-        this.defaultSettings = defaultSettings;
+        this.defaultConfig = defaultConfig;
     }
 
     readonly [key: string]: any;
 
     has(section: string): boolean {
-        return this.getUserSettings().has(section) || section in this.defaultSettings;
+        return this.getUserSettings().has(section) || section in this.defaultConfig;
     }
 
     inspect<T>(section: string): { key: string; defaultValue?: T | undefined; globalValue?: T | undefined; workspaceValue?: T | undefined; workspaceFolderValue?: T | undefined; defaultLanguageValue?: T | undefined; globalLanguageValue?: T | undefined; workspaceLanguageValue?: T | undefined; workspaceFolderLanguageValue?: T | undefined; languageIds?: string[] | undefined; } | undefined {
@@ -56,8 +104,8 @@ export class MergedConfiguration implements WorkspaceConfiguration {
                 settingsInspection?.workspaceValue !== undefined);
         if (isModifiedByUser) {
             return settingValue;
-        } else if (section in this.defaultSettings) {
-            return this.defaultSettings[section] as T;
+        } else if (section in this.defaultConfig) {
+            return this.defaultConfig[section] as T;
         } else if (defaultValue) {
             return defaultValue;
         } else {

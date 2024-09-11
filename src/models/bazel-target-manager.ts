@@ -99,6 +99,10 @@ export class BazelTargetManager {
         }
     }
 
+    public getTargetActions(): BazelAction[] {
+        return Array.from(this.targets.keys());
+    }
+
     private saveTargets() {
         this.context.workspaceState.update('bazelTargets', this.targets);
     }
