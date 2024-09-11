@@ -22,29 +22,36 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
+import { BazelTargetController } from './bazel-target-controller';
+import { BuildController } from './build-controller';
+import { BazelEnvironment } from '../../models/bazel-environment';
+import { BazelTarget } from '../../models/bazel-target';
+import { BazelTargetManager } from '../../models/bazel-target-manager';
+import { BazelService } from '../../services/bazel-service';
+import { ConfigurationManager } from '../../services/configuration-manager';
+import { EnvVarsUtils } from '../../services/env-vars-utils';
+import { LaunchConfigService } from '../../services/launch-config-service';
+import { cleanAndFormat } from '../../services/string-utils';
+import { TaskService } from '../../services/task-service';
+import { WorkspaceService } from '../../services/workspace-service';
+import { BazelTargetQuickPickItem } from '../../ui/bazel-target-quick-pick-item';
+import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { BazelController } from '../bazel-controller';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
-import { BazelService } from '../../services/bazel-service';
-import { BazelTarget } from '../../models/bazel-target';
-import { BazelTargetController } from './bazel-target-controller';
-import { BuildController } from './build-controller';
-import { ConfigurationManager } from '../../services/configuration-manager';
-import { EnvVarsUtils } from '../../services/env-vars-utils';
-import { TaskService } from '../../services/task-service';
-import { WorkspaceService } from '../../services/workspace-service';
-import { BazelEnvironment } from '../../models/bazel-environment';
-import { BazelTargetQuickPickItem } from '../../ui/bazel-target-quick-pick-item';
-import { BazelController } from '../bazel-controller';
 
 export class RunController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
         private readonly bazelService: BazelService,
+        private readonly launchConfigService: LaunchConfigService,
         private readonly bazelController: BazelController,
         private readonly buildController: BuildController,
-        private readonly bazelEnvironment: BazelEnvironment
+        private readonly bazelEnvironment: BazelEnvironment,
+        private readonly bazelTargetManager: BazelTargetManager,
+        private readonly bazelTreeProvider: BazelTargetTreeProvider
     ) { }
 
     public async execute(target: BazelTarget): Promise<any> {
@@ -131,11 +138,17 @@ export class RunController implements BazelTargetController {
             runArgs = '-- ' + runArgs;
         }
 
-        // Remove any spaces from the command if there are no args
-        const config = configArgs ? ' ' + configArgs : '';
-        const bArgs = bazelArgs ? ' ' + bazelArgs : '';
+        // Remove extra whitespaces
+        const command = cleanAndFormat(
+            executable,
+            'run',
+            bazelArgs.toString(),
+            configArgs.toString(),
+            bazelTarget,
+            runArgs
+        );
 
-        return `${executable} run${bArgs}${config} ${bazelTarget} ${runArgs}\n`;
+        return `${command}\n`;
     }
 
     private async getRunDirectCommand(target: BazelTarget): Promise<string | undefined> {
@@ -148,5 +161,24 @@ export class RunController implements BazelTargetController {
         const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
         const runArgs = target.getRunArgs().toString();
         return `${programPath} ${runArgs}`;
+    }
+
+    public async pickTarget(target?: BazelTarget) {
+        this.getRunTargets()
+            .then(data => vscode.window.showQuickPick(data))
+            .then(res => {
+                if (res !== undefined && res.detail !== undefined) {
+                    // this.bazelEnvironment.updateSelectedRunTarget(res.target);
+                    this.launchConfigService.refreshLaunchConfigs(res.target);
+                    if (target !== undefined) {
+                        this.bazelTargetManager.updateTarget(res.target, target);
+                    } else {
+                        this.bazelTargetManager.addTarget(res.target);
+                    }
+
+                    this.bazelTreeProvider.refresh();
+                }
+            })
+            .catch(err => vscode.window.showErrorMessage(err));
     }
 }

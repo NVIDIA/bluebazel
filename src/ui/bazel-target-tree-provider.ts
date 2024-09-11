@@ -101,6 +101,10 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         // Any other actions have lower priority by default
     };
 
+    private getActionOrder(action: string): number {
+        return this.actionOrder[action] || 99; // Assign default priority for unknown actions
+    }
+
     private getRootChildren(): Thenable<BazelTargetCategory[]> {
         // Get BazelActions and map them to BazelTargetCategory
         const bazelActions: BazelAction[] = this.bazelTargetManager.getTargetActions();
@@ -108,7 +112,14 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         // Map each BazelAction to BazelTargetCategory
         const bazelTargetCategories = bazelActions.map(action => new BazelTargetCategory(action));
 
-        // Return the mapped categories as a resolved Promise
+        // Sort the BazelTargetCategory based on the predefined action order
+        bazelTargetCategories.sort((a, b) => {
+            const orderA = this.getActionOrder(a.action);
+            const orderB = this.getActionOrder(b.action);
+            return orderA - orderB; // Ascending order: lower number means higher priority
+        });
+
+        // Return the sorted categories as a resolved Promise
         return Promise.resolve(bazelTargetCategories);
     }
 
@@ -177,9 +188,8 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         const collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
 
         const treeItem = new vscode.TreeItem(element.label, collapsibleState);
-        treeItem.contextValue = element.action;
-        treeItem.iconPath = this.getIcon(element); // Icon customization based on action
-        treeItem.label = `${this.capitalizeFirstLetter(element.action)} ${element.detail}`;
+        treeItem.contextValue = `${element.action}Target`;
+        treeItem.label = `${element.label}`;
         return treeItem;
     }
 

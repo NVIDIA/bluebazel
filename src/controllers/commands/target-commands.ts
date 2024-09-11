@@ -1,0 +1,78 @@
+/////////////////////////////////////////////////////////////////////////////////////////
+// MIT License
+//
+// Copyright (c) 2023 NVIDIA Corporation
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+/////////////////////////////////////////////////////////////////////////////////////////
+import { BazelTarget } from '../../models/bazel-target';
+import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelTargetControllerManager } from '../target-controllers/bazel-target-controller-manager';
+import * as vscode from 'vscode';
+
+export function registerTargetCommands(context: vscode.ExtensionContext,
+    bazelTargetControllerManager: BazelTargetControllerManager
+) {
+
+    const extensionName = ExtensionUtils.getExtensionName(context);
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.copyCommand`, (target: BazelTarget) => {
+
+        if (target === undefined) {
+            return;
+        }
+        const controller = bazelTargetControllerManager.getController(target.action);
+        if (controller === undefined) {
+            console.error(`Target controller undefined for action ${target.action}`);
+            return;
+        }
+        controller.getExecuteCommand(target).then(result => {
+            vscode.env.clipboard.writeText(result || '');
+
+            vscode.window.showInformationMessage('Copied to clipboard');
+        });
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.pickTarget`, (target?: BazelTarget) => {
+        if (target === undefined) {
+            return;
+        }
+        const controller = bazelTargetControllerManager.getController(target.action);
+        if (controller === undefined) {
+            console.error(`Target controller undefined for action ${target.action}`);
+            return;
+        }
+        controller.pickTarget(target);
+    }));
+
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.executeTarget`, (target: BazelTarget) => {
+        if (target === undefined) {
+            // vscode.commands.executeCommand(`${extensionName}.pickTarget`, (target: BazelTarget) => {
+            //     controller.execute(target);
+            // });
+        }
+        const controller = bazelTargetControllerManager.getController(target.action);
+        if (controller === undefined) {
+            console.error(`Target controller undefined for action ${target.action}`);
+            return;
+        }
+        controller.execute(target);
+    }));
+}

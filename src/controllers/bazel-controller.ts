@@ -102,6 +102,7 @@ export class BazelController {
                         bazelTargets.push(new BazelTarget(this.context, item.label, item.detail, 'run'));
                     });
                     this.bazelEnvironment.updateRunTargets(bazelTargets);
+                    this.isRefreshingRunTargets = false;
                 }
             );
         }

@@ -70,16 +70,6 @@
                 "icon": "$(clear-all)"
             },
             {
-                "command": "bluebazel.copyBuildCommand",
-                "title": "Copy Build Command",
-                "icon": "$(copy)"
-            },
-            {
-                "command": "bluebazel.pickBuildTarget",
-                "title": "Edit Build Target",
-                "icon": "$(pencil)"
-            },
-            {
                 "command": "bluebazel.buildCurrentFile",
                 "title": "Build Current File",
                 "icon": "$(file-binary)"
@@ -88,16 +78,6 @@
                 "command": "bluebazel.build",
                 "title": "Build",
                 "icon": "$(run)"
-            },
-            {
-                "command": "bluebazel.copyRunCommand",
-                "title": "Copy Run Command",
-                "icon": "$(copy)"
-            },
-            {
-                "command": "bluebazel.pickRunTarget",
-                "title": "Edit Run Target",
-                "icon": "$(pencil)"
             },
             {
                 "command": "bluebazel.refreshRunTargets",
@@ -115,18 +95,18 @@
                 "icon": "$(debug-alt)"
             },
             {
-                "command": "bluebazel.copyTestCommand",
-                "title": "Copy Test Command",
+                "command": "bluebazel.copyCommand",
+                "title": "Copy Command",
                 "icon": "$(copy)"
             },
             {
-                "command": "bluebazel.pickTestTarget",
-                "title": "Edit Test Target",
+                "command": "bluebazel.pickTarget",
+                "title": "Edit Target",
                 "icon": "$(pencil)"
             },
             {
-                "command": "bluebazel.test",
-                "title": "Test",
+                "command": "bluebazel.executeTarget",
+                "title": "Execute",
                 "icon": "$(run)"
             },
             {
@@ -138,6 +118,16 @@
                 "command": "bluebazel.customButton",
                 "title": "Custom Button",
                 "icon": "$(run)"
+            },
+            {
+                "command": "bluebazel.addTarget",
+                "title": "Add Target",
+                "icon": "$(add)"
+            },
+            {
+                "command": "bluebazel.removeTarget",
+                "title": "Remove Target",
+                "icon": "$(close)"
             }
         ],
         "menus": {
@@ -148,18 +138,8 @@
                     "when": "view == bluebazelView"
                 },
                 {
-                    "command": "bluebazel.buildCurrentFile",
+                    "command": "bluebazel.addTarget",
                     "group": "navigation@3",
-                    "when": "view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.format",
-                    "group": "navigation@2",
-                    "when": "view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.clean",
-                    "group": "navigation@1",
                     "when": "view == bluebazelView"
                 }
             ],
@@ -172,122 +152,87 @@
                 {
                     "command": "bluebazel.editMultiPropTreeItem",
                     "group": "inline@1",
-                    "when": "viewItem =~ /MultiPropTreeItemChild$/ && view == bluebazelView"
+                    "when": "viewItem == MultiPropTreeItemChild && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.copyMultiPropTreeItem",
                     "group": "inline@2",
-                    "when": "viewItem =~ /MultiPropTreeItemChild$/ && view == bluebazelView"
+                    "when": "viewItem == MultiPropTreeItemChild && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.removeMultiPropTreeItem",
                     "group": "inline@3",
-                    "when": "viewItem =~ /MultiPropTreeItemChild$/ && view == bluebazelView"
+                    "when": "viewItem == MultiPropTreeItemChild && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.editSinglePropTreeItem",
                     "group": "inline@1",
-                    "when": "viewItem =~ /SinglePropTreeItem/ && view == bluebazelView"
+                    "when": "viewItem == SinglePropTreeItem && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.copySinglePropTreeItem",
                     "group": "inline@2",
-                    "when": "viewItem =~ /SinglePropTreeItem/ && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.pickBuildTarget",
-                    "group": "inline@3",
-                    "when": "viewItem == build && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.build",
-                    "group": "inline@1",
-                    "when": "viewItem == build && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.copyBuildCommand",
-                    "group": "@4",
-                    "when": "viewItem == build && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.pickBuildTarget",
-                    "group": "@3",
-                    "when": "viewItem == build && view == bluebazelView"
+                    "when": "viewItem == SinglePropTreeItem && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.buildCurrentFile",
-                    "group": "@2",
-                    "when": "viewItem == build && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.build",
-                    "group": "@1",
-                    "when": "viewItem == build && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.pickRunTarget",
                     "group": "inline@3",
-                    "when": "viewItem == run && view == bluebazelView"
+                    "when": "viewItem == buildCategory && view == bluebazelView"
                 },
                 {
-                    "command": "bluebazel.debug",
+                    "command": "bluebazel.format",
                     "group": "inline@2",
-                    "when": "viewItem == run && view == bluebazelView"
+                    "when": "viewItem == buildCategory && view == bluebazelView"
                 },
                 {
-                    "command": "bluebazel.run",
+                    "command": "bluebazel.clean",
                     "group": "inline@1",
-                    "when": "viewItem == run && view == bluebazelView"
+                    "when": "viewItem == buildCategory && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.refreshRunTargets",
                     "group": "inline@1",
-                    "when": "viewItem == refreshRunTargets && view == bluebazelView"
+                    "when": "viewItem == runCategory && view == bluebazelView"
                 },
                 {
-                    "command": "bluebazel.copyRunCommand",
+                    "command": "bluebazel.removeTarget",
+                    "group": "inline@99",
+                    "when": "viewItem =~ /Target$/ && view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.pickTarget",
+                    "group": "inline@98",
+                    "when": "viewItem =~ /Target$/ && view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.executeTarget",
+                    "group": "inline@1",
+                    "when": "viewItem =~ /Target$/ && view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.copyCommand",
                     "group": "@4",
-                    "when": "viewItem == run && view == bluebazelView"
+                    "when": "viewItem =~ /Target$/ && view == bluebazelView"
                 },
                 {
-                    "command": "bluebazel.pickRunTarget",
-                    "group": "@3",
-                    "when": "viewItem == run && view == bluebazelView"
+                    "command": "bluebazel.pickTarget",
+                    "group": "@2",
+                    "when": "viewItem =~ /Target$/ && view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.executeTarget",
+                    "group": "@1",
+                    "when": "viewItem =~ /Target$/ && view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.debug",
+                    "group": "inline@2",
+                    "when": "viewItem == runTarget && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.debug",
                     "group": "@2",
-                    "when": "viewItem == run && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.run",
-                    "group": "@1",
-                    "when": "viewItem == run && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.pickTestTarget",
-                    "group": "inline@2",
-                    "when": "viewItem == test && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.test",
-                    "group": "inline@1",
-                    "when": "viewItem == test && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.copyTestCommand",
-                    "group": "@3",
-                    "when": "viewItem == test && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.pickTestTarget",
-                    "group": "@2",
-                    "when": "viewItem == test && view == bluebazelView"
-                },
-                {
-                    "command": "bluebazel.test",
-                    "group": "@1",
-                    "when": "viewItem == test && view == bluebazelView"
+                    "when": "viewItem == runTarget && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.customButton",

@@ -87,6 +87,28 @@ export class BazelTargetManager {
         }
     }
 
+    public updateTarget(target: BazelTarget, oldTarget: BazelTarget) {
+        if (target.action !== oldTarget.action) {
+            throw Error('Cannot update targets of differing actions');
+        }
+        const action = oldTarget.action;
+        if (this.targets.has(action)) {
+            const targets = this.targets.get(action) || [];
+            // Find the index of the old target
+            const index = targets.findIndex(t => t.label === oldTarget.label);
+            if (index === -1) {
+                throw Error('Old target not found in the list');
+            }
+
+            // Replace the old target with the new target at the found index
+            targets[index] = target;
+
+            // Update the map with the new list of targets
+            this.targets.set(action, targets);
+            this.saveTargets();
+        }
+    }
+
     public getTargets(action?: BazelAction): BazelTarget[] {
         if (action) {
             return this.targets.get(action) || [];

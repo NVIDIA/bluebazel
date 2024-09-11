@@ -22,12 +22,13 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
+import { BazelTargetController } from './bazel-target-controller';
+import { BazelTarget } from '../../models/bazel-target';
+import { ConfigurationManager } from '../../services/configuration-manager';
+import { cleanAndFormat } from '../../services/string-utils';
+import { TaskService } from '../../services/task-service';
 import * as vscode from 'vscode';
 
-import { BazelTarget } from '../../models/bazel-target';
-import { BazelTargetController } from './bazel-target-controller';
-import { ConfigurationManager } from '../../services/configuration-manager';
-import { TaskService } from '../../services/task-service';
 
 export class AnyActionController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
@@ -50,7 +51,20 @@ export class AnyActionController implements BazelTargetController {
         const args = target.getBazelArgs();
         const configArgs = target.getConfigArgs();
         const envVars = target.getEnvVars();
-        return `${executable} ${target.action} ${args} ${configArgs} ${target.detail} ${envVars}\n`;
+        const command = cleanAndFormat(
+            executable,
+            target.action,
+            args.toString(),
+            configArgs.toString(),
+            target.detail,
+            envVars.toString()
+        );
+
+        return `${command}\n`;
+    }
+
+    public async pickTarget(target?: BazelTarget) {
+
     }
 
 }

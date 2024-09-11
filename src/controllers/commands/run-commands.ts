@@ -46,16 +46,7 @@ export function registerRunCommands(context: vscode.ExtensionContext,
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.pickRunTarget`, (target: BazelTarget) => {
-        runController.getRunTargets()
-            .then(data => vscode.window.showQuickPick(data))
-            .then(res => {
-                if (res !== undefined && res.detail !== undefined) {
-                    bazelEnvironment.updateSelectedRunTarget(res.target);
-                    launchConfigService.refreshLaunchConfigs(res.target);
-                    bazelTree.refresh();
-                }
-            })
-            .catch(err => vscode.window.showErrorMessage(err));
+
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.run`, (target: BazelTarget) => {

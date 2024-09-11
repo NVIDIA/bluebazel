@@ -26,8 +26,10 @@ export class BazelEnvironment {
 
     // Load run targets from storage
     private loadRunTargets() {
+        // Retrieve stored BazelTarget objects from workspace state (as plain objects)
         const storedTargets = this.context.workspaceState.get<BazelTarget[]>('bazelRunTargets', []);
-        this.runTargets = storedTargets;
+        // Deserialize each stored target into an instance of BazelTarget
+        this.runTargets = storedTargets.map(item => BazelTarget.fromJSON(this.context, item));
     }
 
     // Load environment variables from storage or configuration

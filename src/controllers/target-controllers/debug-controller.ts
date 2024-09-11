@@ -43,8 +43,8 @@ export class DebugController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         bazelService: BazelService,
-        bazelEnvironment: BazelEnvironment,
-        private readonly buildController: BuildController
+        private readonly buildController: BuildController,
+        bazelEnvironment: BazelEnvironment
     ) {
         this.debugConfigService = new LaunchConfigService(context,
             configurationManager,
@@ -140,5 +140,9 @@ export class DebugController implements BazelTargetController {
                 }
             });
         });
+    }
+
+    public async pickTarget(target?: BazelTarget) {
+
     }
 }

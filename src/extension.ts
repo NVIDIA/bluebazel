@@ -171,8 +171,11 @@ function initExtension(context: vscode.ExtensionContext) {
         taskService,
         shellService,
         bazelService,
+        launchConfigService,
         bazelController,
-        bazelEnvironment);
+        bazelEnvironment,
+        bazelTargetManager,
+        bazelTargetTreeProvider);
 
     /******
      * COMMANDS
