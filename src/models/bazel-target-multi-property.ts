@@ -95,7 +95,6 @@ export class BazelTargetMultiProperty {
 
     public update(values: BazelTargetMultiPropertyItem[]) {
         this.context.workspaceState.update(this.id, values);
-        console.log(this.id, values);
     }
 
     public get(): BazelTargetMultiPropertyItem[] {

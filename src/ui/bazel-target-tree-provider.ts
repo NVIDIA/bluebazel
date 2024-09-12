@@ -31,7 +31,7 @@ import * as vscode from 'vscode';
 
 type BazelTreeElement = BazelTargetCategory | BazelTarget | BazelTargetMultiProperty | BazelTargetProperty | BazelTargetMultiPropertyItem;
 
-class BazelTargetCategory  {
+export class BazelTargetCategory  {
     public readonly id: string;
     constructor(public readonly action: BazelAction) {
         this.id = action;
@@ -212,7 +212,6 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
     }
 
     private getPropertyChildTreeItem(propertyItem: BazelTargetMultiPropertyItem): vscode.TreeItem {
-        console.log('dude', propertyItem);
         const item = new vscode.TreeItem(propertyItem.get(), vscode.TreeItemCollapsibleState.None);
         item.contextValue = 'MultiPropTreeItemChild';
         return item;
@@ -252,7 +251,6 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
     // Update the state when a tree item is expanded/collapsed
     onDidExpandElement(event: vscode.TreeViewExpansionEvent<BazelTreeElement>) {
         const id = this.getTreeItemModelId(event.element);
-        console.log(event, id);
         this.setExpandedState(id, true);
     }
 

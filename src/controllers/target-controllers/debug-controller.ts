@@ -70,7 +70,7 @@ export class DebugController implements BazelTargetController {
                 // Sandbox deploy is finished. Try to execute.
                 this.debugWithProgress(target, debugConf);
             }).catch(e => {
-                console.log(e);
+                console.error(e);
             });
         });
     }

@@ -110,7 +110,6 @@ export class BuildController implements BazelTargetController {
 
     public async pickTarget(currentTarget?: BazelTarget)
     {
-        console.log('top', currentTarget);
         const targetList = await WorkspaceService.getInstance().getSubdirectoryPaths(this.currentTargetPath.replace('//', ''));
         // Prepend current run target option if we are in the root directory
         if (this.currentTargetPath.trim().length === 0) {
@@ -138,7 +137,6 @@ export class BuildController implements BazelTargetController {
             quickPick.onDidTriggerButton(item => {
                 if (item === vscode.QuickInputButtons.Back) {
                     this.currentTargetPath = path.dirname(this.currentTargetPath);
-                    console.log('pick', currentTarget);
                     this.pickTarget(currentTarget);
 
                 }
@@ -153,12 +151,11 @@ export class BuildController implements BazelTargetController {
                 if (res !== undefined) {
                     if (typeof res === 'string' && !res.includes('...') && res !== BUILD_RUN_TARGET_STR && !res.includes(':') ) {
                         this.currentTargetPath = res;
-                        console.log('pick other', item.target);
                         this.pickTarget(currentTarget);
                     } else {
                         this.currentTargetPath = '';
                         quickPick.hide();
-                        if (currentTarget) {
+                        if (currentTarget && currentTarget.detail !== '') {
                             this.bazelTargetManager.updateTarget(item.target, currentTarget);
                         } else {
                             this.bazelTargetManager.addTarget(item.target);

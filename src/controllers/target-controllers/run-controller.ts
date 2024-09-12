@@ -170,7 +170,7 @@ export class RunController implements BazelTargetController {
                 if (res !== undefined && res.detail !== undefined) {
                     // this.bazelEnvironment.updateSelectedRunTarget(res.target);
                     this.launchConfigService.refreshLaunchConfigs(res.target);
-                    if (target !== undefined) {
+                    if (target !== undefined && target.detail !== '') {
                         this.bazelTargetManager.updateTarget(res.target, target);
                     } else {
                         this.bazelTargetManager.addTarget(res.target);

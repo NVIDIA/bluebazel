@@ -40,7 +40,7 @@ export class BazelTargetControllerManager {
         this.controllers.set('test', new TestController(context, configurationManager, taskService, shellService,
             runController, bazelEnvironment, bazelTargetManager, bazelTreeProvider));
         this.controllers.set('debug', new DebugController(context, configurationManager, bazelService, buildController, bazelEnvironment));
-        this.controllers.set('*', new AnyActionController(context, configurationManager, taskService));
+        this.controllers.set('*', new AnyActionController(context, configurationManager, taskService, bazelTargetManager, bazelTreeProvider));
     }
 
     public getController(action: string): BazelTargetController | undefined {

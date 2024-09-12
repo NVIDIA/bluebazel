@@ -56,8 +56,8 @@ export class TestController implements BazelTargetController {
             return;
         }
 
-        const taskType = `test ${target}`;
-        const taskLabel = `test ${target}`;
+        const taskType = `test ${target.detail}`;
+        const taskLabel = `test ${target.detail}`;
 
         return this.taskService.runTask(taskType, taskLabel, testCommand, this.configurationManager.isClearTerminalBeforeAction());
     }
@@ -73,9 +73,7 @@ export class TestController implements BazelTargetController {
         const envVars =   EnvVarsUtils.toTestEnvVars(target.getEnvVars().toStringArray());
         const testArgs = target.getRunArgs();
 
-        // target is in the form of a relative path: bazel-bin/path/executable
-        // bazelTarget is in the form of //path:executable
-        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const bazelTarget = target.detail;
         const command = cleanAndFormat(
             executable,
             'test',
@@ -99,19 +97,28 @@ export class TestController implements BazelTargetController {
                 const parts = testTarget.split(':');
                 const path = parts[0];
                 const test = parts[1];
-                const testTargets = value.stdout.split('\n');
-                testTargets.unshift(`${path}:...`);
-                resolve(
-                    testTargets.map(item => {
-                        const label = `${test}:${item.split(':').slice(-1)[0]}`;
-                        const t = new BazelTarget(this.context, label, item, target.action);
-                        return {
-                            label: label,
-                            detail: item,
-                            target: t  // Create a copy of target with the updated label
-                        };
-                    })
-                );
+                const testTargetNames = value.stdout.split('\n');
+                const testTargets = testTargetNames.map(item => {
+                    const label = `${test}:${item.split(':').slice(-1)[0]}`;
+                    const t = new BazelTarget(this.context, label, item, target.action);
+                    return {
+                        label: t.label,
+                        detail: t.detail,
+                        target: t  // Create a copy of target with the updated label
+                    };
+                });
+                // Create the special all inclusive target ...
+                const allTestsInPath = `${path}/...`;
+                const label = `${path.split('/').slice(-1)[0]}/...`;
+                const t = new BazelTarget(this.context, label, allTestsInPath, target.action);
+                testTargets.unshift({
+                    label: t.label,
+                    detail: t.detail,
+                    target: t
+                });
+
+                resolve(testTargets);
+
             });
         });
         return result;
@@ -128,7 +135,8 @@ export class TestController implements BazelTargetController {
                     testTargets.then(data => vscode.window.showQuickPick(data)).then(pickedItem => {
                         if (pickedItem !== undefined && pickedItem.detail !== undefined) {
                             this.bazelEnvironment.updateSelectedTestTarget(pickedItem.target);
-                            if (target !== undefined) {
+                            console.log(pickedItem.target);
+                            if (target !== undefined && target.detail !== '') {
                                 this.bazelTargetManager.updateTarget(pickedItem.target, target);
                             } else {
                                 this.bazelTargetManager.addTarget(pickedItem.target);

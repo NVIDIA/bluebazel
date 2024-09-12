@@ -21,16 +21,56 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import { BazelTarget } from '../../models/bazel-target';
+import { BazelActionManager } from '../../models/bazel-action-manager';
+import { BazelAction, BazelTarget } from '../../models/bazel-target';
+import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelTargetCategory, BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { showQuickPick } from '../../ui/quick-pick';
 import { BazelTargetControllerManager } from '../target-controllers/bazel-target-controller-manager';
 import * as vscode from 'vscode';
 
+function pickTargetFromAction(context: vscode.ExtensionContext, action: BazelAction, bazelTargetControllerManager: BazelTargetControllerManager) {
+    const target = new BazelTarget(context, '', '', action);
+    const controller = bazelTargetControllerManager.getController(action);
+    if (controller === undefined) {
+        vscode.window.showErrorMessage(`There are no controllers for the action ${target.action}`);
+        return;
+    }
+    controller.pickTarget(target);
+}
+
 export function registerTargetCommands(context: vscode.ExtensionContext,
-    bazelTargetControllerManager: BazelTargetControllerManager
+    bazelTargetControllerManager: BazelTargetControllerManager,
+    bazelTargetManager: BazelTargetManager,
+    bazelActionManager: BazelActionManager,
+    bazelTreeProvider: BazelTargetTreeProvider
 ) {
 
     const extensionName = ExtensionUtils.getExtensionName(context);
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.addTarget`, (targetCategory?: BazelTargetCategory) => {
+
+        if (targetCategory === undefined) {
+            bazelActionManager.getActions().then(actions => {
+                showQuickPick(actions, (action) => {
+                    if (action !== undefined) {
+                        pickTargetFromAction(context, action, bazelTargetControllerManager);
+                    }
+                });
+            });
+        } else {
+            pickTargetFromAction(context, targetCategory.action, bazelTargetControllerManager);
+        }
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.removeTarget`, (target: BazelTarget) => {
+        if (target === undefined) {
+            return;
+        }
+        bazelTargetManager.removeTarget(target);
+        bazelTreeProvider.refresh();
+    }));
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.copyCommand`, (target: BazelTarget) => {
 

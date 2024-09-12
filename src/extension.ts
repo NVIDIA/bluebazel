@@ -183,9 +183,8 @@ function initExtension(context: vscode.ExtensionContext) {
     registerCommands(context,
         bazelController,
         bazelTargetControllerManager,
-        launchConfigService,
-        bazelEnvironment,
         bazelTargetManager,
+        bazelActionManager,
         bazelTargetTreeProvider);
 
 }

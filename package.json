@@ -195,6 +195,11 @@
                     "when": "viewItem == runCategory && view == bluebazelView"
                 },
                 {
+                    "command": "bluebazel.addTarget",
+                    "group": "inline@99",
+                    "when": "viewItem =~ /Category$/ && view == bluebazelView"
+                },
+                {
                     "command": "bluebazel.removeTarget",
                     "group": "inline@99",
                     "when": "viewItem =~ /Target$/ && view == bluebazelView"

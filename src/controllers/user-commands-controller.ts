@@ -21,13 +21,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import * as vscode from 'vscode';
-
 import { BazelEnvironment } from '../models/bazel-environment';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
 import { ShellService } from '../services/shell-service';
 import { TaskService } from '../services/task-service';
+import * as vscode from 'vscode';
+
 
 /**
  * Controller class for executing user custom commands.
@@ -113,14 +113,12 @@ export class UserCommandsController {
     private async extPick(input: string): Promise<string> {
         // Evaluate the inner command of the pick
         const output = await this.resolveCommands(input);
-        console.log(output);
         // Make a list of the output
         const outputList = [];
         for (const element of output.split('\n')) {
             const elementTrimmed = element.trim();
             if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
         }
-        console.log(outputList);
 
         let res = '';
         await vscode.window.showQuickPick(outputList, { 'ignoreFocusOut': true }).then(data => {
@@ -181,7 +179,6 @@ export class UserCommandsController {
             match = regexp.exec(input);
             if (match) {
                 const currentCommand = await this.resolveCommandByKeyword(match[1]);
-                console.log(`Current command: ${currentCommand}`);
                 const evalRes = await this.shellService.runShellCommand(currentCommand, this.configurationManager.isShowShellCommandOutput());
 
                 output = output.replace(match[0], evalRes.stdout);

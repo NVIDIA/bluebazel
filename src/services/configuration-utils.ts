@@ -24,8 +24,8 @@
 import { ExtensionUtils } from './extension-utils';
 import * as fs from 'fs';
 import * as path from 'path';
-import { workspace, WorkspaceConfiguration } from 'vscode';
 import * as vscode from 'vscode';
+import { workspace, WorkspaceConfiguration } from 'vscode';
 
 export function getExtensionDefaultSettings(extensionName: string): JSON {
     const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -51,7 +51,7 @@ export function getExtensionDefaultSettings(extensionName: string): JSON {
             const fileContent = fs.readFileSync(defaultSettingsPath, 'utf8');
             defaultSettings.push(JSON.parse(fileContent));
         } catch (error) {
-            console.log('Failed to parse default settings', error);
+            console.error('Failed to parse default settings', error);
         }
     }
 

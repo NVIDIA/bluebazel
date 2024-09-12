@@ -23,48 +23,33 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 
 import { BazelController } from './bazel-controller';
-import { registerAnyActionCommands } from './commands/any-action-commands';
 import { registerBazelCommands } from './commands/bazel-commands';
 import { registerDebugCommands } from './commands/debug-commands';
 import { registerMultiPropTreeItemCommands } from './commands/multi-prop-tree-item-commands';
-import { registerRunCommands } from './commands/run-commands';
 import { registerSinglePropTreeItemCommands } from './commands/single-prop-tree-item-commands';
 import { registerTargetCommands } from './commands/target-commands';
-import { registerTestCommands } from './commands/test-commands';
 import { registerTreeDataProviderCommands } from './commands/tree-data-provider-commands';
-import { AnyActionController } from './target-controllers/any-action-controller';
 import { BazelTargetControllerManager } from './target-controllers/bazel-target-controller-manager';
-import { BuildController } from './target-controllers/build-controller';
 import { DebugController } from './target-controllers/debug-controller';
-import { RunController } from './target-controllers/run-controller';
-import { TestController } from './target-controllers/test-controller';
-import { BazelEnvironment } from '../models/bazel-environment';
+import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelTargetManager } from '../models/bazel-target-manager';
-import { LaunchConfigService } from '../services/launch-config-service';
 import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
 
 export function registerCommands(context: vscode.ExtensionContext,
     bazelController: BazelController,
     bazelTargetControllerManager: BazelTargetControllerManager,
-    launchConfigService: LaunchConfigService,
-    bazelEnvironment: BazelEnvironment,
     bazelTargetManager: BazelTargetManager,
+    bazelActionManager: BazelActionManager,
     bazelTreeDataProvider: BazelTargetTreeProvider
 ) {
     registerTreeDataProviderCommands(context);
     registerMultiPropTreeItemCommands(context, bazelTreeDataProvider);
     registerSinglePropTreeItemCommands(context, bazelTreeDataProvider);
     registerBazelCommands(context, bazelController);
-    // const buildController = bazelTargetControllerManager.getController('build') as BuildController;
-    // const runController = bazelTargetControllerManager.getController('run') as RunController;
-    // const testController = bazelTargetControllerManager.getController('test') as TestController;
     const debugController = bazelTargetControllerManager.getController('debug') as DebugController;
-    // const anyActionController = bazelTargetControllerManager.getController('*') as AnyActionController;
-    registerTargetCommands(context, bazelTargetControllerManager);
-    // registerRunCommands(context, runController, launchConfigService, bazelEnvironment, bazelTreeDataProvider);
+    registerTargetCommands(context, bazelTargetControllerManager,
+        bazelTargetManager, bazelActionManager, bazelTreeDataProvider);
     registerDebugCommands(context, debugController);
-    // registerTestCommands(context, testController, runController, bazelEnvironment, bazelTreeDataProvider);
-    // registerAnyActionCommands(context, anyActionController);
 }
 

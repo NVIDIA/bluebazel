@@ -44,9 +44,11 @@ export class BazelService {
      */
     public async fetchBazelActions(): Promise<string[]> {
         const executable = this.configurationManager.getExecutableCommand();
-        const result = await this.shellService.runShellCommand(`${executable} help | sed -n '/Available commands:/,/^$/pf' | tail -n +2 | awk '{print $1}' | sed '/^$/d'`, false);
+        const result = await this.shellService.runShellCommand(`${executable} help | sed -n '/Available commands:/,/^$/p' | tail -n +2 | awk '{print $1}' | sed '/^$/d'`, false);
         const lines = result.stdout.split('\n');
-        const actions = lines.filter(line => line.startsWith('  ')).map(line => line.trim().split(' ')[0]);
+        const actions = lines
+            .filter(line => line.trim().length > 0)  // Remove empty lines
+            .map(line => line.trim());  // Trim the lines to get the action names
         return actions;
     }
 
