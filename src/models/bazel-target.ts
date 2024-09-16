@@ -26,9 +26,14 @@ import { BazelTargetProperty } from './bazel-target-property';
 import { v4 as uuidv4 } from 'uuid';
 import * as vscode from 'vscode';
 
-export type SerializedBazelTarget = { label: string, detail: string, action: BazelAction, id: string };
+export interface SerializedBazelTarget {
+    label: string,
+    detail: string,
+    action: BazelAction,
+    id: string
+}
 
-export type BazelAction = string; //'build' | 'run' | 'clean' | 'test' | etc.
+export type BazelAction = string;
 export class BazelTarget {
     private envVars: BazelTargetMultiProperty;
     private bazelArgs: BazelTargetMultiProperty;

@@ -52,6 +52,21 @@ export class BazelService {
         return actions;
     }
 
+    public async fetchBazelTargetActions(): Promise<string[]> {
+        const actionsRequiringTarget: string[] = [
+            'aquery',
+            'build',
+            'coverage',
+            'cquery',
+            'mobile-install',
+            'print_action',
+            'query',
+            'run',
+            'test'
+        ];
+        return Promise.resolve(actionsRequiringTarget);
+    }
+
     public async getBazelTargetBuildPath(target: BazelTarget): Promise<string> {
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
         const executable = this.configurationManager.getExecutableCommand();

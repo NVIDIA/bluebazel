@@ -22,7 +22,7 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import { ConfigurationManager } from '../../services/configuration-manager';
+import { ConfigurationManager, UserCustomButton } from '../../services/configuration-manager';
 import { ExtensionUtils } from '../../services/extension-utils';
 import { UserCommandsController } from '../user-commands-controller';
 import * as vscode from 'vscode';
@@ -49,14 +49,9 @@ export function registerUserCommands(context: vscode.ExtensionContext,
     });
 
     const extensionName = ExtensionUtils.getExtensionName(context);
-    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.customButton`, (node: vscode.TreeItem) => {
-        const command = node.command?.command;
-        const args = node.command?.arguments;
-        if (command && args) {
-            vscode.commands.executeCommand(command, ...args);
-        } else if (command) {
-            vscode.commands.executeCommand(command);
-        }
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.customButton`, (button: UserCustomButton) => {
+        const command = button.methodName;
+        vscode.commands.executeCommand(command);
     }));
 
 }

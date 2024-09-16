@@ -22,14 +22,14 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
 import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelTargetMultiProperty, BazelTargetMultiPropertyItem } from '../models/bazel-target-multi-property';
 import { BazelTargetProperty } from '../models/bazel-target-property';
+import { ConfigurationManager, UserCustomButton, UserCustomCategory as UserCustomCategory } from '../services/configuration-manager';
 import * as vscode from 'vscode';
 
-type BazelTreeElement = BazelTargetCategory | BazelTarget | BazelTargetMultiProperty | BazelTargetProperty | BazelTargetMultiPropertyItem;
+type BazelTreeElement = BazelTargetCategory | BazelTarget | BazelTargetMultiProperty | BazelTargetProperty | BazelTargetMultiPropertyItem | UserCustomCategory | UserCustomButton;
 
 export class BazelTargetCategory  {
     public readonly id: string;
@@ -71,9 +71,9 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
     private defaultIcon: vscode.ThemeIcon = new vscode.ThemeIcon('question');
 
     constructor(private context: vscode.ExtensionContext,
-        private readonly bazelTargetManager: BazelTargetManager,
-        private readonly bazelActionManager: BazelActionManager
-    ) {}
+        private readonly configurationManager: ConfigurationManager,
+        private readonly bazelTargetManager: BazelTargetManager
+    ) { }
 
     private getIcon(element: BazelTarget | BazelTargetCategory): vscode.ThemeIcon {
         // Return the icon based on the action, defaulting to the 'question' icon
@@ -105,7 +105,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         return this.actionOrder[action] || 99; // Assign default priority for unknown actions
     }
 
-    private getRootChildren(): Thenable<BazelTargetCategory[]> {
+    private getRootChildren(): Thenable<(BazelTargetCategory | UserCustomCategory)[]> {
         // Get BazelActions and map them to BazelTargetCategory
         const bazelActions: BazelAction[] = this.bazelTargetManager.getTargetActions();
 
@@ -119,8 +119,11 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
             return orderA - orderB; // Ascending order: lower number means higher priority
         });
 
+        // Get custom user buttons
+        const customButtons = this.configurationManager.getCustomButtons();
+
         // Return the sorted categories as a resolved Promise
-        return Promise.resolve(bazelTargetCategories);
+        return Promise.resolve([...bazelTargetCategories, ...customButtons]);
     }
 
     private getChildrenForBazelTargetCategory(category: BazelTargetCategory): Thenable<BazelTarget[]> {
@@ -142,14 +145,20 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         return Promise.resolve(property.get());
     }
 
+    private getChildrenForUserCustomCategory(userCategory: UserCustomCategory): Thenable<UserCustomButton[]> {
+        return Promise.resolve(userCategory.buttons);
+    }
+
     // Method to get children of a specific element (e.g., bazel target properties)
-    private getChildrenForElement(element: BazelTreeElement): Thenable<(BazelTarget | BazelTargetProperty | BazelTargetMultiProperty | BazelTargetMultiPropertyItem)[]> {
+    private getChildrenForElement(element: BazelTreeElement): Thenable<(BazelTarget | BazelTargetProperty | BazelTargetMultiProperty | BazelTargetMultiPropertyItem | UserCustomButton)[]> {
         if (element instanceof BazelTargetCategory) {
             return this.getChildrenForBazelTargetCategory(element);
         } else if (element instanceof BazelTarget) {
             return this.getChildrenForBazelTarget(element);
         } else if (element instanceof BazelTargetMultiProperty) {
             return this.getChildrenForBazelTargetProperty(element);
+        } else if (element instanceof UserCustomCategory) {
+            return this.getChildrenForUserCustomCategory(element);
         } else {
             // Any other type has no children
             return Promise.resolve([]);
@@ -217,6 +226,21 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         return item;
     }
 
+    private getUserCustomCategoryTreeItem(category: UserCustomCategory): vscode.TreeItem {
+        const isExpanded = this.getExpandedState(category.id);
+        const collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
+        const item = new vscode.TreeItem(category.title, collapsibleState);
+        item.contextValue = 'customCategory';
+        item.iconPath = new vscode.ThemeIcon(category.icon);
+        return item;
+    }
+
+    private getUserCustomButtonTreeItem(button: UserCustomButton): vscode.TreeItem {
+        const item = new vscode.TreeItem(button.title, vscode.TreeItemCollapsibleState.None);
+        item.contextValue = 'customButton';
+        return item;
+    }
+
     getTreeItem(element: BazelTreeElement): vscode.TreeItem | Thenable<vscode.TreeItem> {
         if (element instanceof BazelTargetCategory) {
             return Promise.resolve(this.getTargetCategoryTreeItem(element));
@@ -226,8 +250,14 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
             return Promise.resolve(this.getPropertyTreeItem(element));
         } else if (element instanceof BazelTargetMultiProperty) {
             return Promise.resolve(this.getMultiPropertyTreeItem(element));
-        } else {
+        } else if (element instanceof BazelTargetMultiPropertyItem) {
             return Promise.resolve(this.getPropertyChildTreeItem(element));
+        } else if (element instanceof UserCustomCategory) {
+            return Promise.resolve(this.getUserCustomCategoryTreeItem(element));
+        } else if (element instanceof UserCustomButton) {
+            return Promise.resolve(this.getUserCustomButtonTreeItem(element));
+        } else {
+            throw Error(`No such type of tree element allowed: ${element}`);
         }
 
     }

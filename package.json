@@ -197,7 +197,7 @@
                 {
                     "command": "bluebazel.addTarget",
                     "group": "inline@99",
-                    "when": "viewItem =~ /Category$/ && view == bluebazelView"
+                    "when": "viewItem =~ /Category$/ && view == bluebazelView && viewItem !== customCategory"
                 },
                 {
                     "command": "bluebazel.removeTarget",

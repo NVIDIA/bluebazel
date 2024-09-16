@@ -51,6 +51,7 @@ export function registerTargetCommands(context: vscode.ExtensionContext,
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.addTarget`, (targetCategory?: BazelTargetCategory) => {
 
+        console.log(targetCategory);
         if (targetCategory === undefined) {
             bazelActionManager.getActions().then(actions => {
                 showQuickPick(actions, (action) => {

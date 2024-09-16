@@ -38,7 +38,7 @@ export class BazelActionManager {
     }
 
     private async loadActions(): Promise<string[]> {
-        this.actions = await this.bazelService.fetchBazelActions();
+        this.actions = await this.bazelService.fetchBazelTargetActions();
         return this.actions;
     }
 
@@ -47,7 +47,7 @@ export class BazelActionManager {
     }
 
     public async refreshActions() {
-        this.actions = await this.bazelService.fetchBazelActions();
+        this.actions = await this.bazelService.fetchBazelTargetActions();
         this.actionsPromise = Promise.resolve(this.actions);
     }
 }

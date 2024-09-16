@@ -41,19 +41,19 @@ export class BazelController {
         private readonly bazelEnvironment: BazelEnvironment
     ) {
         this.isRefreshingRunTargets = false;
-     }
+    }
 
     public async format() {
         const executable = this.configurationManager.getExecutableCommand();
         const cmd = this.configurationManager.getFormatCommand();
-        return this.taskService.runTask('format', 'format', `${executable} ${cmd}`, this.configurationManager.isClearTerminalBeforeAction());
+        return this.taskService.runTask('format', `${executable} ${cmd}`, `${executable} ${cmd}`, this.configurationManager.isClearTerminalBeforeAction());
     }
 
     public async clean() {
         const executable = this.configurationManager.getExecutableCommand();
         await this.taskService.runTask(
             'clean', // task type
-            'clean', // task name
+            `${executable} clean`, // task name
             `${executable} clean`,
             this.configurationManager.isClearTerminalBeforeAction()
         );

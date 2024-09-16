@@ -26,27 +26,67 @@ import { ExtensionUtils } from './extension-utils';
 import { WorkspaceConfiguration } from 'vscode';
 import * as vscode from 'vscode';
 
-export interface CustomButton {
-    'title': string,
-    'command': string,
-    'icon': string,
-    'description': string,
-    'tooltip': string,
-    'methodName': string
+export class UserCustomButton {
+    title: string;
+    command: string;
+    icon: string;
+    description: string;
+    tooltip: string;
+    methodName: string;
+    public readonly id: string;
+
+    // Constructor for inflating from configuration (deserialization)
+    constructor(data: { title: string, command: string, icon: string, description: string, tooltip: string, methodName: string }) {
+        this.title = data.title;
+        this.command = data.command;
+        this.icon = data.icon;
+        this.description = data.description;
+        this.tooltip = data.tooltip;
+        this.methodName = data.methodName;
+        this.id = `${this.title}`;
+    }
+
+    // Method for deflating the object to configuration (serialization)
+    toJSON(): { title: string, command: string, icon: string, description: string, tooltip: string, methodName: string } {
+        return {
+            title: this.title,
+            command: this.command,
+            icon: this.icon,
+            description: this.description,
+            tooltip: this.tooltip,
+            methodName: this.methodName
+        };
+    }
 }
 
-export interface CustomSection {
-    'title': string,
-    'collapsed': boolean,
-    'buttons': Array<CustomButton>
+export class UserCustomCategory {
+    title: string;
+    icon: string;
+    buttons: Array<UserCustomButton>;
+    public readonly id: string;
+
+    // Constructor for inflating the object from configuration (deserialization)
+    constructor(data: { title: string, icon: string, buttons: Array<UserCustomButton> }) {
+        this.title = data.title;
+        this.buttons = data.buttons.map(buttonData => new UserCustomButton(buttonData));
+        this.icon = data.icon;
+        this.id = this.title;
+    }
+
+    // Method for deflating the object to configuration (serialization)
+    toJSON(): { title: string, icon: string, buttons: Array<UserCustomButton> } {
+        return {
+            title: this.title,
+            icon: this.icon,
+            buttons: this.buttons,
+        };
+    }
 }
 
 export interface ShellCommand {
     'name': string,
     'command': string
 }
-
-
 
 export class ConfigurationManager {
 
@@ -67,15 +107,15 @@ export class ConfigurationManager {
         return this.config;
     }
 
-    public getCustomButtons(): Array<CustomSection> {
+    public getCustomButtons(): Array<UserCustomCategory> {
         const config = this.getConfig();
 
         // Look for custom buttons
-        const customButtons = config.get<Array<CustomSection>>('customButtons');
+        const customButtons = config.get<Array<UserCustomCategory>>('customButtons');
         if (customButtons === undefined) {
             return [];
         }
-        return customButtons;
+        return customButtons.map(buttonData => new UserCustomCategory(buttonData));
     }
 
     public getShellCommands(): Array<ShellCommand> {

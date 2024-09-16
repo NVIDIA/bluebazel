@@ -149,7 +149,7 @@ function initExtension(context: vscode.ExtensionContext) {
     /******
      * UI
      ******/
-    bazelTargetTreeProvider = new BazelTargetTreeProvider(context, bazelTargetManager, bazelActionManager);
+    bazelTargetTreeProvider = new BazelTargetTreeProvider(context, configurationManager, bazelTargetManager);
     attachTreeDataProviderToView(context, bazelTargetTreeProvider);
 
     /******
@@ -181,6 +181,8 @@ function initExtension(context: vscode.ExtensionContext) {
      * COMMANDS
      ******/
     registerCommands(context,
+        configurationManager,
+        userCommandsController,
         bazelController,
         bazelTargetControllerManager,
         bazelTargetManager,
@@ -190,7 +192,6 @@ function initExtension(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    makeExtensionVisible(context);
-
     initExtension(context);
+    makeExtensionVisible(context);
 }

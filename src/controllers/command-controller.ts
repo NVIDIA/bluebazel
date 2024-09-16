@@ -29,14 +29,19 @@ import { registerMultiPropTreeItemCommands } from './commands/multi-prop-tree-it
 import { registerSinglePropTreeItemCommands } from './commands/single-prop-tree-item-commands';
 import { registerTargetCommands } from './commands/target-commands';
 import { registerTreeDataProviderCommands } from './commands/tree-data-provider-commands';
+import { registerUserCommands } from './commands/user-commands';
 import { BazelTargetControllerManager } from './target-controllers/bazel-target-controller-manager';
 import { DebugController } from './target-controllers/debug-controller';
+import { UserCommandsController } from './user-commands-controller';
 import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelTargetManager } from '../models/bazel-target-manager';
+import { ConfigurationManager } from '../services/configuration-manager';
 import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
 
 export function registerCommands(context: vscode.ExtensionContext,
+    configurationManager: ConfigurationManager,
+    userCommandsController: UserCommandsController,
     bazelController: BazelController,
     bazelTargetControllerManager: BazelTargetControllerManager,
     bazelTargetManager: BazelTargetManager,
@@ -51,5 +56,6 @@ export function registerCommands(context: vscode.ExtensionContext,
     registerTargetCommands(context, bazelTargetControllerManager,
         bazelTargetManager, bazelActionManager, bazelTreeDataProvider);
     registerDebugCommands(context, debugController);
+    registerUserCommands(context, configurationManager, userCommandsController);
 }
 
