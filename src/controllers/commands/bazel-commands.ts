@@ -21,10 +21,10 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
+import { ExtensionUtils } from '../../services/extension-utils';
+import { BazelController } from '../bazel-controller';
 import * as vscode from 'vscode';
 
-import { BazelController } from '../bazel-controller';
-import { ExtensionUtils } from '../../services/extension-utils';
 
 
 export function registerBazelCommands(context: vscode.ExtensionContext,
@@ -45,7 +45,7 @@ export function registerBazelCommands(context: vscode.ExtensionContext,
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.refreshRunTargets`, () => {
-        bazelController.refreshRunTargets()
+        bazelController.refreshAvailableRunTargets()
             .then(() => { /* Nothing to do */ })
             .catch(err => vscode.window.showErrorMessage(err));
     }));

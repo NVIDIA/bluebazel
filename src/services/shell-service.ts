@@ -11,7 +11,7 @@ export class ShellService {
     ) {}
 
 
-    public static async run(cmd: string, cwd: string, setupEnvVars: {[key: string]: string}, showOutput = false, outputChannel: vscode.OutputChannel | undefined = undefined): Promise<{ stdout: string, stderr: string }> {
+    public static async run(cmd: string, cwd: string, setupEnvVars: {[key: string]: string}, showOutput = false, outputChannel: vscode.OutputChannel | undefined = undefined, title = ''): Promise<{ stdout: string, stderr: string }> {
         if (outputChannel !== undefined) {
             outputChannel.clear();
             outputChannel.appendLine(`Running shell command: ${cmd}`);
@@ -20,7 +20,10 @@ export class ShellService {
             }
         }
 
-        return showProgress(cmd, (cancellationToken): Promise<{ stdout: string, stderr: string }> => {
+        if (title === '') {
+            title = cmd;
+        }
+        return showProgress(title, (cancellationToken): Promise<{ stdout: string, stderr: string }> => {
             return new Promise<{ stdout: string, stderr: string }>((resolve, reject) => {
                 const execOptions: child.ExecOptions = {
                     cwd: cwd,
@@ -57,8 +60,7 @@ export class ShellService {
         });
     }
 
-    public async runShellCommand(cmd: string, showOutput: boolean): Promise<{ stdout: string }> {
-        console.log(this.setupEnvVars);
-        return ShellService.run(cmd, this.workspaceFolder.uri.path, this.setupEnvVars, showOutput, this.outputChannel);
+    public async runShellCommand(cmd: string, showOutput: boolean, title = ''): Promise<{ stdout: string, stderr: string }> {
+        return ShellService.run(cmd, this.workspaceFolder.uri.path, this.setupEnvVars, showOutput, this.outputChannel, title);
     }
 }

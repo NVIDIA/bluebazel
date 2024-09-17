@@ -35,12 +35,14 @@ import { DebugController } from './target-controllers/debug-controller';
 import { UserCommandsController } from './user-commands-controller';
 import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelTargetManager } from '../models/bazel-target-manager';
+import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
 import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
 
 export function registerCommands(context: vscode.ExtensionContext,
     configurationManager: ConfigurationManager,
+    bazelService: BazelService,
     userCommandsController: UserCommandsController,
     bazelController: BazelController,
     bazelTargetControllerManager: BazelTargetControllerManager,
@@ -53,7 +55,7 @@ export function registerCommands(context: vscode.ExtensionContext,
     registerSinglePropTreeItemCommands(context, bazelTreeDataProvider);
     registerBazelCommands(context, bazelController);
     const debugController = bazelTargetControllerManager.getController('debug') as DebugController;
-    registerTargetCommands(context, bazelTargetControllerManager,
+    registerTargetCommands(context, bazelService, bazelTargetControllerManager,
         bazelTargetManager, bazelActionManager, bazelTreeDataProvider);
     registerDebugCommands(context, debugController);
     registerUserCommands(context, configurationManager, userCommandsController);

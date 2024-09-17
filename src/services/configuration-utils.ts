@@ -74,6 +74,7 @@ export function getExtensionDefaultSettings(extensionName: string): JSON {
 }
 
 export class MergedConfiguration implements WorkspaceConfiguration {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     private defaultConfig: any;
     constructor(private readonly context: vscode.ExtensionContext,
         defaultConfig: JSON) {
@@ -81,6 +82,7 @@ export class MergedConfiguration implements WorkspaceConfiguration {
         this.defaultConfig = defaultConfig;
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     readonly [key: string]: any;
 
     has(section: string): boolean {
@@ -91,6 +93,7 @@ export class MergedConfiguration implements WorkspaceConfiguration {
         return this.getUserSettings().inspect<T>(section);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     update(section: string, value: any, configurationTarget?: boolean | vscode.ConfigurationTarget | undefined, overrideInLanguage?: boolean | undefined): Thenable<void> {
         return this.getUserSettings().update(section, value, configurationTarget, overrideInLanguage);
     }

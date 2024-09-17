@@ -30,17 +30,16 @@ export class BazelTargetControllerManager {
         bazelTargetManager: BazelTargetManager,
         bazelTreeProvider: BazelTargetTreeProvider
     ) {
-        const buildController = new BuildController(context, configurationManager, taskService,
-            bazelEnvironment, bazelTargetManager, bazelTreeProvider);
+        const buildController = new BuildController(context, configurationManager, taskService, bazelService, bazelTargetManager, bazelTreeProvider);
         const runController = new RunController(context, configurationManager, taskService,
             bazelService, launchConfigService, bazelController, buildController,
             bazelEnvironment, bazelTargetManager, bazelTreeProvider);
         this.controllers.set('build', buildController);
         this.controllers.set('run', runController);
-        this.controllers.set('test', new TestController(context, configurationManager, taskService, shellService,
-            runController, bazelEnvironment, bazelTargetManager, bazelTreeProvider));
+        this.controllers.set('test', new TestController(context, configurationManager, taskService, shellService, bazelService,
+            runController, bazelTargetManager, bazelTreeProvider));
         this.controllers.set('debug', new DebugController(context, configurationManager, bazelService, buildController, bazelEnvironment));
-        this.controllers.set('*', new AnyActionController(context, configurationManager, taskService, bazelTargetManager, bazelTreeProvider));
+        this.controllers.set('*', new AnyActionController(context, configurationManager, taskService, bazelService, bazelTargetManager, bazelTreeProvider));
     }
 
     public getController(action: string): BazelTargetController | undefined {

@@ -32,7 +32,6 @@ import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { LaunchConfigService } from '../../services/launch-config-service';
 import { TaskService } from '../../services/task-service';
 import { WorkspaceService } from '../../services/workspace-service';
-import { showProgress } from '../../ui/progress';
 import { clearTerminal } from '../../ui/terminal';
 import * as vscode from 'vscode';
 
@@ -47,12 +46,11 @@ export class DebugController implements BazelTargetController {
         bazelEnvironment: BazelEnvironment
     ) {
         this.debugConfigService = new LaunchConfigService(context,
-            configurationManager,
             bazelService,
             EnvVarsUtils.listToArrayOfObjects(bazelEnvironment.getEnvVars()));
     }
 
-    public async execute(target: BazelTarget): Promise<any> {
+    public async execute(target: BazelTarget): Promise<void> {
         if (!this.configurationManager.shouldRunBinariesDirect()) {
             return this.debugInBazel(target);
         } else {
@@ -61,14 +59,14 @@ export class DebugController implements BazelTargetController {
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {
-        return '';
+        throw Error(`Unsupported operation for debug controller to get execute command for target ${target.detail}`);
     }
 
     private async debugInBazel(target: BazelTarget) {
         this.debugConfigService.createRunUnderLaunchConfig(target).then(debugConf => {
-            this.createLocalDebugScript(target).then(res => {
+            this.createLocalDebugScript(target).then(() => {
             // Sandbox deploy is finished. Try to execute.
-                this.debugWithProgress(target, debugConf);
+                this.debug(target, debugConf);
             }).catch(e => {
                 console.error(e);
             });
@@ -77,31 +75,18 @@ export class DebugController implements BazelTargetController {
 
     private async debugDirect(target: BazelTarget) {
         this.debugConfigService.createDirectLaunchConfig(target).then(debugConf => {
-            this.debugWithProgress(target, debugConf);
+            this.debug(target, debugConf);
         });
     }
 
-    private async debugWithProgress(target: BazelTarget, debugConf: vscode.DebugConfiguration) {
-        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
-
-        // Show a notification that we're debugging.
-        showProgress(`debug ${bazelTarget}`,
-            (cancellationToken) => {
-                return new Promise((resolve, reject) => {
-                    if (this.configurationManager.isBuildBeforeLaunch()) {
-                        this.buildController.execute(target).then(res => {
-                            vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), debugConf);
-                        });
-                    } else {
-                        vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), debugConf);
-                    }
-
-                    cancellationToken.onCancellationRequested(() => {
-                        vscode.commands.executeCommand('workbench.action.debug.stop');
-                        reject(`debug ${bazelTarget} cancelled.`);
-                    });
-                });
+    private async debug(target: BazelTarget, debugConf: vscode.DebugConfiguration) {
+        if (this.configurationManager.isBuildBeforeLaunch()) {
+            this.buildController.execute(target).then(() => {
+                vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), debugConf);
             });
+        } else {
+            vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), debugConf);
+        }
     }
 
     private async createLocalDebugScript(target: BazelTarget):  Promise<void> {
@@ -117,7 +102,7 @@ export class DebugController implements BazelTargetController {
             WorkspaceService.getInstance().getWorkspaceFolder(),
             `debug ${target}`,
             TaskService.generateUniqueTaskSource(this.context),
-            new vscode.ShellExecution(`bash -c "echo '#!/bin/bash\n${envSetupCommand}\n${envVars} ${executable} run --run_under=gdb \\"\\$@\\"\n' > ${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh" && chmod +x ${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh\n`,
+            new vscode.ShellExecution(`bash -c "echo '#!/bin/bash\n${envSetupCommand}\n${envVars} ${executable} \\"\\$@\\"\n' > ${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh" && chmod +x ${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh\n`,
                 { cwd: WorkspaceService.getInstance().getWorkspaceFolder().uri.path })
         );
         // We don't want to see the task's output.
@@ -143,6 +128,6 @@ export class DebugController implements BazelTargetController {
     }
 
     public async pickTarget(target?: BazelTarget) {
-
+        throw Error(`Unsupported operation for debug controller to pick target ${target? target.detail : ''}`);
     }
 }

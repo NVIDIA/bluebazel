@@ -62,7 +62,9 @@ export class BazelTargetMultiProperty {
         public readonly label: string,
         public readonly name: string,
         target: BazelTarget,
-        private readonly toStringFn: (bazelTargetProperty: BazelTargetMultiProperty) => string
+        private readonly toStringFn: (bazelTargetProperty: BazelTargetMultiProperty) => string,
+        private readonly availableValuesFn: () => Promise<string[]> = (): Promise<string[]> => { return Promise.resolve([]); },
+        private readonly showHistory = true,
     ) {
         this.id = `${target.action}${name}For${target.detail}`;
         this.history = new BazelTargetPropertyHistory(context, name, 10);
@@ -103,6 +105,14 @@ export class BazelTargetMultiProperty {
         // Re-create BazelTargetMultiPropertyItem instances, passing 'this' as the reference
         const values = storedValues.map(value => new BazelTargetMultiPropertyItem(value.label, value.id, this));
         return values; // Return the re-instantiated items with references to 'this'
+    }
+
+    public shouldShowHistory(): boolean {
+        return this.showHistory;
+    }
+
+    public getAvailableValues(): Promise<string[]> {
+        return this.availableValuesFn();
     }
 
     public getHistory(): string[] {

@@ -35,12 +35,18 @@ export function registerMultiPropTreeItemCommands(context: vscode.ExtensionConte
 
     context.subscriptions.push(
         vscode.commands.registerCommand(`${extensionName}.addToMultiPropTreeItem`, (property: BazelTargetMultiProperty) => {
-            const data: string[] = property.getHistory();
-            showQuickPick(data, (data: string) => {
-                const values = property.toStringArray();
-                values.push(data);
-                property.add(data);
-                treeDataProvider.refresh();
+
+            property.getAvailableValues().then(values => {
+                if (property.shouldShowHistory()) {
+                    const data: string[] = property.getHistory();
+                    values.unshift(...data);
+                }
+                showQuickPick(values, (data: string) => {
+                    const values = property.toStringArray();
+                    values.push(data);
+                    property.add(data);
+                    treeDataProvider.refresh();
+                });
             });
         }),
         vscode.commands.registerCommand(`${extensionName}.editMultiPropTreeItem`, (item: BazelTargetMultiPropertyItem) => {

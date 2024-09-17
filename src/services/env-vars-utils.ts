@@ -31,7 +31,7 @@ export class EnvVarsUtils {
     public static listToArrayOfObjects(envVars: string[]): Array<{ [key: string]: string }> {
         const vars: Array<{[key: string]: string}> = [];
         const set = envVars;
-        set.forEach((item, index) => {
+        set.forEach((item) => {
             const [key, value] = item.split('=');
             const nameValuePair = {
                 name: key,
@@ -50,7 +50,7 @@ export class EnvVarsUtils {
     public static listToObject(envVars: string[]): {[key: string]: string} {
         const envVariables: { [key: string]: string } = {};
         const set = envVars;
-        set.forEach((item, index) => {
+        set.forEach((item) => {
             const [key, value] = item.split('=');
             envVariables[key] = value;
         });
@@ -67,7 +67,7 @@ export class EnvVarsUtils {
     public static toBuildEnvVars(envVars: string[]): string {
         let vars = '';
         const set = envVars;
-        set.forEach((value, index) => {
+        set.forEach((value) => {
             vars += `--action_env=${value} `;
         });
         return vars;
@@ -82,7 +82,7 @@ export class EnvVarsUtils {
     public static toRunEnvVars(envVars: string[]): string {
         let vars = '';
         const set = envVars;
-        set.forEach((value, index) => {
+        set.forEach((value) => {
             vars += `export ${value} && `;
         });
 
@@ -98,7 +98,7 @@ export class EnvVarsUtils {
     public static toTestEnvVars(envVars: string[]): string {
         let vars = '';
         const set = envVars;
-        set.forEach((value, index) => {
+        set.forEach((value) => {
             vars += `--test_env=${value} `;
         });
         return vars;

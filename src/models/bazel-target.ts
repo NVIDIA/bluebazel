@@ -23,6 +23,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 import { BazelTargetMultiProperty } from './bazel-target-multi-property';
 import { BazelTargetProperty } from './bazel-target-property';
+import { BazelService } from '../services/bazel-service';
 import { v4 as uuidv4 } from 'uuid';
 import * as vscode from 'vscode';
 
@@ -30,6 +31,7 @@ export interface SerializedBazelTarget {
     label: string,
     detail: string,
     action: BazelAction,
+    language: string,
     id: string
 }
 
@@ -39,13 +41,16 @@ export class BazelTarget {
     private bazelArgs: BazelTargetMultiProperty;
     private configArgs: BazelTargetMultiProperty;
     private runArgs: BazelTargetProperty;
+    private language: string;
     public readonly id: string;
 
     constructor(
-        private readonly context: vscode.ExtensionContext,
+        context: vscode.ExtensionContext,
+        private readonly bazelService: BazelService,
         public label: string,
         public detail: string,
         public action: BazelAction,
+        language?: string,
         id?: string
     )
     {
@@ -67,22 +72,30 @@ export class BazelTarget {
             function (bazelTargetProperty: BazelTargetMultiProperty): string {
                 let bazelArgs = '';
                 const args = bazelTargetProperty.toStringArray();
-                args.forEach((value:string, index:number) => {
-                    bazelArgs += `--${value} `;
+                args.forEach((value:string) => {
+                    bazelArgs += `${value} `;
                 });
                 return bazelArgs;
-            });
+            },
+            (): Promise<string[]> => {
+                return this.bazelService.fetchArgsForAction(this.action);
+            },
+            false);
 
         this.configArgs = new BazelTargetMultiProperty(context, 'Config', 'ConfigArgs',
             this,
             function (bazelTargetProperty: BazelTargetMultiProperty): string {
                 let configArgs = '';
                 const args = bazelTargetProperty.toStringArray();
-                args.forEach((value:string, index:number) => {
+                args.forEach((value:string) => {
                     configArgs += `--config=${value} `;
                 });
                 return configArgs;
-            });
+            },
+            (): Promise<string[]> => {
+                return this.bazelService.fetchConfigsForAction(this.action);
+            },
+            false);
 
         this.runArgs = new BazelTargetProperty(context, 'Run args', 'RunArgs',
             this,
@@ -90,6 +103,21 @@ export class BazelTarget {
                 const value = bazelTargetProperty.get();
                 return value;
             });
+
+        if (language !== undefined) {
+            this.language = language;
+        } else {
+            this.language = 'unknown';
+        }
+    }
+
+    public async getLanguage(): Promise<string> {
+        if (this.language === 'unknown') {
+            const language = await this.bazelService.fetchTargetLanguage(this);
+            this.language = language;
+            return Promise.resolve(language);
+        }
+        return this.language;
     }
 
     public getEnvVars(): BazelTargetMultiProperty {
@@ -114,13 +142,14 @@ export class BazelTarget {
             label: this.label,
             detail: this.detail,
             action: this.action,
+            language: this.language,
             id: this.id
         };
     }
 
     // Static method to create a BazelTarget object from serialized data
-    public static fromJSON(context: vscode.ExtensionContext, data: SerializedBazelTarget): BazelTarget {
-        return new BazelTarget(context, data.label, data.detail, data.action, data.id);
+    public static fromJSON(context: vscode.ExtensionContext, bazelService: BazelService, data: SerializedBazelTarget): BazelTarget {
+        return new BazelTarget(context, bazelService, data.label, data.detail, data.action, data.language, data.id);
     }
 }
 

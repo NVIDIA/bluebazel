@@ -40,11 +40,12 @@ export class AnyActionController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
+        private readonly bazelService: BazelService,
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTreeProvider: BazelTargetTreeProvider
     ) { }
 
-    public async execute(target: BazelTarget): Promise<any> {
+    public async execute(target: BazelTarget): Promise<void> {
         const executable = this.configurationManager.getExecutableCommand();
         await this.taskService.runTask(
             `${target.action} ${target.detail}`, // task type
@@ -92,7 +93,7 @@ export class AnyActionController implements BazelTargetController {
         quickPick.items = targetList.map(label => ({
             label: label,
             // Leave out 'detail' key here as it would be redundant to label
-            target: new BazelTarget(this.context, label, label, currentTarget.action)
+            target: new BazelTarget(this.context, this.bazelService, label, label, currentTarget.action)
         } as BazelTargetQuickPickItem));
         if (this.currentTargetPath.trim().length !== 0) {
             quickPick.buttons = [vscode.QuickInputButtons.Back];

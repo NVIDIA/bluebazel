@@ -23,7 +23,6 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 
 import { BazelTargetController } from './bazel-target-controller';
-import { BazelEnvironment } from '../../models/bazel-environment';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BAZEL_BIN, BazelService } from '../../services/bazel-service';
@@ -45,12 +44,12 @@ export class BuildController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
-        private readonly bazelEnvironment: BazelEnvironment,
+        private readonly bazelService: BazelService,
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTreeProvider: BazelTargetTreeProvider,
     ) { }
 
-    public async execute(target: BazelTarget): Promise<any> {
+    public async execute(target: BazelTarget): Promise<void> {
         const actualTarget = this.getActualBuildTarget(target.detail);
         if (!actualTarget) {
             vscode.window.showErrorMessage('Build failed. Could not find run target.');
@@ -93,7 +92,7 @@ export class BuildController implements BazelTargetController {
         let actualTarget = target;
         if (target === BUILD_RUN_TARGET_STR) {
             // Find run target
-            const runTarget = this.bazelEnvironment.getSelectedRunTarget();
+            const runTarget = this.bazelTargetManager.getSelectedTarget('run');
             if (runTarget !== undefined &&
                 typeof runTarget === 'object' &&
                 runTarget !== null &&
@@ -132,7 +131,7 @@ export class BuildController implements BazelTargetController {
         quickPick.items = targetList.map(label => ({
             label: label,
             // Leave out 'detail' key here as it would be redundant to label
-            target: new BazelTarget(this.context, label, label, 'build')
+            target: new BazelTarget(this.context, this.bazelService, label, label, 'build')
         } as BazelTargetQuickPickItem));
         if (this.currentTargetPath.trim().length !== 0) {
             quickPick.buttons = [vscode.QuickInputButtons.Back];

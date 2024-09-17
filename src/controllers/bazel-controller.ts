@@ -22,8 +22,8 @@
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
 
-import { BazelEnvironment } from '../models/bazel-environment';
 import { BazelTarget } from '../models/bazel-target';
+import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
 import { TaskService } from '../services/task-service';
@@ -38,7 +38,7 @@ export class BazelController {
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
         private readonly bazelService: BazelService,
-        private readonly bazelEnvironment: BazelEnvironment
+        private readonly bazelTargetManager: BazelTargetManager
     ) {
         this.isRefreshingRunTargets = false;
     }
@@ -87,7 +87,7 @@ export class BazelController {
         );
     }
 
-    public async refreshRunTargets(): Promise<void> {
+    public async refreshAvailableRunTargets(): Promise<void> {
         if (this.isRefreshingRunTargets) {
             vscode.window.showWarningMessage('Run targets are still being refreshed...');
             return Promise.resolve();
@@ -98,9 +98,9 @@ export class BazelController {
             const runTargets = await this.bazelService.fetchRunTargets();
             const bazelTargets: BazelTarget[] = [];
             runTargets.forEach(item => {
-                bazelTargets.push(new BazelTarget(this.context, item.label, item.detail, 'run'));
+                bazelTargets.push(new BazelTarget(this.context, this.bazelService, item.label, item.detail, 'run'));
             });
-            this.bazelEnvironment.updateRunTargets(bazelTargets);
+            this.bazelTargetManager.updateAvailableRunTargets(bazelTargets);
             this.isRefreshingRunTargets = false;
         }
     }

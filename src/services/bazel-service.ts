@@ -25,7 +25,7 @@
 import { ConfigurationManager } from './configuration-manager';
 import { ShellService } from './shell-service';
 import { WorkspaceService } from './workspace-service';
-import { BazelTarget } from '../models/bazel-target';
+import { BazelAction, BazelTarget } from '../models/bazel-target';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -73,7 +73,7 @@ export class BazelService {
         const configs = target.getConfigArgs();
         const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
 
-        const result = await this.shellService.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, false);
+        const result = await this.shellService.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, false, `Get binary path for ${target.label}`);
         return result.stdout;
     }
 
@@ -85,14 +85,14 @@ export class BazelService {
         return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
     }
 
-    public async fetchRunTargets(): Promise<{label: string, detail: string}[]> {
+    public async fetchRunTargets(): Promise<{ label: string, detail: string }[]> {
         const executable = this.configurationManager.getExecutableCommand();
         const cmd = this.configurationManager.getGenerateRunTargetsCommand();
 
-        const data = await this.shellService.runShellCommand(`${executable} ${cmd}`, false);
+        const data = await this.shellService.runShellCommand(`${executable} ${cmd}`, false, 'Refreshing available run targets');
         const allOutputs = data.stdout.split('\n');
 
-        const targets: {label: string, detail: string}[] = allOutputs
+        const targets: { label: string, detail: string }[] = allOutputs
             .filter(element => element.length >= 2 && element.startsWith('//'))
             .map(element => {
                 const [targetPath, targetName] = element.split(':');
@@ -102,30 +102,46 @@ export class BazelService {
                         detail: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
                     };
                 }
-                return {label: '', detail: ''};
+                return { label: '', detail: '' };
             })
             .filter(target => target.label !== '');
 
         // Sort the targets alphabetically
-        targets.sort((a: {label: string, detail: string}, b: {label: string, detail: string}) => { return a.label < b.label ? -1 : 1; });
+        targets.sort((a: { label: string, detail: string }, b: { label: string, detail: string }) => { return a.label < b.label ? -1 : 1; });
         return targets;
     }
 
-    public async fetchConfigsForAction(action: 'build' | 'run' | 'test' | 'query'): Promise<string[]> {
+    private async fetchAutocompleteForAction(action: BazelAction, expandType: 'args' | 'config'): Promise<string[]> {
         // Check if bazel-complete.bash exists
         const bash_complete_script = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, '3rdparty', 'bazel', 'bazel', 'bazel-complete.bash');
         const does_path_exist = fs.existsSync(bash_complete_script);
         if (!does_path_exist) {
-            console.warn(`Cannot find ${bash_complete_script} to receive available configurations.`);
+            console.warn(`Cannot find ${bash_complete_script} to receive available ${expandType}.`);
             return [];
         }
-        else {
-            // Get configs from bazel commands on shell for both run and build.
-            // Combine them, convert to set to remove duplicates and back to list.
-            const configs = await this.shellService.runShellCommand(`bash -c 'source ${bash_complete_script} && echo $(_bazel__expand_config . ${action})'`, false).then(data => { return data.stdout.split(' '); });
-            const config_set = new Set(configs);
-            return Array.from(config_set.values());
-        }
+
+        // Determine the command to fetch either args or configs based on expandType
+        const expandCommand = expandType === 'args'
+            ? `_bazel__options_for ${action}`
+            : `_bazel__expand_config . ${action}`;
+
+        // Run the command and fetch the data
+        const result = await this.shellService.runShellCommand(
+            `bash -c 'source ${bash_complete_script} && echo $(${expandCommand})'`,
+            false
+        ).then(data => data.stdout.split(' '));
+
+        // Convert the result to a set to remove duplicates and back to a list
+        const result_set = new Set(result);
+        return Array.from(result_set.values());
+    }
+
+    public async fetchArgsForAction(action: BazelAction): Promise<string[]> {
+        return this.fetchAutocompleteForAction(action, 'args');
+    }
+
+    public async fetchConfigsForAction(action: BazelAction): Promise<string[]> {
+        return this.fetchAutocompleteForAction(action, 'config');
     }
 
     /**
@@ -178,5 +194,34 @@ export class BazelService {
         return targets;
     }
 
+    /**
+     * Gets the programming language of the Bazel target based on its rule type.
+     * @param target The Bazel target to analyze.
+     * @returns A promise that resolves to the programming language string (e.g., 'python', 'go', 'cpp').
+     */
+    public async fetchTargetLanguage(target: BazelTarget): Promise<string> {
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const executable = this.configurationManager.getExecutableCommand();
+
+        // Run the Bazel query command using shellService
+        const result = await this.shellService.runShellCommand(`${executable} query --output=label_kind ${bazelTarget}`, false, `Get language for ${target.label}`);
+
+        const ruleType = result.stdout.toLowerCase();
+
+        // Infer the programming language from the rule type
+        if (ruleType.includes('go_')) {
+            return Promise.resolve('go');
+        } else if (ruleType.includes('py_')) {
+            return Promise.resolve('python');
+        } else if (ruleType.includes('cc_') || ruleType.includes('cpp_')) {
+            return Promise.resolve('cpp');
+        } else if (ruleType.includes('java_')) {
+            return Promise.resolve('java');
+        } else if (ruleType.includes('js_')) {
+            return Promise.resolve('javascript');
+        } else {
+            return Promise.resolve('unknown');  // If no rule type matches
+        }
+    }
 
 }

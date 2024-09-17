@@ -19,7 +19,7 @@
     "main": "./out/extension.js",
     "contributes": {
         "views": {
-            "bluebazelContainer": [
+            "explorer": [
                 {
                     "id": "bluebazelView",
                     "name": "Blue Bazel",

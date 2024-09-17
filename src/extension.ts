@@ -60,6 +60,7 @@ let outputChannel: vscode.OutputChannel;
 // Controllers
 let bazelController: BazelController;
 let userCommandsController: UserCommandsController;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let workspaceEventsController: WorkspaceEventsController;
 let bazelTargetControllerManager: BazelTargetControllerManager;
 
@@ -79,8 +80,7 @@ function makeExtensionVisible(context: vscode.ExtensionContext) {
 
 function attachTreeDataProviderToView(context: vscode.ExtensionContext,
     treeDataProvider: BazelTargetTreeProvider) {
-    /* const extensionName = ExtensionUtils.getExtensionName(context);
-    vscode.window.registerTreeDataProvider(`${extensionName}View`, treeDataProvider); */
+
     const extensionName = ExtensionUtils.getExtensionName(context);
 
     // Create the TreeView and register the data provider
@@ -129,7 +129,6 @@ async function initExtension(context: vscode.ExtensionContext) {
 
     // The launch config service interacts with the vscode launch configs.
     launchConfigService = new LaunchConfigService(context,
-        configurationManager,
         bazelService,  EnvVarsUtils.listToArrayOfObjects(bazelEnvironment.getEnvVars()));
 
     /******
@@ -144,7 +143,7 @@ async function initExtension(context: vscode.ExtensionContext) {
     // This manager holds all the bazel targets for the project.
     // These items will appear in the tree view and each target
     // has associated details about it including its action and label.
-    bazelTargetManager = new BazelTargetManager(context);
+    bazelTargetManager = new BazelTargetManager(context, bazelService);
 
     /******
      * UI
@@ -156,10 +155,10 @@ async function initExtension(context: vscode.ExtensionContext) {
      * CONTROLLERS
      ******/
     // The bazel controller runs general extension tasks, such as formatting, cleaning, refreshing run targets, etc.
-    bazelController = new BazelController(context, configurationManager, taskService, bazelService, bazelEnvironment);
+    bazelController = new BazelController(context, configurationManager, taskService, bazelService, bazelTargetManager);
 
     // The user commands controller runs user dynamic tasks added through configuration settings.
-    userCommandsController = new UserCommandsController(configurationManager, shellService, taskService, bazelEnvironment);
+    userCommandsController = new UserCommandsController(configurationManager, shellService, taskService, bazelTargetManager);
 
     // The workspace events controller monitors for workspace events and triggers appropriate logic
     // when those events fire.
@@ -182,6 +181,7 @@ async function initExtension(context: vscode.ExtensionContext) {
      ******/
     registerCommands(context,
         configurationManager,
+        bazelService,
         userCommandsController,
         bazelController,
         bazelTargetControllerManager,

@@ -54,7 +54,7 @@ export class RunController implements BazelTargetController {
         private readonly bazelTreeProvider: BazelTargetTreeProvider
     ) { }
 
-    public async execute(target: BazelTarget): Promise<any> {
+    public async execute(target: BazelTarget): Promise<void> {
         if (!this.configurationManager.shouldRunBinariesDirect()) {
             return this.runInBazel(target);
         } else {
@@ -84,10 +84,10 @@ export class RunController implements BazelTargetController {
     }
 
     public async getRunTargets(): Promise<BazelTargetQuickPickItem[]> {
-        let runTargets = this.bazelEnvironment.getRunTargets();
+        let runTargets = this.bazelTargetManager.getAvailableRunTargets();
         if (runTargets.length == 0) {
-            await this.bazelController.refreshRunTargets();
-            runTargets = this.bazelEnvironment.getRunTargets();
+            await this.bazelController.refreshAvailableRunTargets();
+            runTargets = this.bazelTargetManager.getAvailableRunTargets();
         }
 
         const items: BazelTargetQuickPickItem[] = [];
@@ -166,7 +166,6 @@ export class RunController implements BazelTargetController {
             .then(data => vscode.window.showQuickPick(data))
             .then(res => {
                 if (res !== undefined && res.detail !== undefined) {
-                    // this.bazelEnvironment.updateSelectedRunTarget(res.target);
                     this.launchConfigService.refreshLaunchConfigs(res.target);
                     if (target !== undefined && target.detail !== '') {
                         this.bazelTargetManager.updateTarget(res.target, target);

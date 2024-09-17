@@ -24,7 +24,6 @@
 
 import { BazelTargetController } from './bazel-target-controller';
 import { RunController } from './run-controller';
-import { BazelEnvironment } from '../../models/bazel-environment';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BazelService } from '../../services/bazel-service';
@@ -43,8 +42,8 @@ export class TestController implements BazelTargetController {
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
         private readonly shellService: ShellService,
+        private readonly bazelService: BazelService,
         private readonly runController: RunController,
-        private readonly bazelEnvironment: BazelEnvironment,
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTreeProvider: BazelTargetTreeProvider
     ) { }
@@ -100,7 +99,7 @@ export class TestController implements BazelTargetController {
                 const testTargetNames = value.stdout.split('\n');
                 const testTargets = testTargetNames.map(item => {
                     const label = `${test}:${item.split(':').slice(-1)[0]}`;
-                    const t = new BazelTarget(this.context, label, item, target.action);
+                    const t = new BazelTarget(this.context, this.bazelService, label, item, target.action);
                     return {
                         label: t.label,
                         detail: t.detail,
@@ -110,7 +109,7 @@ export class TestController implements BazelTargetController {
                 // Create the special all inclusive target ...
                 const allTestsInPath = `${path}/...`;
                 const label = `${path.split('/').slice(-1)[0]}/...`;
-                const t = new BazelTarget(this.context, label, allTestsInPath, target.action);
+                const t = new BazelTarget(this.context, this.bazelService, label, allTestsInPath, target.action);
                 testTargets.unshift({
                     label: t.label,
                     detail: t.detail,
@@ -134,7 +133,6 @@ export class TestController implements BazelTargetController {
                     const testTargets = this.getTestTargets(testTarget);
                     testTargets.then(data => vscode.window.showQuickPick(data)).then(pickedItem => {
                         if (pickedItem !== undefined && pickedItem.detail !== undefined) {
-                            this.bazelEnvironment.updateSelectedTestTarget(pickedItem.target);
                             console.log(pickedItem.target);
                             if (target !== undefined && target.detail !== '') {
                                 this.bazelTargetManager.updateTarget(pickedItem.target, target);

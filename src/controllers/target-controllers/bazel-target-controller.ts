@@ -25,7 +25,7 @@
 import { BazelTarget } from '../../models/bazel-target';
 
 export interface BazelTargetController {
-    execute(target: BazelTarget): Promise<any>;
+    execute(target: BazelTarget): Promise<void>;
     getExecuteCommand(target: BazelTarget): Promise<string | undefined>;
     pickTarget(currentTarget?: BazelTarget): Promise<void>;
 }

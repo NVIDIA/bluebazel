@@ -21,7 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 /////////////////////////////////////////////////////////////////////////////////////////
-import { BazelEnvironment } from '../models/bazel-environment';
+import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
 import { ShellService } from '../services/shell-service';
@@ -62,7 +62,7 @@ export class UserCommandsController {
         private readonly configurationManager: ConfigurationManager,
         private readonly shellService: ShellService, // Inject the services
         private readonly taskService: TaskService,
-        private readonly bazelEnvironment: BazelEnvironment
+        private readonly bazelTargetManager: BazelTargetManager
     ) { }
 
     public async runCustomTask(command: string): Promise<void> {
@@ -79,9 +79,9 @@ export class UserCommandsController {
         return result;
     }
     private resolveKeyword(keyword: string): string {
-        const buildTarget = this.bazelEnvironment.getSelectedBuildTarget();
-        const runTarget = this.bazelEnvironment.getSelectedRunTarget();
-        const testTarget = this.bazelEnvironment.getSelectedTestTarget();
+        const buildTarget = this.bazelTargetManager.getSelectedTarget('build');
+        const runTarget = this.bazelTargetManager.getSelectedTarget('run');
+        const testTarget = this.bazelTargetManager.getSelectedTarget('test');
 
 
         const keywordMap: Map<string, () => string> = new Map([
