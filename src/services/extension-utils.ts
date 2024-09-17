@@ -43,4 +43,8 @@ export class ExtensionUtils {
     public static getPublisherName(context: vscode.ExtensionContext): string {
         return context.extension.packageJSON.publisher;
     }
+
+    public static getExtensionVersion(context: vscode.ExtensionContext): string {
+        return context.extension.packageJSON.version;
+    }
 }

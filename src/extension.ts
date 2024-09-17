@@ -95,13 +95,13 @@ function attachTreeDataProviderToView(context: vscode.ExtensionContext,
     context.subscriptions.push(treeView);
 }
 
-function initExtension(context: vscode.ExtensionContext) {
+async function initExtension(context: vscode.ExtensionContext) {
     // The configuration manager holds the settings for the extension.
     configurationManager = new ConfigurationManager(context);
 
     // The bazel environment is the model for environment variables as well as
     // other extension specific model information (run targets, setup environment variables, etc.).
-    bazelEnvironment = new BazelEnvironment(context, configurationManager);
+    bazelEnvironment = await BazelEnvironment.create(context, configurationManager);
 
     // Create an output channel specific to the extension.
     outputChannel = vscode.window.createOutputChannel(ExtensionUtils.getExtensionDisplayName(context));
@@ -192,6 +192,7 @@ function initExtension(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-    initExtension(context);
-    makeExtensionVisible(context);
+    initExtension(context).then(() => {
+        makeExtensionVisible(context);
+    });
 }

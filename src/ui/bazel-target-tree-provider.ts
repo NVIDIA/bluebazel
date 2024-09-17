@@ -231,7 +231,9 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         const collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
         const item = new vscode.TreeItem(category.title, collapsibleState);
         item.contextValue = 'customCategory';
-        item.iconPath = new vscode.ThemeIcon(category.icon);
+        if (category.icon !== undefined && category.icon.length > 0) {
+            item.iconPath = new vscode.ThemeIcon(category.icon);
+        }
         return item;
     }
 

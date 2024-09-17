@@ -99,8 +99,6 @@ export class RunController implements BazelTargetController {
 
     private async runDirect(target: BazelTarget) {
         if (this.configurationManager.isBuildBeforeLaunch()) {
-            // TODO (jabbott): This won't likely work because it was different before when there was
-            // only one run target.
             await this.buildController.execute(target);
         }
 

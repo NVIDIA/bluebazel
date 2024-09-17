@@ -102,6 +102,8 @@ export class BuildController implements BazelTargetController {
             } else {
                 return undefined;
             }
+        } else {
+            actualTarget = path.relative(BAZEL_BIN, target);
         }
         return actualTarget;
     }

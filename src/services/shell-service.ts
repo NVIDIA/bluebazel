@@ -58,6 +58,7 @@ export class ShellService {
     }
 
     public async runShellCommand(cmd: string, showOutput: boolean): Promise<{ stdout: string }> {
+        console.log(this.setupEnvVars);
         return ShellService.run(cmd, this.workspaceFolder.uri.path, this.setupEnvVars, showOutput, this.outputChannel);
     }
 }

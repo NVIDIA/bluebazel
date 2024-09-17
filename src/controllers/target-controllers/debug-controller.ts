@@ -67,7 +67,7 @@ export class DebugController implements BazelTargetController {
     private async debugInBazel(target: BazelTarget) {
         this.debugConfigService.createRunUnderLaunchConfig(target).then(debugConf => {
             this.createLocalDebugScript(target).then(res => {
-                // Sandbox deploy is finished. Try to execute.
+            // Sandbox deploy is finished. Try to execute.
                 this.debugWithProgress(target, debugConf);
             }).catch(e => {
                 console.error(e);

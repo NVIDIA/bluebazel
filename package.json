@@ -2,7 +2,7 @@
     "name": "bluebazel",
     "displayName": "Blue Bazel",
     "description": "Bazel vscode UI integration to build, debug, and test targets",
-    "version": "0.0.6",
+    "version": "1.0.0",
     "engines": {
         "vscode": "^1.92.0"
     },
@@ -120,6 +120,11 @@
                 "icon": "$(run)"
             },
             {
+                "command": "bluebazel.addActionAndTarget",
+                "title": "Add Target",
+                "icon": "$(add)"
+            },
+            {
                 "command": "bluebazel.addTarget",
                 "title": "Add Target",
                 "icon": "$(add)"
@@ -138,7 +143,7 @@
                     "when": "view == bluebazelView"
                 },
                 {
-                    "command": "bluebazel.addTarget",
+                    "command": "bluebazel.addActionAndTarget",
                     "group": "navigation@3",
                     "when": "view == bluebazelView"
                 }

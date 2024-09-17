@@ -95,16 +95,13 @@ export class BazelController {
         else {
 
             this.isRefreshingRunTargets = true;
-            this.bazelService.fetchRunTargets().then(
-                (data) => {
-                    const bazelTargets: BazelTarget[] = [];
-                    data.forEach(item => {
-                        bazelTargets.push(new BazelTarget(this.context, item.label, item.detail, 'run'));
-                    });
-                    this.bazelEnvironment.updateRunTargets(bazelTargets);
-                    this.isRefreshingRunTargets = false;
-                }
-            );
+            const runTargets = await this.bazelService.fetchRunTargets();
+            const bazelTargets: BazelTarget[] = [];
+            runTargets.forEach(item => {
+                bazelTargets.push(new BazelTarget(this.context, item.label, item.detail, 'run'));
+            });
+            this.bazelEnvironment.updateRunTargets(bazelTargets);
+            this.isRefreshingRunTargets = false;
         }
     }
 

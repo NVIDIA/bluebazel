@@ -35,6 +35,7 @@ export class BazelTargetManager {
     }
 
     private loadTargets() {
+        // Retrieve stored targets from workspaceState
         const storedTargets = this.context.workspaceState.get<{ [key: string]: { label: string, detail: string, action: BazelAction, id: string }[] }>('bazelTargets', {});
 
         const deserializedTargets = new Map<BazelAction, BazelTarget[]>();
@@ -44,23 +45,7 @@ export class BazelTargetManager {
             deserializedTargets.set(action as BazelAction, targets.map(t => BazelTarget.fromJSON(this.context, t)));
         });
 
-        // Define some mock Bazel targets
-        const mockTargets: { [key: string]: BazelTarget[] } = {
-            build: [
-                new BazelTarget(this.context, '//...', '//...', 'build', '1'),
-                new BazelTarget(this.context, '//src/bar:dude', '//src/bar:dude', 'build', '2'),
-            ],
-            test: [
-                new BazelTarget(this.context, '//tests/this:...', '//tests/this:...', 'test', '3'),
-                new BazelTarget(this.context, '//tests/other:one', '//tests/other:one', 'test', '4'),
-            ],
-            run: [
-                new BazelTarget(this.context, '//tools/this:app', '//tools/this:app', 'run', '5'),
-                new BazelTarget(this.context, '//samples/other:one', '//samples/other:one', 'run', '6'),
-            ]
-        };
-
-        this.targets = new Map(Object.entries(mockTargets));
+        this.targets = deserializedTargets;
     }
 
     public addTarget(target: BazelTarget) {
@@ -126,6 +111,15 @@ export class BazelTargetManager {
     }
 
     private saveTargets() {
-        this.context.workspaceState.update('bazelTargets', this.targets);
+        // Serialize the map to an object before saving
+        const serializedTargets: { [key: string]: { label: string, detail: string, action: BazelAction, id: string }[] } = {};
+
+        this.targets.forEach((targets, action) => {
+            serializedTargets[action] = targets.map(target => target.toJSON());
+        });
+
+        console.log('Saving targets:', serializedTargets);
+
+        this.context.workspaceState.update('bazelTargets', serializedTargets);
     }
 }

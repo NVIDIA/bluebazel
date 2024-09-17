@@ -48,18 +48,22 @@ export class LaunchConfigService {
 
         // Program (executable) path with respect to workspace.
         const programPath = path.join(workingDirectory, targetPath);
+        const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
+        const setupEnvVars = this.setupEnvVars;
+        const bazelDebugProgram = `${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh`;
         // This is a hacky approach to force debug in a container.
         const debugConf: vscode.DebugConfiguration = {
             name: `${bazelTarget}`,
             type: 'cppdbg',
             request: 'launch',
-            program: bazelTarget, // This is not used.
-            args: args.split(/\s/), // Not used.
+            program: '/bin/bash',
+            args: ['-c', `${bazelDebugProgram} run --run_under=gdb`, bazelArgs, configArgs, bazelTarget],
             stopAtEntry: false,
             cwd: WorkspaceService.getInstance().getWorkspaceFolder().uri.path,
             sourceFileMap: {
                 '/proc/self/cwd': WorkspaceService.getInstance().getWorkspaceFolder().uri.path, // This is important for breakpoints,
             },
+            environment: [...setupEnvVars, ...envVars],
             externalConsole: false,
             targetArchitecture: 'x64', // Might we useful to change it based on target.
             // We need this to find the symbols inside bazel with respect to gdb's
@@ -78,13 +82,6 @@ export class LaunchConfigService {
                     ignoreFailures: true
                 }
             ],
-            pipeTransport: {
-                'pipeCwd': WorkspaceService.getInstance().getWorkspaceFolder().uri.path,
-                'pipeProgram': `${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh`,
-                'pipeArgs': [`${bazelArgs} ${configArgs} ${bazelTarget} -- \\$@`],
-                'debuggerPath': '.',
-                'quoteArgs': false,
-            },
             // Couldn't find a way to get the bazel output.
             logging: {
                 programOutput: true
