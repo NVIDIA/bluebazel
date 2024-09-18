@@ -1,4 +1,3 @@
-import { ConfigurationManager } from './configuration-manager';
 import { ExtensionUtils } from './extension-utils';
 import { ShellService } from './shell-service';
 import { WorkspaceService } from './workspace-service';

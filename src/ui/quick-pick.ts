@@ -23,6 +23,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////
 import * as vscode from 'vscode';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function showQuickPick(quickPickData: string[], onChange: (data: any)=>void) {
     const quickItems: vscode.QuickPickItem[] = [{ label: '' }];
     quickPickData.forEach(arg => { if (arg !== undefined && arg.trim().length > 0) { quickItems.push({ label: arg }); } });

@@ -111,12 +111,37 @@ export class BazelService {
         return targets;
     }
 
+    private async findBashCompleteScript(startDir: string): Promise<string | undefined> {
+        const possibleFiles = ['bash-complete.*sh', 'bazel-complete.*sh'];
+
+        for (let i = 0; i < possibleFiles.length; ++i) {
+            const file = possibleFiles[i];
+
+            // Run the find command for each file
+            const result = await this.shellService.runShellCommand(
+                `find ${startDir} -name "${file}"`,
+                false,
+                'Find bash complete script'
+            );
+
+            // If find returns a result, return the path
+            if (result.stdout) {
+                const foundFile = result.stdout.trim();
+                if (foundFile) {
+                    return foundFile;  // Return the found file path
+                }
+            }
+        }
+        return undefined;
+    }
+
     private async fetchAutocompleteForAction(action: BazelAction, expandType: 'args' | 'config'): Promise<string[]> {
-        // Check if bazel-complete.bash exists
-        const bash_complete_script = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, '3rdparty', 'bazel', 'bazel', 'bazel-complete.bash');
-        const does_path_exist = fs.existsSync(bash_complete_script);
-        if (!does_path_exist) {
-            console.warn(`Cannot find ${bash_complete_script} to receive available ${expandType}.`);
+        // Start searching for the script from the workspace folder
+        const workspacePath = WorkspaceService.getInstance().getWorkspaceFolder().uri.path;
+        const bashCompleteScript = await this.findBashCompleteScript(workspacePath);
+
+        if (!bashCompleteScript) {
+            console.warn(`Cannot find bash-complete.bash or bazel-complete.bash to receive available ${expandType}.`);
             return [];
         }
 
@@ -127,7 +152,7 @@ export class BazelService {
 
         // Run the command and fetch the data
         const result = await this.shellService.runShellCommand(
-            `bash -c 'source ${bash_complete_script} && echo $(${expandCommand})'`,
+            `bash -c 'source ${bashCompleteScript} && echo $(${expandCommand})'`,
             false
         ).then(data => data.stdout.split(' '));
 

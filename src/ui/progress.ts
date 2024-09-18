@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function showProgress(title: string, longMethod: (token: vscode.CancellationToken) => Promise<any>): Promise<any> {
 
     return new Promise<string>((resolve, reject) => {

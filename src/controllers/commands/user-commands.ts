@@ -41,7 +41,7 @@ export function registerUserCommands(context: vscode.ExtensionContext,
         if (buttons !== undefined) {
             buttons.forEach(button => {
                 const disposableCommand = vscode.commands.registerCommand(button.methodName, async (command: string) => {
-                    await userCommandsController.runCustomTask(button.command);
+                    await userCommandsController.runCustomTask(command);
                 });
                 context.subscriptions.push(disposableCommand);
             });
