@@ -1,4 +1,4 @@
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
 // Copyright (c) 2021-2024 NVIDIA Corporation
@@ -20,7 +20,7 @@
 // LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
-/////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 
 import { BazelService } from './bazel-service';
 import { EnvVarsUtils } from './env-vars-utils';
@@ -130,17 +130,19 @@ export class LaunchConfigService {
 
     // Python Run Under Bazel configuration
     private async createPythonRunUnderLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
-        const workingDirectory = '${workspaceFolder}';
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const bazelArgs = target.getBazelArgs().toString();
+        const configArgs = target.getConfigArgs().toString();
+        const workingDirectory = '${workspaceFolder}';
         const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
-        const args = target.getRunArgs().toString();  // Extract arguments for the Python program
+        const runArgs = target.getRunArgs().toString();
 
         return {
             name: `${bazelTarget} (Run Under)`,
             type: 'python',  // Use 'python' for Python debugging
             request: 'launch',
             program: '/bin/bash',  // Run through the shell script like bazel_debug.sh
-            args: ['-c', `./.vscode/bazel_debug.sh run ${bazelTarget} ${args}`],  // Pass Bazel target and args to the shell script
+            args: ['-c', `./.vscode/bazel_debug.sh run ${bazelArgs} ${configArgs} ${bazelTarget} ${runArgs}`],  // Pass Bazel target and args to the shell script
             stopOnEntry: false,
             cwd: workingDirectory,
             env: [...this.setupEnvVars, ...envVars],
@@ -202,137 +204,7 @@ export class LaunchConfigService {
             ]
         };
     }
-    // public async createRunUnderLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
-    //     const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
-    //     const args = target.getRunArgs().toString();
-    //     const bazelArgs = target.getBazelArgs().toString();
-    //     const configArgs = target.getConfigArgs().toString();
-    //     const workingDirectory = '${workspaceFolder}';
-    //     const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
 
-    //     // Program (executable) path with respect to workspace.
-    //     const programPath = path.join(workingDirectory, targetPath);
-    //     const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
-    //     const setupEnvVars = this.setupEnvVars;
-    //     const bazelDebugProgram = `${'${workspaceFolder}'}/.vscode/bazel_debug.sh`;
-    //     // This is a hacky approach to force debug in a container.
-    //     const debugConf: vscode.DebugConfiguration = {
-    //         name: `${bazelTarget}`,
-    //         type: 'cppdbg',
-    //         request: 'launch',
-    //         program: '/bin/bash',
-    //         args: ['-c', `${bazelDebugProgram} run --run_under=gdb`, bazelArgs, configArgs, bazelTarget],
-    //         stopAtEntry: false,
-    //         cwd: '${workspaceFolder}',
-    //         sourceFileMap: {
-    //             '/proc/self/cwd': '${workspaceFolder}', // This is important for breakpoints,
-    //         },
-    //         environment: [...setupEnvVars, ...envVars],
-    //         externalConsole: false,
-    //         targetArchitecture: 'x64', // Might we useful to change it based on target.
-    //         // We need this to find the symbols inside bazel with respect to gdb's
-    //         // starting point.
-    //         customLaunchSetupCommands: [
-    //             {
-    //                 'description': '',
-    //                 'text': `-file-exec-and-symbols ${programPath}`,
-    //                 'ignoreFailures': false
-    //             }
-    //         ],
-    //         setupCommands: [
-    //             {
-    //                 description: 'Enable pretty-printing for gdb',
-    //                 text: '-enable-pretty-printing',
-    //                 ignoreFailures: true
-    //             }
-    //         ],
-    //         // Couldn't find a way to get the bazel output.
-    //         logging: {
-    //             programOutput: true
-    //         },
-    //         internalConsoleOptions: 'openOnSessionStart'
-    //     };
-    //     if (this.configurationManager.isDebugEngineLogging()) {
-    //         debugConf.logging.engineLogging = true;
-    //     }
-
-    //     // Debugger does not accept an empty list as arguments
-    //     if (args.length > 0) {
-    //         debugConf.customLaunchSetupCommands.push(
-    //             {
-    //                 'text': `set args ${args}`,
-    //                 'ignoreFailures': false
-    //             });
-    //     }
-    //     return debugConf;
-    // }
-
-    // public async createDirectLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
-    //     const workingDirectory = '${workspaceFolder}';
-    //     // Sandbox deploy is finished. Try to execute.
-    //     const args = target.getRunArgs().toString();
-
-    //     const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
-    //     // Program (executable) path with respect to workspace.
-    //     const programPath = path.join(workingDirectory, targetPath);
-
-    //     const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
-    //     const setupEnvVars = this.setupEnvVars;
-    //     // Debug configuration.
-    //     const debugConf: vscode.DebugConfiguration = {
-    //         name: programPath,
-    //         type: 'cppdbg',
-    //         request: 'launch',
-    //         program: programPath,
-    //         stopAtEntry: false,
-    //         cwd: '${workspaceFolder}',
-    //         environment: [...setupEnvVars, ...envVars],
-    //         externalConsole: false,
-    //         MIMode: 'gdb',
-    //         setupCommands: [
-    //             {
-    //                 description: 'Enable pretty-printing for gdb',
-    //                 text: '-enable-pretty-printing',
-    //                 ignoreFailures: true
-    //             }
-    //         ]
-    //     };
-
-    //     // Debugger does not accept an empty list as arguments
-    //     if (args.length > 0) {
-    //         debugConf.args = args.split(' ');
-    //     }
-
-    //     return debugConf;
-    // }
-
-    /* public refreshLaunchConfigs(target: BazelTarget) {
-        if (target === undefined)
-        {
-            return;
-        }
-
-        this.createRunUnderLaunchConfig(target).then(runUnder => {
-            this.createDirectLaunchConfig(target).then(direct => {
-                const configs = [
-                    runUnder, direct
-                ];
-                const oldConfigs = vscode.workspace
-                    .getConfiguration('launch').get<vscode.DebugConfiguration[]>('configurations');
-
-                if (oldConfigs) {
-                    for (const c of oldConfigs) {
-                        if (c.name !== runUnder.name &&
-                            c.name !== direct.name) {
-                            configs.push(c);
-                        }
-                    }
-                }
-                vscode.workspace
-                    .getConfiguration('launch').update('configurations', configs, vscode.ConfigurationTarget.Workspace);
-            });
-        });
-    } */
     public refreshLaunchConfigs(target: BazelTarget) {
         if (!target) return;
 

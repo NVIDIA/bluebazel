@@ -139,12 +139,27 @@
             "view/title": [
                 {
                     "command": "bluebazel.collapseAll",
-                    "group": "navigation@4",
+                    "group": "navigation@99",
                     "when": "view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.addActionAndTarget",
+                    "group": "navigation@4",
+                    "when": "view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.format",
                     "group": "navigation@3",
+                    "when": "view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.clean",
+                    "group": "navigation@2",
+                    "when": "view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.refreshRunTargets",
+                    "group": "navigation@1",
                     "when": "view == bluebazelView"
                 }
             ],
