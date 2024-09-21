@@ -22,6 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 
+import { Console } from '../services/console';
 import { ExtensionUtils } from '../services/extension-utils';
 import * as vscode from 'vscode';
 
@@ -43,7 +44,7 @@ export class WorkspaceStateManager {
         for (const key of keys) {
             this.context.workspaceState.update(key, undefined);
         }
-        console.info('Workspace state has been cleared due to version bump.');
+        Console.info('Workspace state has been cleared due to version bump.');
     }
 
     public update<T>(key: string, value: T) {

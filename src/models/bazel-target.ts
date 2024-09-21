@@ -78,8 +78,8 @@ export class BazelTarget {
                 });
                 return bazelArgs;
             },
-            (): Promise<string[]> => {
-                return this.bazelService.fetchArgsForAction(this.action);
+            (cancellationToken): Promise<string[]> => {
+                return this.bazelService.fetchArgsForAction(this.action, cancellationToken);
             },
             false);
 
@@ -93,8 +93,8 @@ export class BazelTarget {
                 });
                 return configArgs;
             },
-            (): Promise<string[]> => {
-                return this.bazelService.fetchConfigsForAction(this.action);
+            (cancellationToken): Promise<string[]> => {
+                return this.bazelService.fetchConfigsForAction(this.action, cancellationToken);
             },
             false);
 
@@ -127,9 +127,9 @@ export class BazelTarget {
         return newTarget;
     }
 
-    public async getLanguage(): Promise<string> {
+    public async getLanguage(cancellationToken?: vscode.CancellationToken): Promise<string> {
         if (this.language === 'unknown') {
-            const language = await this.bazelService.fetchTargetLanguage(this);
+            const language = await this.bazelService.fetchTargetLanguage(this, cancellationToken);
             this.language = language;
             return Promise.resolve(language);
         }
@@ -166,6 +166,16 @@ export class BazelTarget {
     // Static method to create a BazelTarget object from serialized data
     public static fromJSON(context: vscode.ExtensionContext, bazelService: BazelService, data: SerializedBazelTarget): BazelTarget {
         return new BazelTarget(context, bazelService, data.label, data.detail, data.action, data.language, data.id);
+    }
+
+    public isEqualTo(otherTarget: BazelTarget): boolean {
+        return (
+            this.label === otherTarget.label &&
+            this.detail === otherTarget.detail &&
+            this.action === otherTarget.action &&
+            this.language === otherTarget.language &&
+            this.id === otherTarget.id
+        );
     }
 }
 

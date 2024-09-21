@@ -24,31 +24,81 @@
 
 import * as vscode from 'vscode';
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function showQuickPick(quickPickData: string[], onChange: (data: any)=>void) {
-    const quickItems: vscode.QuickPickItem[] = [{ label: '' }];
-    quickPickData.forEach(arg => { if (arg !== undefined && arg.trim().length > 0) { quickItems.push({ label: arg }); } });
 
+// Overload signatures
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function showSimpleQuickPick(quickPickData: string[], onChange: (data: any) => void): void;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function showSimpleQuickPick(loadQuickPickData: (cancellationToken: vscode.CancellationToken) => Promise<string[]>, onChange: (data: any) => void, loadingLabel: string): void;
+
+// Actual implementation
+export function showSimpleQuickPick(
+    quickPickDataOrLoader: string[] | ((cancellationToken: vscode.CancellationToken) => Promise<string[]>),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onChange: (data: any) => void,
+    loadingLabel = 'Loading...'
+): void {
+    // Create the QuickPick with a loading message
     const quickPick = vscode.window.createQuickPick();
-    quickPick.items = quickItems;
-    // Don't hide until a selection is made
+    const cancellationTokenSource = new vscode.CancellationTokenSource();
+    quickPick.placeholder = loadingLabel;
+    quickPick.items = [{ label: `$(sync~spin) ${loadingLabel}` }];
     quickPick.ignoreFocusOut = true;
 
-    quickPick.onDidChangeValue(value => {
-        quickItems[0].label = value;
-        quickPick.items = quickItems;
-    });
+    // Show the QuickPick immediately
+    quickPick.show();
 
-    quickPick.onDidChangeSelection(items => {
-        const item = items[0];
-        quickPick.value = item.label;
-        quickPick.hide();
-        vscode.window.showInputBox({ value: item.label }).then(data => {
-            if (data !== undefined) {
-                onChange(data);
+    // Determine if quickPickDataOrLoader is an array or a function returning a Promise
+    let loadQuickPickData: Promise<string[]>;
+    if (Array.isArray(quickPickDataOrLoader)) {
+        // If it's an array, wrap it in a resolved promise
+        loadQuickPickData = Promise.resolve(quickPickDataOrLoader);
+    } else {
+        // Otherwise, it's a function, so call it to get the promise
+        loadQuickPickData = quickPickDataOrLoader(cancellationTokenSource.token);
+    }
+
+    // Load the actual data asynchronously
+    loadQuickPickData.then(quickPickData => {
+        quickPick.placeholder = '';
+        // Once data is loaded, populate the QuickPick items
+        const quickItems: vscode.QuickPickItem[] = [{ label: '' }];
+        quickPickData.forEach(arg => {
+            if (arg !== undefined && arg.trim().length > 0) {
+                quickItems.push({ label: arg });
             }
         });
-    });
 
-    quickPick.show();
+        // Set the loaded items in the QuickPick
+        quickPick.items = quickItems;
+
+        // Handle value change (updating the first item with user input)
+        quickPick.onDidChangeValue(value => {
+            quickItems[0].label = value;
+            quickPick.items = quickItems;
+        });
+
+        // Handle selection change
+        quickPick.onDidChangeSelection(items => {
+            const item = items[0];
+            quickPick.value = item.label;
+            quickPick.hide();
+            vscode.window.showInputBox({ value: item.label }).then(data => {
+                if (data !== undefined) {
+                    onChange(data);
+                }
+            });
+        });
+
+        quickPick.onDidHide(() => {
+            cancellationTokenSource.cancel();
+            cancellationTokenSource.dispose();
+            quickPick.dispose();
+        });
+
+    }).catch(err => {
+        // Handle any errors in loading the data
+        vscode.window.showErrorMessage(`Error loading data: ${err}`);
+        quickPick.hide();
+    });
 }

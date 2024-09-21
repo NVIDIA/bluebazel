@@ -67,9 +67,13 @@ export class UserCommandsController {
 
     public async runCustomTask(command: string): Promise<void> {
         let completeCommand = this.resolveKeywords(command);
-        completeCommand = await this.resolveExtensionCommands(completeCommand);
-        completeCommand = await this.resolveCommands(completeCommand);
-        this.taskService.runTask(`${completeCommand}`, completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction());
+        try {
+            completeCommand = await this.resolveExtensionCommands(completeCommand);
+            completeCommand = await this.resolveCommands(completeCommand);
+            this.taskService.runTask(`${completeCommand}`, completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction());
+        } catch (error) {
+            vscode.window.showErrorMessage(`Error running custom task: ${error}`);
+        }
     }
 
     private static formatTestArgs(testArgs: string): string {
@@ -111,48 +115,55 @@ export class UserCommandsController {
     }
 
     private async extPick(input: string): Promise<string> {
-        // Evaluate the inner command of the pick
-        const output = await this.resolveCommands(input);
-        // Make a list of the output
-        const outputList = [];
-        for (const element of output.split('\n')) {
-            const elementTrimmed = element.trim();
-            if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
-        }
+        try {
+            // Evaluate the inner command of the pick
+            const output = await this.resolveCommands(input);
+            // Make a list of the output
+            const outputList = [];
+            for (const element of output.split('\n')) {
+                const elementTrimmed = element.trim();
+                if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
+            }
 
-        let res = '';
-        await vscode.window.showQuickPick(outputList, { 'ignoreFocusOut': true }).then(data => {
-            if (data !== undefined)
-                res = data;
-        });
-        return res;
+            await vscode.window.showQuickPick(outputList, { 'ignoreFocusOut': true }).then(data => {
+                if (data !== undefined)
+                    return data;
+            });
+            return '';
+        } catch (error) {
+            return Promise.reject(error);
+        }
     }
 
-    private async resolveExtensionCommands(input: string) {
+    private async resolveExtensionCommands(input: string): Promise<string> {
         // Execute commands
         let output = input;
         const regexp = /\[([^\s]*)\(([^\s]*)\)\]/g;
         let match;
-        do {
-            match = regexp.exec(input);
-            if (match) {
-                const extCommand = match[1];
-                const extArgs = match[2];
-                let evalRes = '';
-                if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
-                    evalRes = await this.extPick(extArgs);
-                } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
-                    await vscode.window.showInputBox(
-                        {value: extArgs}
-                    ).then((val) => {
-                        if (val !== undefined) {
-                            evalRes = val;
-                        }
-                    });
+        try {
+            do {
+                match = regexp.exec(input);
+                if (match) {
+                    const extCommand = match[1];
+                    const extArgs = match[2];
+                    let evalRes = '';
+                    if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
+                        evalRes = await this.extPick(extArgs);
+                    } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
+                        await vscode.window.showInputBox(
+                            { value: extArgs }
+                        ).then((val) => {
+                            if (val !== undefined) {
+                                evalRes = val;
+                            }
+                        });
+                    }
+                    output = output.replace(match[0], evalRes);
                 }
-                output = output.replace(match[0], evalRes);
-            }
-        } while (match);
+            } while (match);
+        } catch (error) {
+            return Promise.reject(error);
+        }
         return output;
     }
 
@@ -178,10 +189,14 @@ export class UserCommandsController {
         do {
             match = regexp.exec(input);
             if (match) {
-                const currentCommand = await this.resolveCommandByKeyword(match[1]);
-                const evalRes = await this.shellService.runShellCommand(currentCommand, this.configurationManager.isShowShellCommandOutput());
+                try {
+                    const currentCommand = await this.resolveCommandByKeyword(match[1]);
+                    const evalRes = await this.shellService.runShellCommand(currentCommand);
 
-                output = output.replace(match[0], evalRes.stdout);
+                    output = output.replace(match[0], evalRes.stdout);
+                } catch (error) {
+                    return Promise.reject(error);
+                }
             }
         } while (match);
         return output;
@@ -194,8 +209,12 @@ export class UserCommandsController {
         for (const element of commands) {
             if (keyword === element.name) {
                 res = this.resolveKeywords(element.command);
-                res = await this.resolveExtensionCommands(res);
-                res = await this.resolveCommands(res);
+                try {
+                    res = await this.resolveExtensionCommands(res);
+                    res = await this.resolveCommands(res);
+                } catch (error) {
+                    return Promise.reject(error);
+                }
             }
         }
         return res;

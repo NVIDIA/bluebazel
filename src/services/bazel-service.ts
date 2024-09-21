@@ -21,37 +21,27 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-
 import { ConfigurationManager } from './configuration-manager';
+import { Console } from './console';
 import { ShellService } from './shell-service';
 import { WorkspaceService } from './workspace-service';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
 import * as fs from 'fs';
 import * as path from 'path';
-
+import * as vscode from 'vscode';
 
 export const BAZEL_BIN = 'bazel-bin';
 
 export class BazelService {
 
-    constructor(private readonly configurationManager: ConfigurationManager,
+    constructor(
+        private readonly configurationManager: ConfigurationManager,
         private readonly shellService: ShellService
     ) { }
 
     /**
-     * Fetches the list of available Bazel commands.
-     * @returns A promise that resolves to an array of command strings.
+     * Fetches the list of Bazel actions that require a target.
      */
-    public async fetchBazelActions(): Promise<string[]> {
-        const executable = this.configurationManager.getExecutableCommand();
-        const result = await this.shellService.runShellCommand(`${executable} help | sed -n '/Available commands:/,/^$/p' | tail -n +2 | awk '{print $1}' | sed '/^$/d'`, false);
-        const lines = result.stdout.split('\n');
-        const actions = lines
-            .filter(line => line.trim().length > 0)  // Remove empty lines
-            .map(line => line.trim());  // Trim the lines to get the action names
-        return actions;
-    }
-
     public async fetchBazelTargetActions(): Promise<string[]> {
         const actionsRequiringTarget: string[] = [
             'aquery',
@@ -64,114 +54,148 @@ export class BazelService {
             'run',
             'test'
         ];
-        return Promise.resolve(actionsRequiringTarget);
+        return actionsRequiringTarget;
     }
 
-    public async getBazelTargetBuildPath(target: BazelTarget): Promise<string> {
-        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
-        const executable = this.configurationManager.getExecutableCommand();
-        const configs = target.getConfigArgs();
-        const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
+    /**
+     * Gets the Bazel build path for the given target.
+     */
+    public async getBazelTargetBuildPath(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<string> {
+        try {
+            const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+            const executable = this.configurationManager.getExecutableCommand();
+            const configs = target.getConfigArgs();
+            const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
 
-        const result = await this.shellService.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, false, `Get binary path for ${target.label}`);
-        return result.stdout;
+            const result = await this.shellService.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, cancellationToken);
+            return result.stdout;
+        } catch (error) {
+            Console.error('Error fetching Bazel target build path:', error);
+            return Promise.reject(error);  // Rejecting instead of throwing
+        }
     }
 
+    /**
+     * Converts the provided path into a valid Bazel target path.
+     */
     public static formatBazelTargetFromPath(path: string): string {
-        const result = path;
-        const resultSplitted = result.split('/');
+        const resultSplitted = path.split('/');
         resultSplitted.shift(); // Removes bazel-bin
         const targetName = resultSplitted[resultSplitted.length - 1];
         return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
     }
 
-    public async fetchRunTargets(): Promise<{ label: string, detail: string }[]> {
-        const executable = this.configurationManager.getExecutableCommand();
-        const cmd = this.configurationManager.getGenerateRunTargetsCommand();
+    /**
+     * Fetches available run targets for Bazel.
+     */
+    public async fetchRunTargets(cancellationToken?: vscode.CancellationToken): Promise<{ label: string, detail: string }[]> {
+        try {
+            const executable = this.configurationManager.getExecutableCommand();
+            const cmd = this.configurationManager.getGenerateRunTargetsCommand();
 
-        const data = await this.shellService.runShellCommand(`${executable} ${cmd}`, false, 'Refreshing available run targets');
-        const allOutputs = data.stdout.split('\n');
+            const data = await this.shellService.runShellCommand(`${executable} ${cmd}`, cancellationToken);
+            const allOutputs = data.stdout.split('\n');
 
-        const targets: { label: string, detail: string }[] = allOutputs
-            .filter(element => element.length >= 2 && element.startsWith('//'))
-            .map(element => {
-                const [targetPath, targetName] = element.split(':');
-                if (targetName) {
-                    return {
-                        label: targetName,
-                        detail: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
-                    };
-                }
-                return { label: '', detail: '' };
-            })
-            .filter(target => target.label !== '');
+            const targets = allOutputs
+                .filter(element => element.length >= 2 && element.startsWith('//'))
+                .map(element => {
+                    const [targetPath, targetName] = element.split(':');
+                    if (targetName) {
+                        return {
+                            label: targetName,
+                            detail: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
+                        };
+                    }
+                    return { label: '', detail: '' };
+                })
+                .filter(target => target.label !== '');
 
-        // Sort the targets alphabetically
-        targets.sort((a: { label: string, detail: string }, b: { label: string, detail: string }) => { return a.label < b.label ? -1 : 1; });
-        return targets;
-    }
+            // Sort the targets alphabetically
+            targets.sort((a, b) => (a.label < b.label ? -1 : 1));
 
-    private async findBashCompleteScript(startDir: string): Promise<string | undefined> {
-        const possibleFiles = ['bash-complete.*sh', 'bazel-complete.*sh'];
-
-        for (let i = 0; i < possibleFiles.length; ++i) {
-            const file = possibleFiles[i];
-
-            // Run the find command for each file
-            const result = await this.shellService.runShellCommand(
-                `find ${startDir} -name "${file}"`,
-                false,
-                'Find bash complete script'
-            );
-
-            // If find returns a result, return the path
-            if (result.stdout) {
-                const foundFile = result.stdout.trim();
-                if (foundFile) {
-                    return foundFile;  // Return the found file path
-                }
-            }
+            return targets;
+        } catch (error) {
+            Console.error('Error fetching run targets:', error);
+            return Promise.reject(error);  // Rejecting instead of throwing
         }
-        return undefined;
-    }
-
-    private async fetchAutocompleteForAction(action: BazelAction, expandType: 'args' | 'config'): Promise<string[]> {
-        // Start searching for the script from the workspace folder
-        const workspacePath = WorkspaceService.getInstance().getWorkspaceFolder().uri.path;
-        const bashCompleteScript = await this.findBashCompleteScript(workspacePath);
-
-        if (!bashCompleteScript) {
-            console.warn(`Cannot find bash-complete.bash or bazel-complete.bash to receive available ${expandType}.`);
-            return [];
-        }
-
-        // Determine the command to fetch either args or configs based on expandType
-        const expandCommand = expandType === 'args'
-            ? `_bazel__options_for ${action}`
-            : `_bazel__expand_config . ${action}`;
-
-        // Run the command and fetch the data
-        const result = await this.shellService.runShellCommand(
-            `bash -c 'source ${bashCompleteScript} && echo $(${expandCommand})'`,
-            false
-        ).then(data => data.stdout.split(' '));
-
-        // Convert the result to a set to remove duplicates and back to a list
-        const result_set = new Set(result);
-        return Array.from(result_set.values());
-    }
-
-    public async fetchArgsForAction(action: BazelAction): Promise<string[]> {
-        return this.fetchAutocompleteForAction(action, 'args');
-    }
-
-    public async fetchConfigsForAction(action: BazelAction): Promise<string[]> {
-        return this.fetchAutocompleteForAction(action, 'config');
     }
 
     /**
-     * Method to get Bazel build targets from a directory
-     * This assumes targets are defined in BUILD files.
+     * Searches for bash-completion scripts (e.g., for Bazel) in the specified directory.
+     */
+    private async findBashCompleteScript(startDir: string, cancellationToken?: vscode.CancellationToken): Promise<string | undefined> {
+        const possibleFiles = ['bash-complete.*sh', 'bazel-complete.*sh'];
+
+        for (const file of possibleFiles) {
+            try {
+                const result = await this.shellService.runShellCommand(`find ${startDir} -name "${file}"`, cancellationToken);
+
+                if (result.stdout) {
+                    const foundFile = result.stdout.trim();
+                    if (foundFile) {
+                        return foundFile;
+                    }
+                }
+            } catch (error) {
+                Console.error(`Error finding bash complete script for ${file}:`, error);
+                return Promise.reject(error);  // Rejecting instead of throwing
+            }
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Fetches available arguments or configs for a given Bazel action by sourcing bash-completion scripts.
+     */
+    private async fetchAutocompleteForAction(
+        action: BazelAction,
+        expandType: 'args' | 'configs',
+        cancellationToken?: vscode.CancellationToken
+    ): Promise<string[]> {
+        try {
+            const workspacePath = WorkspaceService.getInstance().getWorkspaceFolder().uri.path;
+            const bashCompleteScript = await this.findBashCompleteScript(workspacePath, cancellationToken);
+
+            if (!bashCompleteScript) {
+                Console.warn(`Cannot find bash-complete.bash or bazel-complete.bash to receive available ${expandType}.`);
+                return [];
+            }
+
+            const expandCommand = expandType === 'args'
+                ? `_bazel__options_for ${action}`
+                : `_bazel__expand_config . ${action}`;
+
+            const data = await this.shellService.runShellCommand(
+                `bash -c 'source ${bashCompleteScript} && echo $(${expandCommand})'`,
+                cancellationToken
+            );
+            const result = data.stdout.split(' ');
+
+            // Remove duplicates by converting the result to a set
+            return Array.from(new Set(result));
+        } catch (error) {
+            Console.error(`Error fetching autocomplete for ${action} (${expandType}):`, error);
+            return Promise.reject(error);  // Rejecting instead of throwing
+        }
+    }
+
+    /**
+     * Fetches available arguments for a given Bazel action.
+     */
+    public async fetchArgsForAction(action: BazelAction, cancellationToken: vscode.CancellationToken): Promise<string[]> {
+        return this.fetchAutocompleteForAction(action, 'args', cancellationToken);
+    }
+
+    /**
+     * Fetches available configs for a given Bazel action.
+     */
+    public async fetchConfigsForAction(action: BazelAction, cancellationToken: vscode.CancellationToken): Promise<string[]> {
+        return this.fetchAutocompleteForAction(action, 'configs', cancellationToken);
+    }
+
+    /**
+     * Fetches Bazel build targets from the specified directory.
      */
     public static async fetchBuildTargets(directoryPath: string, cwd: string): Promise<string[]> {
         const directory = path.join(cwd, directoryPath);
@@ -180,34 +204,25 @@ export class BazelService {
         // Iterate through the list of build file paths and resolve the first valid file
         for (const buildFilePath of buildFilePaths) {
             try {
-                // Check if the file exists asynchronously
                 if (fs.existsSync(buildFilePath)) {
-                    // Read the file asynchronously using promises
                     const data = await fs.promises.readFile(buildFilePath, 'utf8');
-
-                    // Extract targets from the BUILD file
-                    const targets = BazelService.extractBuildTargetsFromFile(data);
-
-                    return targets; // Resolve with the extracted targets
+                    return BazelService.extractBuildTargetsFromFile(data);
                 }
-            } catch (err) {
-                console.error(`Error reading build file: ${buildFilePath}`, err);
-                throw err; // Re-throw the error to propagate it up the call chain
+            } catch (error) {
+                Console.error(`Error reading build file: ${buildFilePath}`, error);
+                return Promise.reject(error);  // Rejecting instead of throwing
             }
         }
 
-        // If no valid BUILD or BUILD.bazel file was found, return an empty array
         return [];
     }
 
     /**
-     * Helper method to extract Bazel targets from the contents of a BUILD file
-     * This is a simplistic implementation. You can adjust it based on how targets are defined.
+     * Extracts Bazel targets from the contents of a BUILD file.
+     * This is a basic implementation; adjust the regex as needed for your use case.
      */
     private static extractBuildTargetsFromFile(buildFileContent: string): string[] {
         const targets: string[] = [];
-
-        // This is a basic regex pattern to match Bazel targets in the BUILD file
         const targetRegex = /name\s*=\s*["']([^"']+)["']/g;
         let match;
 
@@ -221,31 +236,32 @@ export class BazelService {
 
     /**
      * Gets the programming language of the Bazel target based on its rule type.
-     * @param target The Bazel target to analyze.
-     * @returns A promise that resolves to the programming language string (e.g., 'python', 'go', 'cpp').
      */
-    public async fetchTargetLanguage(target: BazelTarget): Promise<string> {
-        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
-        const executable = this.configurationManager.getExecutableCommand();
+    public async fetchTargetLanguage(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<string> {
+        try {
+            const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+            const executable = this.configurationManager.getExecutableCommand();
 
-        // Run the Bazel query command using shellService
-        const result = await this.shellService.runShellCommand(`${executable} query --output=label_kind ${bazelTarget}`, false, `Get language for ${target.label}`);
+            const result = await this.shellService.runShellCommand(`${executable} query --output=label_kind ${bazelTarget}`, cancellationToken);
+            const ruleType = result.stdout.toLowerCase();
 
-        const ruleType = result.stdout.toLowerCase();
-
-        // Infer the programming language from the rule type
-        if (ruleType.includes('go_')) {
-            return Promise.resolve('go');
-        } else if (ruleType.includes('py_')) {
-            return Promise.resolve('python');
-        } else if (ruleType.includes('cc_') || ruleType.includes('cpp_')) {
-            return Promise.resolve('cpp');
-        } else if (ruleType.includes('java_')) {
-            return Promise.resolve('java');
-        } else if (ruleType.includes('js_')) {
-            return Promise.resolve('javascript');
-        } else {
-            return Promise.resolve('unknown');  // If no rule type matches
+            // Infer the programming language from the rule type
+            if (ruleType.includes('go_')) {
+                return 'go';
+            } else if (ruleType.includes('py_')) {
+                return 'python';
+            } else if (ruleType.includes('cc_') || ruleType.includes('cpp_')) {
+                return 'cpp';
+            } else if (ruleType.includes('java_')) {
+                return 'java';
+            } else if (ruleType.includes('js_')) {
+                return 'javascript';
+            } else {
+                return 'unknown';  // If no rule type matches
+            }
+        } catch (error) {
+            Console.error('Error fetching target language:', error);
+            return Promise.reject(error);  // Rejecting instead of throwing
         }
     }
 

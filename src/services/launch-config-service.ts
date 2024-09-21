@@ -36,8 +36,8 @@ export class LaunchConfigService {
     ) { }
 
 
-    public async createRunUnderLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
-        const language = await target.getLanguage();  // Determine language from the target
+    public async createRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
+        const language = await target.getLanguage(cancellationToken);  // Determine language from the target
 
         switch (language) {
         case 'cpp':
@@ -51,8 +51,8 @@ export class LaunchConfigService {
         }
     }
 
-    public async createDirectLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
-        const language = await target.getLanguage();  // Determine language from the target
+    public async createDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
+        const language = await target.getLanguage(cancellationToken);  // Determine language from the target
 
         switch (language) {
         case 'cpp':

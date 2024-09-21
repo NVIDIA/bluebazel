@@ -30,33 +30,37 @@ import * as vscode from 'vscode';
 
 export class EnvironmentService {
 
-    public static async fetchSetupEnvironment(context: vscode.ExtensionContext, envSetupCommand: string): Promise<string[]> {
+    public static async fetchSetupEnvironment(context: vscode.ExtensionContext, envSetupCommand: string, cancellationToken?: vscode.CancellationToken): Promise<string[]> {
         const extName = ExtensionUtils.getExtensionName(context);
         const envDelimiter = `---${extName} setup---`;
         if (envSetupCommand) {
-            const result = await ShellService.run(`${envSetupCommand} && echo ${envDelimiter} && printenv`, WorkspaceService.getInstance().getWorkspaceFolder().uri.path, {});
+            try {
+                const result = await ShellService.run(`${envSetupCommand} && echo ${envDelimiter} && printenv`, WorkspaceService.getInstance().getWorkspaceFolder().uri.path, {}, cancellationToken);
 
-            const env = result.stdout.replace(new RegExp(`[\\s\\S]*?${envDelimiter}\n`, 'g'), '').split('\n');
-            const envArray: string[] = [];
-            let currentVariable = '';
-            for (const line of env) {
-                if (line.includes('=')) {
-                    if (currentVariable) {
-                        const [name, value] = currentVariable.split('=');
-                        envArray.push(`${name}=${value}`);
+                const env = result.stdout.replace(new RegExp(`[\\s\\S]*?${envDelimiter}\n`, 'g'), '').split('\n');
+                const envArray: string[] = [];
+                let currentVariable = '';
+                for (const line of env) {
+                    if (line.includes('=')) {
+                        if (currentVariable) {
+                            const [name, value] = currentVariable.split('=');
+                            envArray.push(`${name}=${value}`);
+                        }
+                        currentVariable = line;
+                    } else if (currentVariable) {
+                        currentVariable += `\n${line}`;
                     }
-                    currentVariable = line;
-                } else if (currentVariable) {
-                    currentVariable += `\n${line}`;
                 }
-            }
 
-            if (currentVariable) {
-                const [name, value] = currentVariable.split('=');
-                envArray.push(`${name}=${value}`);
-            }
+                if (currentVariable) {
+                    const [name, value] = currentVariable.split('=');
+                    envArray.push(`${name}=${value}`);
+                }
 
-            return envArray;
+                return envArray;
+            } catch (error) {
+                return Promise.reject(error);
+            }
         }
         return [];
     }

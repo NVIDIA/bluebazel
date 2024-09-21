@@ -1,8 +1,8 @@
+import { BazelTargetControllerManager } from './target-controllers/bazel-target-controller-manager';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
 import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelService } from '../services/bazel-service';
 import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
-import { BazelTargetControllerManager } from './target-controllers/bazel-target-controller-manager';
 import * as vscode from 'vscode';
 
 export class BazelTargetOperationsController {
@@ -16,7 +16,7 @@ export class BazelTargetOperationsController {
 
     public pickTargetFromAction(action: BazelAction) {
         const target = new BazelTarget(this.context, this.bazelService, '', '', action);
-        this.pickTarget(target);
+        return this.pickTarget(target);
     }
 
     public async pickTarget(oldTarget: BazelTarget) {
@@ -29,6 +29,11 @@ export class BazelTargetOperationsController {
             } else {
                 const clonedTarget = pickedTarget.clone();
                 this.bazelTargetManager.addTarget(clonedTarget);
+                this.bazelTreeProvider.expandTarget(clonedTarget);
+            }
+            const targetsOfAction = this.bazelTargetManager.getTargets(pickedTarget.action);
+            if (targetsOfAction.length === 1) {
+                this.bazelTargetManager.updateSelectedTarget(targetsOfAction[0]);
             }
             this.bazelTreeProvider.refresh();
         }
@@ -37,11 +42,15 @@ export class BazelTargetOperationsController {
     public async copyTarget(target: BazelTarget) {
         const clonedTarget = target.clone(true);
         this.bazelTargetManager.addTarget(clonedTarget);
+        this.bazelTreeProvider.expandTarget(clonedTarget);
         this.bazelTreeProvider.refresh();
     }
 
     public removeTarget(target: BazelTarget) {
         this.bazelTargetManager.removeTarget(target);
+        if (this.bazelTargetManager.getSelectedTarget(target.action).isEqualTo(target)) {
+            this.bazelTargetManager.removeSelectedTarget(target);
+        }
         this.bazelTreeProvider.refresh();
     }
 

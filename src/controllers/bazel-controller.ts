@@ -89,21 +89,23 @@ export class BazelController {
         );
     }
 
-    public async refreshAvailableRunTargets(): Promise<void> {
+    public async refreshAvailableRunTargets(cancellationToken?: vscode.CancellationToken): Promise<void> {
         if (this.isRefreshingRunTargets) {
             vscode.window.showWarningMessage('Run targets are still being refreshed...');
-            return Promise.resolve();
+            return;
         }
-        else {
 
+        try {
             this.isRefreshingRunTargets = true;
-            const runTargets = await this.bazelService.fetchRunTargets();
-            const bazelTargets: BazelTarget[] = [];
-            runTargets.forEach(item => {
-                bazelTargets.push(new BazelTarget(this.context, this.bazelService, item.label, item.detail, 'run'));
-            });
+            const runTargets = await this.bazelService.fetchRunTargets(cancellationToken);
+            const bazelTargets: BazelTarget[] = runTargets.map(item =>
+                new BazelTarget(this.context, this.bazelService, item.label, item.detail, 'run')
+            );
             this.bazelTargetManager.updateAvailableRunTargets(bazelTargets);
-            this.isRefreshingRunTargets = false;
+        } catch (error) {
+            return Promise.reject(error);  // Ensure the rejection is propagated
+        } finally {
+            this.isRefreshingRunTargets = false;  // Ensure flag is reset even if there's an error
         }
     }
 

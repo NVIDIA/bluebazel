@@ -22,15 +22,15 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 import { BazelActionManager } from '../../models/bazel-action-manager';
-import { BazelTargetOperationsController } from '../bazel-target-operations-controller';
-import { ExtensionUtils } from '../../services/extension-utils';
-import { showQuickPick } from '../../ui/quick-pick';
-import * as vscode from 'vscode';
 import { BazelTarget } from '../../models/bazel-target';
-import { BazelTargetControllerManager } from '../target-controllers/bazel-target-controller-manager';
-import { BazelService } from '../../services/bazel-service';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
+import { BazelService } from '../../services/bazel-service';
+import { ExtensionUtils } from '../../services/extension-utils';
 import { BazelTargetCategory, BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
+import { showSimpleQuickPick } from '../../ui/quick-pick';
+import { BazelTargetOperationsController } from '../bazel-target-operations-controller';
+import { BazelTargetControllerManager } from '../target-controllers/bazel-target-controller-manager';
+import * as vscode from 'vscode';
 
 export function registerBazelTargetOperationsCommands(
     context: vscode.ExtensionContext,
@@ -56,7 +56,7 @@ export function registerBazelTargetOperationsCommands(
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.addActionAndTarget`, () => {
         bazelActionManager.getActions().then(actions => {
-            showQuickPick(actions, (action) => {
+            showSimpleQuickPick(actions, (action) => {
                 if (action) {
                     bazelTargetOpsController.pickTargetFromAction(action);
                 }

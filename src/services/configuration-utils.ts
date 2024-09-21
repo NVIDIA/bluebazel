@@ -21,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { Console } from './console';
 import { ExtensionUtils } from './extension-utils';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -30,7 +31,7 @@ import { workspace, WorkspaceConfiguration } from 'vscode';
 export function getExtensionDefaultSettings(extensionName: string): JSON {
     const workspaceFolders = vscode.workspace.workspaceFolders;
     if (!workspaceFolders) {
-        console.error('No workspace folder found.');
+        Console.error('No workspace folder found.');
         return JSON.parse('{}');
     }
 
@@ -51,7 +52,7 @@ export function getExtensionDefaultSettings(extensionName: string): JSON {
             const fileContent = fs.readFileSync(defaultSettingsPath, 'utf8');
             defaultSettings.push(JSON.parse(fileContent));
         } catch (error) {
-            console.error('Failed to parse default settings', error);
+            Console.error('Failed to parse default settings', error);
         }
     }
 

@@ -32,6 +32,7 @@ import { BazelTargetManager } from './models/bazel-target-manager';
 import { WorkspaceStateManager } from './models/workspace-state-manager';
 import { BazelService } from './services/bazel-service';
 import { ConfigurationManager } from './services/configuration-manager';
+import { Console } from './services/console';
 import { EnvVarsUtils } from './services/env-vars-utils';
 import { ExtensionUtils } from './services/extension-utils';
 import { LaunchConfigService } from './services/launch-config-service';
@@ -103,6 +104,10 @@ function attachTreeDataProviderToView(context: vscode.ExtensionContext,
 }
 
 async function initExtension(context: vscode.ExtensionContext) {
+    // Initialize custom console for prefixing logging.
+    Console.initialize(context);
+    Console.log('dude');
+
     // Clean the workspace state if necessary
     workspaceStateManager = new WorkspaceStateManager(context);
     workspaceStateManager.refreshWorkspaceState();

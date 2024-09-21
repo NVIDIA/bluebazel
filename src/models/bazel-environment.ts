@@ -29,17 +29,23 @@ export class BazelEnvironment {
     private envVars: string[] = [];
 
     public static async create(context: vscode.ExtensionContext,
-        configurationManager: ConfigurationManager
+        configurationManager: ConfigurationManager,
+        cancellationToken?: vscode.CancellationToken
     ): Promise<BazelEnvironment> {
         const instance = new BazelEnvironment();
-        instance.envVars = await this.loadEnvVars(context, configurationManager);
-        return instance;
+        try {
+            instance.envVars = await this.loadEnvVars(context, configurationManager, cancellationToken);
+            return instance;
+        } catch (error) {
+            return Promise.reject(error);
+        }
     }
 
     private static async loadEnvVars(context: vscode.ExtensionContext,
-        configurationManager: ConfigurationManager
+        configurationManager: ConfigurationManager,
+        cancellationToken?: vscode.CancellationToken
     ): Promise<string[]> {
-        const result = EnvironmentService.fetchSetupEnvironment(context, configurationManager.getSetupEnvironmentCommand());
+        const result = EnvironmentService.fetchSetupEnvironment(context, configurationManager.getSetupEnvironmentCommand(), cancellationToken);
         context.workspaceState.update('setupEnvVars', result);
         return result;
     }

@@ -25,7 +25,7 @@
 import { BazelTargetProperty } from '../../models/bazel-target-property';
 import { ExtensionUtils } from '../../services/extension-utils';
 import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
-import { showQuickPick } from '../../ui/quick-pick';
+import { showSimpleQuickPick } from '../../ui/quick-pick';
 import * as vscode from 'vscode';
 
 export function registerSinglePropTreeItemCommands(context: vscode.ExtensionContext, treeDataProvider: BazelTargetTreeProvider) {
@@ -36,7 +36,7 @@ export function registerSinglePropTreeItemCommands(context: vscode.ExtensionCont
         }),
         vscode.commands.registerCommand(`${extensionName}.editSinglePropTreeItem`, (property: BazelTargetProperty) => {
             const data: string[] = property.getHistory();
-            showQuickPick(data, (data: string) => {
+            showSimpleQuickPick(data, (data: string) => {
                 property.update(data);
                 treeDataProvider.refresh();
             });

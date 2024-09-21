@@ -43,6 +43,18 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
     private _onDidChangeTreeData: vscode.EventEmitter<BazelTreeElement | undefined | void> = new vscode.EventEmitter<BazelTreeElement | undefined | void>();
     readonly onDidChangeTreeData: vscode.Event<BazelTreeElement | undefined | void> = this._onDidChangeTreeData.event;
 
+    public expandTarget(target: BazelTarget): void {
+        // Expand the parent category
+        const parentCategoryId = target.action; // Assuming 'action' is the identifier for the parent category
+        this.setExpandedState(parentCategoryId, true);
+
+        // Expand the target itself
+        this.setExpandedState(target.id, true);
+
+        // Refresh the tree view so the expanded state is reflected
+        this.refresh();
+    }
+
     // Define a map of BazelAction to vscode.ThemeIcon
     private iconMap: Map<BazelAction, vscode.ThemeIcon> = new Map([
         ['analyze-profile', new vscode.ThemeIcon('pulse')],     // 'pulse' for performance-related analysis

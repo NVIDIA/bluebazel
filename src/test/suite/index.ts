@@ -25,10 +25,6 @@
 import * as glob from 'glob';
 import * as Mocha from 'mocha';
 import * as path from 'path';
-(async () => {
-    await import('chai');
-    // Your tests or code using chai
-})();
 
 export function run(): Promise<void> {
     // Create the mocha test

@@ -69,7 +69,7 @@ export class BazelTargetMultiProperty {
         public readonly name: string,
         target: BazelTarget,
         private readonly toStringFn: (bazelTargetProperty: BazelTargetMultiProperty) => string,
-        private readonly availableValuesFn: () => Promise<string[]> = (): Promise<string[]> => { return Promise.resolve([]); },
+        private readonly availableValuesFn: (cancellationToken: vscode.CancellationToken) => Promise<string[]> = (): Promise<string[]> => { return Promise.resolve([]); },
         private readonly showHistory = true,
     ) {
         this.id = `${target.action}${name}For${target.detail}Id${target.id}`;
@@ -135,8 +135,8 @@ export class BazelTargetMultiProperty {
         return this.showHistory;
     }
 
-    public getAvailableValues(): Promise<string[]> {
-        return this.availableValuesFn();
+    public getAvailableValues(cancellationToken: vscode.CancellationToken): Promise<string[]> {
+        return this.availableValuesFn(cancellationToken);
     }
 
     public getHistory(): string[] {

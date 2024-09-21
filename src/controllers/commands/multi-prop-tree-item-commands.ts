@@ -25,7 +25,7 @@
 import { BazelTargetMultiProperty, BazelTargetMultiPropertyItem } from '../../models/bazel-target-multi-property';
 import { ExtensionUtils } from '../../services/extension-utils';
 import { BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
-import { showQuickPick } from '../../ui/quick-pick';
+import { showSimpleQuickPick } from '../../ui/quick-pick';
 import * as vscode from 'vscode';
 
 export function registerMultiPropTreeItemCommands(context: vscode.ExtensionContext,
@@ -36,18 +36,27 @@ export function registerMultiPropTreeItemCommands(context: vscode.ExtensionConte
     context.subscriptions.push(
         vscode.commands.registerCommand(`${extensionName}.addToMultiPropTreeItem`, (property: BazelTargetMultiProperty) => {
 
-            property.getAvailableValues().then(values => {
-                if (property.shouldShowHistory()) {
-                    const data: string[] = property.getHistory();
-                    values.unshift(...data);
+            const loadQuickPickData = async (cancellationToken: vscode.CancellationToken): Promise<string[]> => {
+                try {
+                    const values = await property.getAvailableValues(cancellationToken);
+
+                    // If property should show history, add the history data to the values
+                    if (property.shouldShowHistory()) {
+                        const historyData: string[] = property.getHistory();
+                        values.unshift(...historyData);
+                    }
+                    return values;
+                } catch (error) {
+                    return Promise.reject(error);
                 }
-                showQuickPick(values, (data: string) => {
-                    const values = property.toStringArray();
-                    values.push(data);
-                    property.add(data);
-                    treeDataProvider.refresh();
-                });
-            });
+            };
+
+            showSimpleQuickPick(loadQuickPickData, (data: string) => {
+                const values = property.toStringArray();
+                values.push(data);
+                property.add(data);
+                treeDataProvider.refresh();
+            }, `Loading items for ${property.label.toLowerCase()}...`);
         }),
         vscode.commands.registerCommand(`${extensionName}.editMultiPropTreeItem`, (item: BazelTargetMultiPropertyItem) => {
             vscode.window.showInputBox({

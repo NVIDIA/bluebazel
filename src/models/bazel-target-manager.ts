@@ -146,6 +146,12 @@ export class BazelTargetManager {
         }
     }
 
+    public removeSelectedTarget(target: BazelTarget) {
+        if (this.selectedTargets.delete(target.action)) {
+            this.saveSelectedTargets();
+        }
+    }
+
     public updateSelectedTarget(target: BazelTarget) {
         this.selectedTargets.set(target.action, target);
         this.saveSelectedTargets();

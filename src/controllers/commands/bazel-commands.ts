@@ -45,6 +45,7 @@ export function registerBazelCommands(context: vscode.ExtensionContext,
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.refreshRunTargets`, () => {
+
         bazelController.refreshAvailableRunTargets()
             .then(() => { /* Nothing to do */ })
             .catch(err => vscode.window.showErrorMessage(err));

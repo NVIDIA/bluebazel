@@ -28,6 +28,7 @@ import { BazelEnvironment } from '../../models/bazel-environment';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
+import { Console } from '../../services/console';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { LaunchConfigService } from '../../services/launch-config-service';
 import { TaskService } from '../../services/task-service';
@@ -68,7 +69,7 @@ export class DebugController implements BazelTargetController {
                 // Sandbox deploy is finished. Try to execute.
                 this.debug(target, debugConf);
             }).catch(e => {
-                console.error(e);
+                Console.error(e);
             });
         });
     }
