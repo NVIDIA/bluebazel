@@ -26,6 +26,7 @@ import { BazelAction, BazelTarget } from '../models/bazel-target';
 import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelTargetMultiProperty, BazelTargetMultiPropertyItem } from '../models/bazel-target-multi-property';
 import { BazelTargetProperty } from '../models/bazel-target-property';
+import { BazelTargetState, BazelTargetStateManager } from '../models/bazel-target-state-manager';
 import { ConfigurationManager, UserCustomButton, UserCustomCategory as UserCustomCategory } from '../services/configuration-manager';
 import { ExtensionUtils } from '../services/extension-utils';
 import * as vscode from 'vscode';
@@ -85,8 +86,15 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
 
     constructor(private context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
-        private readonly bazelTargetManager: BazelTargetManager
-    ) { }
+        private readonly bazelTargetManager: BazelTargetManager,
+        private readonly bazelTargetStateManager: BazelTargetStateManager
+    ) {
+        // Subscribe to target state changes
+        this.bazelTargetStateManager.onDidChangeTargetState(() => {
+            // Refresh the tree whenever a target state changes
+            this.refresh();
+        });
+    }
 
     private getIcon(element: BazelTarget | BazelTargetCategory): vscode.ThemeIcon {
         // Return the icon based on the action, defaulting to the 'question' icon
@@ -206,6 +214,10 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         return treeItem;
     }
 
+    private formatTargetContextValue(target: BazelTarget, targetState: BazelTargetState) {
+        return `${target.action}${this.capitalizeFirstLetter(targetState)}Target`;
+    }
+
     /**
      * Converts a BazelTarget into a display item for the tree.
      */
@@ -214,7 +226,10 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         const collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
 
         const treeItem = new vscode.TreeItem(element.label, collapsibleState);
-        treeItem.contextValue = `${element.action}Target`;
+        const targetState = this.bazelTargetStateManager.getTargetState(element);
+
+        treeItem.contextValue = this.formatTargetContextValue(element, targetState);
+
         treeItem.label = element.label;
         treeItem.tooltip = `${element.action} ${element.detail}`;
         const selectedTarget = this.bazelTargetManager.getSelectedTarget(element.action);

@@ -29,6 +29,7 @@ import { WorkspaceEventsController } from './controllers/workspace-events-contro
 import { BazelActionManager } from './models/bazel-action-manager';
 import { BazelEnvironment } from './models/bazel-environment';
 import { BazelTargetManager } from './models/bazel-target-manager';
+import { BazelTargetStateManager } from './models/bazel-target-state-manager';
 import { WorkspaceStateManager } from './models/workspace-state-manager';
 import { BazelService } from './services/bazel-service';
 import { ConfigurationManager } from './services/configuration-manager';
@@ -54,6 +55,7 @@ let taskService: TaskService;
 let bazelEnvironment: BazelEnvironment;
 let bazelActionManager: BazelActionManager;
 let bazelTargetManager: BazelTargetManager;
+let bazelTargetStateManager: BazelTargetStateManager;
 let workspaceStateManager: WorkspaceStateManager;
 
 // UI
@@ -68,10 +70,8 @@ let workspaceEventsController: WorkspaceEventsController;
 let bazelTargetControllerManager: BazelTargetControllerManager;
 
 function getActivateWhenClause(context: vscode.ExtensionContext): string {
-    const publisherName = ExtensionUtils.getPublisherName(context);
     const extensionName = ExtensionUtils.getExtensionName(context);
-    const extensionActiveWhenClause = publisherName + '.' + extensionName + '.active';
-    return extensionActiveWhenClause;
+    return `${extensionName}.active`;
 }
 
 function makeExtensionVisible(context: vscode.ExtensionContext) {
@@ -106,7 +106,6 @@ function attachTreeDataProviderToView(context: vscode.ExtensionContext,
 async function initExtension(context: vscode.ExtensionContext) {
     // Initialize custom console for prefixing logging.
     Console.initialize(context);
-    Console.log('dude');
 
     // Clean the workspace state if necessary
     workspaceStateManager = new WorkspaceStateManager(context);
@@ -145,7 +144,7 @@ async function initExtension(context: vscode.ExtensionContext) {
 
     // The launch config service interacts with the vscode launch configs.
     launchConfigService = new LaunchConfigService(context,
-        bazelService,  EnvVarsUtils.listToObject(bazelEnvironment.getEnvVars()));
+        bazelService,  bazelEnvironment.getEnvVars());
 
     /******
      * MODELS
@@ -161,10 +160,15 @@ async function initExtension(context: vscode.ExtensionContext) {
     // has associated details about it including its action and label.
     bazelTargetManager = new BazelTargetManager(context, bazelService);
 
+    // This manager holds runtime only information about a target's
+    // state and is used to control the UI elements when a target's
+    // state changes.
+    bazelTargetStateManager = new BazelTargetStateManager();
+
     /******
      * UI
      ******/
-    bazelTargetTreeProvider = new BazelTargetTreeProvider(context, configurationManager, bazelTargetManager);
+    bazelTargetTreeProvider = new BazelTargetTreeProvider(context, configurationManager, bazelTargetManager, bazelTargetStateManager);
 
     /******
      * CONTROLLERS
@@ -192,7 +196,8 @@ async function initExtension(context: vscode.ExtensionContext) {
         launchConfigService,
         bazelController,
         bazelEnvironment,
-        bazelTargetManager);
+        bazelTargetManager,
+        bazelTargetStateManager);
 
     /******
      * COMMANDS

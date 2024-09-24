@@ -70,7 +70,7 @@ export class UserCommandsController {
         try {
             completeCommand = await this.resolveExtensionCommands(completeCommand);
             completeCommand = await this.resolveCommands(completeCommand);
-            this.taskService.runTask(`${completeCommand}`, completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction());
+            this.taskService.runTask(completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction());
         } catch (error) {
             vscode.window.showErrorMessage(`Error running custom task: ${error}`);
         }

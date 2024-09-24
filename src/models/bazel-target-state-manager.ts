@@ -21,38 +21,34 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import { ExtensionUtils } from '../../services/extension-utils';
-import { BazelController } from '../bazel-controller';
-import * as vscode from 'vscode';
 
+import { BazelTarget } from './bazel-target';
+import { EventEmitter } from 'vscode';
 
+export enum BazelTargetState {
+    Idle = 'idle',
+    Executing = 'executing',
+    Debugging = 'debugging'
+}
 
-export function registerBazelCommands(context: vscode.ExtensionContext,
-    bazelController: BazelController) {
+export class BazelTargetStateManager {
+    private targetStateMap: Map<string, BazelTargetState> = new Map();
 
-    const extensionName = ExtensionUtils.getExtensionName(context);
+    // Event emitter to notify when target state changes
+    private _onDidChangeTargetState: EventEmitter<BazelTarget> = new EventEmitter<BazelTarget>();
 
-    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.format`, () => {
-        bazelController.format();
-    }));
+    // Event that consumers can subscribe to
+    public readonly onDidChangeTargetState = this._onDidChangeTargetState.event;
 
-    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.clean`, () => {
-        bazelController.clean();
-    }));
+    // Method to set the state of a target
+    public setTargetState(target: BazelTarget, state: BazelTargetState): void {
+        this.targetStateMap.set(target.id, state);
+        // Emit event whenever the state is set
+        this._onDidChangeTargetState.fire(target);
+    }
 
-    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.buildCurrentFile`, () => {
-        bazelController.buildSingle();
-    }));
-
-    context.subscriptions.push(
-        vscode.commands.registerCommand(`${extensionName}.refreshRunTargets`, () => {
-
-            bazelController.refreshAvailableRunTargets()
-                .then(() => { /* Nothing to do */ })
-                .catch(err => vscode.window.showErrorMessage(err));
-        }),
-        vscode.commands.registerCommand(`${extensionName}.refreshingRunTargets`, () => {
-            // Do nothing
-        }));
-
+    // Method to get the state of a target
+    public getTargetState(target: BazelTarget): BazelTargetState {
+        return this.targetStateMap.get(target.id) || BazelTargetState.Idle;
+    }
 }

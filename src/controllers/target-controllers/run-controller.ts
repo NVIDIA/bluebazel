@@ -26,6 +26,7 @@ import { BazelTargetController } from './bazel-target-controller';
 import { BuildController } from './build-controller';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
+import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
@@ -47,14 +48,22 @@ export class RunController implements BazelTargetController {
         private readonly launchConfigService: LaunchConfigService,
         private readonly bazelController: BazelController,
         private readonly buildController: BuildController,
-        private readonly bazelTargetManager: BazelTargetManager
+        private readonly bazelTargetManager: BazelTargetManager,
+        private readonly bazelTargetStateManager: BazelTargetStateManager
     ) { }
 
     public async execute(target: BazelTarget): Promise<void> {
-        if (!this.configurationManager.shouldRunBinariesDirect()) {
-            return this.runInBazel(target);
-        } else {
-            return this.runDirect(target);
+        try {
+            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
+            if (!this.configurationManager.shouldRunBinariesDirect()) {
+                await this.runInBazel(target);
+            } else {
+                await this.runDirect(target);
+            }
+        } catch (error) {
+            return Promise.reject(error);
+        } finally {
+            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Idle);
         }
     }
 
@@ -72,10 +81,10 @@ export class RunController implements BazelTargetController {
         }
 
         return this.taskService.runTask(
-            `run ${bazelTarget}`,
-            `run ${bazelTarget}`,
+            `${target.action} ${bazelTarget}`,
             runCommand,
             this.configurationManager.isClearTerminalBeforeAction(),
+            target.id,
             envVars);
     }
 
@@ -115,7 +124,7 @@ export class RunController implements BazelTargetController {
         const args = target.getRunArgs().toString();
         const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
 
-        return this.taskService.runTask(`run ${programPath}`, `run ${programPath}`, `${programPath} ${args}`, this.configurationManager.isClearTerminalBeforeAction(), envVars, 'process');
+        return this.taskService.runTask(`${target.action} ${programPath}`, `${programPath} ${args}`, this.configurationManager.isClearTerminalBeforeAction(), target.id, envVars, 'process');
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {

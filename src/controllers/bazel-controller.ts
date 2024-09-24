@@ -26,6 +26,7 @@ import { BazelTarget } from '../models/bazel-target';
 import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
+import { ExtensionUtils } from '../services/extension-utils';
 import { TaskService } from '../services/task-service';
 import { WorkspaceService } from '../services/workspace-service';
 import { BazelTargetTreeProvider, BazelTreeElement } from '../ui/bazel-target-tree-provider';
@@ -43,19 +44,19 @@ export class BazelController {
         private readonly bazelTreeProvider: BazelTargetTreeProvider
     ) {
         this.isRefreshingRunTargets = false;
+        vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.refreshRunTargetsState`, 'idle');
     }
 
     public async format() {
         const executable = this.configurationManager.getExecutableCommand();
         const cmd = this.configurationManager.getFormatCommand();
-        return this.taskService.runTask('format', `${executable} ${cmd}`, `${executable} ${cmd}`, this.configurationManager.isClearTerminalBeforeAction());
+        return this.taskService.runTask('format', `${executable} ${cmd}`, this.configurationManager.isClearTerminalBeforeAction());
     }
 
     public async clean() {
         const executable = this.configurationManager.getExecutableCommand();
         await this.taskService.runTask(
-            'clean', // task type
-            `${executable} clean`, // task name
+            'clean', // task name
             `${executable} clean`,
             this.configurationManager.isClearTerminalBeforeAction()
         );
@@ -79,13 +80,13 @@ export class BazelController {
             return;
         }
 
-        // Build command
+        // Build single file command
         const executable = this.configurationManager.getExecutableCommand();
         await this.taskService.runTask(
-            `build ${filePath}`, // task type
-            `build ${filePath}`, // task name
+            'build', // task name
             `${executable} build --compile_one_dependency ${filePath}`,
-            this.configurationManager.isClearTerminalBeforeAction()
+            this.configurationManager.isClearTerminalBeforeAction(),
+            filePath
         );
     }
 
@@ -97,6 +98,7 @@ export class BazelController {
 
         try {
             this.isRefreshingRunTargets = true;
+            vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.refreshRunTargetsState`, 'loading');
             const runTargets = await this.bazelService.fetchRunTargets(cancellationToken);
             const bazelTargets: BazelTarget[] = runTargets.map(item =>
                 new BazelTarget(this.context, this.bazelService, item.label, item.detail, 'run')
@@ -106,6 +108,7 @@ export class BazelController {
             return Promise.reject(error);  // Ensure the rejection is propagated
         } finally {
             this.isRefreshingRunTargets = false;  // Ensure flag is reset even if there's an error
+            vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.refreshRunTargetsState`, 'idle');
         }
     }
 

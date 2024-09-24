@@ -88,6 +88,8 @@ export function registerBazelTargetOperationsCommands(
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.executeTarget`, (target: BazelTarget) => {
         bazelTargetOpsController.executeTarget(target);
+    }), vscode.commands.registerCommand(`${extensionName}.executingTarget`, () => {
+        // Do nothing
     }));
 
     ['build', 'run', 'test'].forEach(action => {

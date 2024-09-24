@@ -25,6 +25,7 @@
 import { BazelTargetController } from './bazel-target-controller';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
+import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { BAZEL_BIN, BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
@@ -44,7 +45,8 @@ export class BuildController implements BazelTargetController {
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
         private readonly bazelService: BazelService,
-        private readonly bazelTargetManager: BazelTargetManager
+        private readonly bazelTargetManager: BazelTargetManager,
+        private readonly bazelTargetStateManager: BazelTargetStateManager
     ) { }
 
     public async execute(target: BazelTarget): Promise<void> {
@@ -60,7 +62,14 @@ export class BuildController implements BazelTargetController {
             return;
         }
 
-        return this.taskService.runTask(`${target.action} ${actualTarget}`, `${target.action} ${actualTarget}`, buildCommand, this.configurationManager.isClearTerminalBeforeAction());
+        try {
+            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
+            await this.taskService.runTask(`${target.action} ${actualTarget}`, buildCommand, this.configurationManager.isClearTerminalBeforeAction(), target.id);
+        } catch (error) {
+            return Promise.reject(error);
+        } finally {
+            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Idle);
+        }
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {

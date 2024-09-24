@@ -23,6 +23,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 
 import { BAZEL_BIN, BazelService } from './bazel-service';
+import { Console } from './console';
 import { EnvVarsUtils } from './env-vars-utils';
 import { BazelTarget } from '../models/bazel-target';
 import * as path from 'path';
@@ -32,12 +33,12 @@ import * as vscode from 'vscode';
 export class LaunchConfigService {
     constructor(context: vscode.ExtensionContext,
         private readonly bazelService: BazelService,
-        private readonly setupEnvVars: { [key: string]: string }
+        private readonly setupEnvVars: string[]
     ) { }
 
 
     public async createRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
-        const language = await target.getLanguage(cancellationToken);  // Determine language from the target
+        const language = await target.getLanguage();  // Determine language from the target
 
         switch (language) {
         case 'cpp':
@@ -52,7 +53,7 @@ export class LaunchConfigService {
     }
 
     public async createDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
-        const language = await target.getLanguage(cancellationToken);  // Determine language from the target
+        const language = await target.getLanguage();  // Determine language from the target
 
         switch (language) {
         case 'cpp':
@@ -74,17 +75,32 @@ export class LaunchConfigService {
     }
 
     // C++ Run Under Bazel configuration (existing logic)
-    private async createCppRunUnderLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
+    private async createCppRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
         const bazelArgs = target.getBazelArgs().toString();
         const configArgs = target.getConfigArgs().toString();
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+        const targetPath = await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
         const programPath = path.join(workingDirectory, targetPath);
+
+        /* The environment key for type 'cppdbg' is different than
+         * other launch configs because it expects an array of
+         * objects that have a name key and value key in each object.
+         * For example:
+         * "environment": [
+         *      {
+         *          "name": "MY_ENV_VAR",
+         *          "value": "my_value"
+         *      },
+         *      {
+         *          "name": "ANOTHER_VAR",
+         *          "value": "another_value"
+         *      }
+         */
         const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
         const runArgs = target.getRunArgs().toString();
 
-        return {
+        const config = {
             name: `${bazelTarget} (Run Under)`,
             type: 'cppdbg',
             request: 'launch',
@@ -93,7 +109,7 @@ export class LaunchConfigService {
             stopAtEntry: false,
             cwd: workingDirectory,
             sourceFileMap: { '/proc/self/cwd': workingDirectory },
-            environment: { ...this.setupEnvVars, ...envVars },
+            environment: [ ...EnvVarsUtils.listToArrayOfObjects(this.setupEnvVars), ...envVars ],
             externalConsole: false,
             targetArchitecture: 'x64',
             customLaunchSetupCommands: [
@@ -103,13 +119,29 @@ export class LaunchConfigService {
             logging: { programOutput: true },
             internalConsoleOptions: 'openOnSessionStart'
         };
+        return config;
     }
 
     // C++ Direct Debug configuration
-    private async createCppDirectLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
+    private async createCppDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+        const targetPath = await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
         const programPath = path.join(workingDirectory, targetPath);
+
+        /* The environment key for type 'cppdbg' is different than
+         * other launch configs because it expects an array of
+         * objects that have a name key and value key in each object.
+         * For example:
+         * "environment": [
+         *      {
+         *          "name": "MY_ENV_VAR",
+         *          "value": "my_value"
+         *      },
+         *      {
+         *          "name": "ANOTHER_VAR",
+         *          "value": "another_value"
+         *      }
+         */
         const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
         const args = target.getRunArgs().toString();
 
@@ -120,7 +152,7 @@ export class LaunchConfigService {
             program: programPath,
             stopAtEntry: false,
             cwd: workingDirectory,
-            environment: {...this.setupEnvVars, ...envVars},
+            environment: [...EnvVarsUtils.listToArrayOfObjects(this.setupEnvVars), ...envVars],
             externalConsole: false,
             MIMode: 'gdb',
             setupCommands: [{ description: 'Enable pretty-printing for gdb', text: '-enable-pretty-printing', ignoreFailures: true }],
@@ -129,16 +161,16 @@ export class LaunchConfigService {
     }
 
     // Python Run Under Bazel configuration
-    private async createPythonRunUnderLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
-        return this.createPythonDirectLaunchConfig(target);
+    private async createPythonRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
+        return this.createPythonDirectLaunchConfig(target, cancellationToken);
     }
 
     // Python Direct Debug configuration
-    private async createPythonDirectLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
+    private async createPythonDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const workingDirectory = '${workspaceFolder}';
         const pythonFile = `${workingDirectory}/${target.detail}`;
         const args = target.getRunArgs().toString();
-        const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
+        const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
         // TODO: This may not always work and perhaps we need a way to
         // get the original python file from bazel.
         const originalPythonFile = path.normalize(pythonFile.replace(BAZEL_BIN, '')).concat('.py');
@@ -156,23 +188,23 @@ export class LaunchConfigService {
             ],
             stopOnEntry: false,
             cwd: workingDirectory,
-            env: {...this.setupEnvVars, ...envVars},
+            env: {...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars},
             console: 'integratedTerminal',
             justMyCode: true
         };
     }
 
     // Go Run Under Bazel configuration
-    private async createGoRunUnderLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
-        return this.createGoDirectLaunchConfig(target);
+    private async createGoRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
+        return this.createGoDirectLaunchConfig(target, cancellationToken);
     }
 
     // Go Direct Debug configuration
-    private async createGoDirectLaunchConfig(target: BazelTarget): Promise<vscode.DebugConfiguration> {
+    private async createGoDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+        const targetPath = await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
         const programPath = path.join(workingDirectory, targetPath);
-        const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
+        const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
         const args = target.getRunArgs().toString();
 
         return {
@@ -184,7 +216,7 @@ export class LaunchConfigService {
             args: args.length > 0 ? args.split(' ') : [],
             stopOnEntry: false,
             cwd: workingDirectory,
-            env: {...this.setupEnvVars, ...envVars},
+            env: {...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars},
             console: 'integratedTerminal',
             substitutePath: [
                 {

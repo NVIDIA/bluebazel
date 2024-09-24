@@ -30,6 +30,7 @@ import { RunController } from './run-controller';
 import { TestController } from './test-controller';
 import { BazelEnvironment } from '../../models/bazel-environment';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
+import { BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { LaunchConfigService } from '../../services/launch-config-service';
@@ -50,18 +51,50 @@ export class BazelTargetControllerManager {
         launchConfigService: LaunchConfigService,
         bazelController: BazelController,
         bazelEnvironment: BazelEnvironment,
-        bazelTargetManager: BazelTargetManager
+        bazelTargetManager: BazelTargetManager,
+        bazelTargetStateManager: BazelTargetStateManager
     ) {
-        const buildController = new BuildController(context, configurationManager, taskService, bazelService, bazelTargetManager);
-        const runController = new RunController(context, configurationManager, taskService,
-            bazelService, launchConfigService, bazelController, buildController,
-            bazelTargetManager);
+        const buildController = new BuildController(context,
+            configurationManager,
+            taskService,
+            bazelService,
+            bazelTargetManager,
+            bazelTargetStateManager);
+
+        const runController = new RunController(context,
+            configurationManager,
+            taskService,
+            bazelService,
+            launchConfigService,
+            bazelController,
+            buildController,
+            bazelTargetManager,
+            bazelTargetStateManager);
+
         this.controllers.set('build', buildController);
         this.controllers.set('run', runController);
-        this.controllers.set('test', new TestController(context, configurationManager, taskService, shellService, bazelService,
-            runController));
-        this.controllers.set('debug', new DebugController(context, configurationManager, bazelService, buildController, bazelEnvironment));
-        this.controllers.set('*', new AnyActionController(context, configurationManager, taskService, bazelService));
+
+        this.controllers.set('test', new TestController(context,
+            configurationManager,
+            taskService,
+            shellService,
+            bazelService,
+            runController,
+            bazelTargetStateManager));
+
+        this.controllers.set('debug', new DebugController(context,
+            configurationManager,
+            bazelService,
+            shellService,
+            buildController,
+            bazelEnvironment,
+            bazelTargetStateManager));
+
+        this.controllers.set('*', new AnyActionController(context,
+            configurationManager,
+            taskService,
+            bazelService,
+            bazelTargetStateManager));
     }
 
     public getController(action: string): BazelTargetController | undefined {

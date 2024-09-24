@@ -28,18 +28,29 @@ import { clearTerminal } from '../ui/terminal';
 import * as vscode from 'vscode';
 
 
+export class CustomTaskProvider implements vscode.TaskProvider {
+    static readonly type = 'bluebazelTask';
+
+    provideTasks(): vscode.Task[] | undefined {
+        return undefined;  // You can provide predefined tasks if needed.
+    }
+
+    resolveTask(task: vscode.Task): vscode.Task | undefined {
+        return task;  // Just return the task as-is for simplicity.
+    }
+}
+
 export class TaskService {
 
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly workspaceFolder: vscode.WorkspaceFolder,
-        private readonly setupEnvVars: {[key: string]: string}) { }
-
-
-    public static generateUniqueTaskSource(context: vscode.ExtensionContext) {
-        return ExtensionUtils.getExtensionName(context) + this.getRandomInt(100000);
+        private readonly setupEnvVars: { [key: string]: string }) {
+        const customTaskProvider = vscode.tasks.registerTaskProvider(CustomTaskProvider.type, new CustomTaskProvider());
+        context.subscriptions.push(customTaskProvider);
     }
 
-    public async runTask(taskType: string, taskName: string, command: string, clearTerminalFirst: boolean, envVars: { [key: string]: string } = {}, executionType: 'shell' | 'process' = 'shell') {
+
+    public async runTask(taskName: string, command: string, clearTerminalFirst: boolean, id = '', envVars: { [key: string]: string } = {}, executionType: 'shell' | 'process' = 'shell') {
         const workspaceFolder = this.workspaceFolder;
 
         const envVarsObj = { ...this.setupEnvVars, ...envVars };
@@ -51,25 +62,26 @@ export class TaskService {
             execution = new vscode.ProcessExecution(args[0], args.slice(1), { cwd: workspaceFolder.uri.path, env: envVarsObj });
         }
 
+        const taskType = `${CustomTaskProvider.type}-${taskName}-${id}`;  // Dynamically set the task type
         const task = new vscode.Task(
             { type: taskType },
             workspaceFolder,
             taskName,
-            TaskService.generateUniqueTaskSource(this.context),
+            ExtensionUtils.getExtensionDisplayName(this.context),
             execution,
             '$gcc'  // Adjust this as necessary
         );
 
+        task.presentationOptions = {
+            reveal: vscode.TaskRevealKind.Always,
+            panel: vscode.TaskPanelKind.Dedicated
+        };
         if (clearTerminalFirst) {
             clearTerminal();
         }
 
         const taskExecution = await vscode.tasks.executeTask(task);
         return this.showProgressOfTask(taskName, taskExecution);
-    }
-
-    private static getRandomInt(max: number) {
-        return Math.floor(Math.random() * Math.floor(max));
     }
 
     private showProgressOfTask(title: string, execution: vscode.TaskExecution) {

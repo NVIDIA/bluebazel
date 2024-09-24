@@ -195,13 +195,12 @@ export class BazelService {
     }
 
     /**
-     * Fetches Bazel build targets from the specified directory.
+     * Extracts Bazel targets and their rule types from the contents of a BUILD file.
      */
-    public static async fetchBuildTargets(directoryPath: string, cwd: string): Promise<string[]> {
+    public static async fetchBuildTargets(directoryPath: string, cwd: string): Promise<{ name: string, ruleType: string }[]> {
         const directory = path.join(cwd, directoryPath);
         const buildFilePaths = [path.join(directory, 'BUILD'), path.join(directory, 'BUILD.bazel')];
 
-        // Iterate through the list of build file paths and resolve the first valid file
         for (const buildFilePath of buildFilePaths) {
             try {
                 if (fs.existsSync(buildFilePath)) {
@@ -210,7 +209,7 @@ export class BazelService {
                 }
             } catch (error) {
                 Console.error(`Error reading build file: ${buildFilePath}`, error);
-                return Promise.reject(error);  // Rejecting instead of throwing
+                return Promise.reject(error);
             }
         }
 
@@ -218,17 +217,35 @@ export class BazelService {
     }
 
     /**
-     * Extracts Bazel targets from the contents of a BUILD file.
-     * This is a basic implementation; adjust the regex as needed for your use case.
+     * Wrapper to fetch only target names from the BUILD file.
      */
-    private static extractBuildTargetsFromFile(buildFileContent: string): string[] {
-        const targets: string[] = [];
-        const targetRegex = /name\s*=\s*["']([^"']+)["']/g;
+    public static async fetchBuildTargetNames(directoryPath: string, cwd: string): Promise<string[]> {
+        try {
+            // Call fetchBuildTargets to get both target names and rule types
+            const buildTargets = await BazelService.fetchBuildTargets(directoryPath, cwd);
+
+            // Extract and return only the target names as an array of strings
+            return buildTargets.map(target => target.name);
+        } catch (error) {
+            Console.error('Error fetching target names:', error);
+            return Promise.reject(error);
+        }
+    }
+
+    /**
+     * Extracts Bazel targets and their rule types from the BUILD file content.
+     * This method uses a basic regex to capture both target names and rule types.
+     */
+    private static extractBuildTargetsFromFile(buildFileContent: string): { name: string, ruleType: string }[] {
+        const targets: { name: string, ruleType: string }[] = [];
+        const targetRegex = /(cc_|go_|py_|java_|js_)(\w+)\s*\(\s*name\s*=\s*["']([^"']+)["']/g;
         let match;
 
         // Loop over all matches of the regex in the file content
         while ((match = targetRegex.exec(buildFileContent)) !== null) {
-            targets.push(match[1]); // Capture the name of the target
+            const ruleType = match[1] + match[2];  // Capture the rule type (e.g., go_library, py_binary)
+            const targetName = match[3];  // Capture the target name
+            targets.push({ name: targetName, ruleType });
         }
 
         return targets;
@@ -265,4 +282,57 @@ export class BazelService {
         }
     }
 
+    public async fetchTargetLanguageFromBuildFile(target: BazelTarget): Promise<string> {
+        try {
+            const buildPath = BazelService.formatBazelTargetFromPath(target.detail).split(':')[0];
+
+            const dirBuildTargets = await BazelService.fetchBuildTargets(
+                buildPath,
+                WorkspaceService.getInstance().getWorkspaceFolder().uri.path
+            );
+
+            // Find the matching target by comparing the label with the fetched targets
+            const matchedTarget = dirBuildTargets.find(t => t.name === target.label);
+
+            if (!matchedTarget) {
+                return 'unknown';  // If the target is not found, return unknown
+            }
+
+            // Infer the language from the rule type of the matched target
+            return this.inferLanguageFromRuleType(matchedTarget.ruleType);
+
+        } catch (error) {
+            Console.error('Error fetching target language from BUILD file:', error);
+            return Promise.reject(error);
+        }
+    }
+
+    private inferLanguageFromRuleType(ruleType: string): string {
+        // Check for Go-related rules
+        if (ruleType.includes('go_library') || ruleType.includes('go_binary')) {
+            return 'go';
+        }
+
+        // Check for Python-related rules
+        if (ruleType.includes('py_library') || ruleType.includes('py_binary')) {
+            return 'python';
+        }
+
+        // Check for C++-related rules
+        if (ruleType.includes('cc_library') || ruleType.includes('cc_binary') || ruleType.includes('cpp_library')) {
+            return 'cpp';
+        }
+
+        // Check for Java-related rules
+        if (ruleType.includes('java_library') || ruleType.includes('java_binary')) {
+            return 'java';
+        }
+
+        // Check for JavaScript-related rules
+        if (ruleType.includes('js_library') || ruleType.includes('js_binary')) {
+            return 'javascript';
+        }
+
+        return 'unknown';  // Default case if no known rule types are found
+    }
 }

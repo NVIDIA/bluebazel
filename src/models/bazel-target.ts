@@ -127,9 +127,9 @@ export class BazelTarget {
         return newTarget;
     }
 
-    public async getLanguage(cancellationToken?: vscode.CancellationToken): Promise<string> {
+    public async getLanguage(): Promise<string> {
         if (this.language === 'unknown') {
-            const language = await this.bazelService.fetchTargetLanguage(this, cancellationToken);
+            const language = await this.bazelService.fetchTargetLanguageFromBuildFile(this);
             this.language = language;
             return Promise.resolve(language);
         }

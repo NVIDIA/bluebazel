@@ -25,6 +25,7 @@
 import { BazelTargetController } from './bazel-target-controller';
 import { BazelAction, BazelTarget } from '../../models/bazel-target';
 import { BazelTargetPropertyHistory } from '../../models/bazel-target-property-history';
+import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { cleanAndFormat } from '../../services/string-utils';
@@ -40,19 +41,27 @@ export class AnyActionController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
-        private readonly bazelService: BazelService
+        private readonly bazelService: BazelService,
+        private readonly bazelTargetStateManager: BazelTargetStateManager
     ) {
         this.quickPickHistory = new Map<BazelAction, BazelTargetPropertyHistory>();
     }
 
     public async execute(target: BazelTarget): Promise<void> {
-        const executable = this.configurationManager.getExecutableCommand();
-        await this.taskService.runTask(
-            `${target.action} ${target.detail}`, // task type
-            `${target.action} ${target.detail}`, // task name
-            `${executable} ${target.action} ${target.detail}`,
-            this.configurationManager.isClearTerminalBeforeAction()
-        );
+        try {
+            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
+            const executable = this.configurationManager.getExecutableCommand();
+            await this.taskService.runTask(
+                `${target.action} ${target.detail}`, // task name
+                `${executable} ${target.action} ${target.detail}`,
+                this.configurationManager.isClearTerminalBeforeAction(),
+                target.id
+            );
+        } catch (error) {
+            return Promise.reject(error);
+        } finally {
+            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Idle);
+        }
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {
@@ -82,7 +91,10 @@ export class AnyActionController implements BazelTargetController {
         const history = this.getOrCreateHistory(currentTarget);
         const targetList = await this.getTargetList();
 
-        const dirBuildTargets = await this.fetchBuildTargets();
+        const dirBuildTargets = await BazelService.fetchBuildTargetNames(
+            this.currentTargetPath,
+            WorkspaceService.getInstance().getWorkspaceFolder().uri.path
+        );
         this.addDirBuildTargetsToList(dirBuildTargets, targetList);
 
         const quickPick = this.createQuickPick(targetList, currentTarget, history);
@@ -104,12 +116,6 @@ export class AnyActionController implements BazelTargetController {
         );
     }
 
-    private async fetchBuildTargets(): Promise<string[]> {
-        return await BazelService.fetchBuildTargets(
-            this.currentTargetPath,
-            WorkspaceService.getInstance().getWorkspaceFolder().uri.path
-        );
-    }
 
     private addDirBuildTargetsToList(dirBuildTargets: string[], targetList: string[]): void {
         dirBuildTargets.forEach(targetName => {
