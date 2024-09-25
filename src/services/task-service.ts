@@ -22,6 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 
+import { EnvVarsUtils } from './env-vars-utils';
 import { ExtensionUtils } from './extension-utils';
 import { showProgress } from '../ui/progress';
 import { clearTerminal } from '../ui/terminal';
@@ -44,7 +45,7 @@ export class TaskService {
 
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly workspaceFolder: vscode.WorkspaceFolder,
-        private readonly setupEnvVars: { [key: string]: string }) {
+        private readonly setupEnvVars: string[]) {
         const customTaskProvider = vscode.tasks.registerTaskProvider(CustomTaskProvider.type, new CustomTaskProvider());
         context.subscriptions.push(customTaskProvider);
     }
@@ -53,10 +54,13 @@ export class TaskService {
     public async runTask(taskName: string, command: string, clearTerminalFirst: boolean, id = '', envVars: { [key: string]: string } = {}, executionType: 'shell' | 'process' = 'shell') {
         const workspaceFolder = this.workspaceFolder;
 
-        const envVarsObj = { ...this.setupEnvVars, ...envVars };
+        const envVarsObj = { ...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars };
         let execution: vscode.ShellExecution | vscode.ProcessExecution;
         if (executionType === 'shell') {
-            execution = new vscode.ShellExecution(command, { cwd: workspaceFolder.uri.path, env: envVarsObj });
+            execution = new vscode.ShellExecution(command, {
+                cwd: workspaceFolder.uri.path, env: envVarsObj,
+                executable: '/bin/bash',  // Ensure bash is used as the shell
+                shellArgs: ['-c'] });
         } else {
             const args = command.split(' ');
             execution = new vscode.ProcessExecution(args[0], args.slice(1), { cwd: workspaceFolder.uri.path, env: envVarsObj });

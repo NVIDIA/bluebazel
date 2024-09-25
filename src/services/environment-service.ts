@@ -30,38 +30,61 @@ import * as vscode from 'vscode';
 
 export class EnvironmentService {
 
-    public static async fetchSetupEnvironment(context: vscode.ExtensionContext, envSetupCommand: string, cancellationToken?: vscode.CancellationToken): Promise<string[]> {
+    public static async fetchSetupEnvironment(
+        context: vscode.ExtensionContext,
+        envSetupCommand: string,
+        cancellationToken?: vscode.CancellationToken
+    ): Promise<string[]> {
         const extName = ExtensionUtils.getExtensionName(context);
         const envDelimiter = `---${extName} setup---`;
+
         if (envSetupCommand) {
             try {
-                const result = await ShellService.run(`${envSetupCommand} && echo ${envDelimiter} && printenv`, WorkspaceService.getInstance().getWorkspaceFolder().uri.path, {}, cancellationToken);
+                // Run the setup command, ensuring it prints the environment variables
+                const result = await ShellService.run(
+                    `${envSetupCommand} && echo ${envDelimiter} && env`,
+                    WorkspaceService.getInstance().getWorkspaceFolder().uri.path,
+                    {},
+                    cancellationToken
+                );
 
-                const env = result.stdout.replace(new RegExp(`[\\s\\S]*?${envDelimiter}\n`, 'g'), '').split('\n');
+                // Remove everything before the delimiter, then split the output by newlines
+                const env = result.stdout
+                    .replace(new RegExp(`[\\s\\S]*?${envDelimiter}\n`, 'g'), '')
+                    .split('\n');
+
                 const envArray: string[] = [];
                 let currentVariable = '';
+
                 for (const line of env) {
-                    if (line.includes('=')) {
+                    // Look for the first '=' to avoid issues with values containing '='
+                    const index = line.indexOf('=');
+                    if (index !== -1) {
                         if (currentVariable) {
-                            const [name, value] = currentVariable.split('=');
-                            envArray.push(`${name}=${value}`);
+                            envArray.push(currentVariable);  // Push previous variable
                         }
-                        currentVariable = line;
+                        currentVariable = line;  // Start new variable
                     } else if (currentVariable) {
+                        // Handle case where the variable is spread over multiple lines (unlikely for environment variables)
                         currentVariable += `\n${line}`;
                     }
                 }
 
+                // Push the last variable
                 if (currentVariable) {
-                    const [name, value] = currentVariable.split('=');
-                    envArray.push(`${name}=${value}`);
+                    envArray.push(currentVariable);
                 }
 
                 return envArray;
             } catch (error) {
+                // Log the error for debugging purposes
+                console.error('Error fetching setup environment:', error);
                 return Promise.reject(error);
             }
         }
+
+        // Return an empty array if no setup command is provided
         return [];
     }
+
 }

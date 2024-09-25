@@ -124,7 +124,7 @@ export class BuildController implements BazelTargetController {
             targetList.unshift(BUILD_RUN_TARGET_STR);
         }
 
-        const dirBuildTargets = await BazelService.fetchBuildTargets(
+        const dirBuildTargets = await BazelService.fetchBuildTargetNames(
             this.currentTargetPath,
             WorkspaceService.getInstance().getWorkspaceFolder().uri.path
         );

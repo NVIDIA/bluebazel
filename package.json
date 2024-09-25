@@ -267,7 +267,7 @@
                 {
                     "command": "bluebazel.executeTarget",
                     "group": "inline@1",
-                    "when": "!(viewItem =~ /ExecutingTarget$/) && view == bluebazelView"
+                    "when": "!(viewItem =~ /ExecutingTarget$/) && viewItem =~ /Target$/ && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.executingTarget",
@@ -287,7 +287,7 @@
                 {
                     "command": "bluebazel.executeTarget",
                     "group": "@1",
-                    "when": "!(viewItem =~ /ExecutingTarget$/) && view == bluebazelView"
+                    "when": "!(viewItem =~ /ExecutingTarget$/) && viewItem =~ /Target$/ && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.executingTarget",

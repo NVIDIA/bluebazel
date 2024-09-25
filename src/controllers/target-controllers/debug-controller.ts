@@ -130,45 +130,6 @@ export class DebugController implements BazelTargetController {
         }
     }
 
-   /*  private async createLocalDebugScript(target: BazelTarget): Promise<void> {
-        // Create a task to get the environment variables when we source bazel script
-        const executable = this.configurationManager.getExecutableCommand();
-        const envVars = EnvVarsUtils.toRunEnvVars(target.getEnvVars().toStringArray());
-        const envSetupCommand = this.configurationManager.getSetupEnvironmentCommand();
-
-        const task = new vscode.Task(
-            {
-                type: 'shell',
-                task: `debug ${target.label}`
-            },
-            WorkspaceService.getInstance().getWorkspaceFolder(),
-            `debug ${target.label}`,
-            TaskService.generateUniqueTaskSource(this.context),
-            new vscode.ShellExecution(`bash -c "echo '#!/bin/bash\nset -x\n${envSetupCommand}\n${envVars} ${executable} \\"\\$@\\"\n' > ${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh" && chmod +x ${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh\n`,
-                { cwd: WorkspaceService.getInstance().getWorkspaceFolder().uri.path })
-        );
-        // We don't want to see the task's output.
-        task.presentationOptions.reveal = vscode.TaskRevealKind.Silent;
-        task.presentationOptions.echo = false;
-        task.presentationOptions.panel = vscode.TaskPanelKind.Shared;
-
-        if (this.configurationManager.isClearTerminalBeforeAction()) {
-            clearTerminal();
-        }
-
-        const execution = await vscode.tasks.executeTask(task);
-        return new Promise<void>(resolve => {
-            const disposable = vscode.tasks.onDidEndTaskProcess(e => {
-                if (e.execution === execution) {
-                    if (e.exitCode != 0)
-                        throw new Error(`Could not run prelaunch task. Exit code: ${e.exitCode}.`);
-                    disposable.dispose();
-                    resolve();
-                }
-            });
-        });
-    } */
-
     public async pickTarget(target?: BazelTarget): Promise<BazelTarget | undefined> {
         throw Error(`Unsupported operation for debug controller to pick target ${target? target.detail : ''}`);
     }

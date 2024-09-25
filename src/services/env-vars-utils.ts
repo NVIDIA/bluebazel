@@ -28,31 +28,41 @@ export class EnvVarsUtils {
      * @param envVars A list of environment variables in the form of ['A=first', 'B=second', ...].
      * @returns A list of objects in the form of [{name: 'A', value: 'first}, {name: 'B', value: 'second'}, ...].
      */
-    public static listToArrayOfObjects(envVars: string[]): Array<{ [key: string]: string }> {
-        const vars: Array<{[key: string]: string}> = [];
-        const set = envVars;
-        set.forEach((item) => {
-            const [key, value] = item.split('=');
-            const nameValuePair = {
-                name: key,
-                value: value
-            };
-            vars.push(nameValuePair);
+    public static listToArrayOfObjects(envVars: string[]): Array<{ name: string; value: string }> {
+        const vars: Array<{ name: string; value: string }> = [];
+
+        envVars.forEach((item) => {
+            const index = item.indexOf('=');
+            if (index !== -1) {
+                const name = item.substring(0, index);  // Everything before the first '=' is the name
+                const value = item.substring(index + 1);  // Everything after the first '=' is the value
+                const nameValuePair = {
+                    name: name,
+                    value: value
+                };
+                vars.push(nameValuePair);
+            }
         });
+
         return vars;
     }
+
 
     /**
      * Converts a list of environment variables into an object literal or a map.
      * @param envVars A list of environment variables in the form of ['A=first', 'B=second', ...].
      * @returns An object literal or map in the form of {A: 'first', B: 'second', ...}.
      */
-    public static listToObject(envVars: string[]): {[key: string]: string} {
+    public static listToObject(envVars: string[]): { [key: string]: string } {
         const envVariables: { [key: string]: string } = {};
-        const set = envVars;
-        set.forEach((item) => {
-            const [key, value] = item.split('=');
-            envVariables[key] = value;
+
+        envVars.forEach((item) => {
+            const index = item.indexOf('=');
+            if (index !== -1) {
+                const key = item.substring(0, index);
+                const value = item.substring(index + 1);  // Capture everything after the first '=' as the value
+                envVariables[key] = value;
+            }
         });
 
         return envVariables;

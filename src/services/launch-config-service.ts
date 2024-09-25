@@ -196,7 +196,30 @@ export class LaunchConfigService {
 
     // Go Run Under Bazel configuration
     private async createGoRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
-        return this.createGoDirectLaunchConfig(target, cancellationToken);
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const bazelArgs = target.getBazelArgs().toString();
+        const configArgs = target.getConfigArgs().toString();
+        const workingDirectory = '${workspaceFolder}';
+
+        const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
+        const runArgs = target.getRunArgs().toString();
+
+        const config = {
+            name: `${bazelTarget} (Run Under)`,
+            type: 'go',
+            request: 'launch',
+            mode: 'exec',
+            program: '/bin/bash',
+            args: ['-c', `./.vscode/bazel_debug.sh run --run_under='dlv exec --headless' ${bazelArgs} ${configArgs} ${bazelTarget} ${runArgs}`],
+            stopAtEntry: false,
+            cwd: workingDirectory,
+            environment: { ...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars },
+            externalConsole: false,
+            targetArchitecture: 'x64',
+            logging: { programOutput: true },
+            internalConsoleOptions: 'openOnSessionStart'
+        };
+        return config;
     }
 
     // Go Direct Debug configuration

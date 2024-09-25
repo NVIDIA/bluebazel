@@ -134,7 +134,7 @@ async function initExtension(context: vscode.ExtensionContext) {
     // can run said tasks with the appropriate environment vairables.
     taskService = new TaskService(context,
         WorkspaceService.getInstance().getWorkspaceFolder(),
-        EnvVarsUtils.listToObject(bazelEnvironment.getEnvVars())
+        bazelEnvironment.getEnvVars()
     );
 
     // The bazel service interacts with the bazel command line tool to retrieve
