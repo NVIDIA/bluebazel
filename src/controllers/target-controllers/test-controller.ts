@@ -53,7 +53,7 @@ export class TestController implements BazelTargetController {
             return;
         }
 
-        const taskLabel = `${target.action} ${target.detail}`;
+        const taskLabel = `${target.action} ${target.buildPath}`;
 
         try {
             this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
@@ -76,7 +76,7 @@ export class TestController implements BazelTargetController {
         const envVars = EnvVarsUtils.toTestEnvVars(target.getEnvVars().toStringArray());
         const testArgs = target.getRunArgs();
 
-        const bazelTarget = target.detail;
+        const bazelTarget = target.buildPath;
         const command = cleanAndFormat(
             executable,
             'test',
@@ -91,7 +91,7 @@ export class TestController implements BazelTargetController {
     }
 
     public async getTestTargets(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<BazelTargetQuickPickItem[]> {
-        const testTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const testTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
         const executable = this.configurationManager.getExecutableCommand();
         const testPath = testTarget.replace(new RegExp(/:.*/g), '/...');
         const command = `${executable} query 'tests(${testPath})'`;
@@ -103,20 +103,20 @@ export class TestController implements BazelTargetController {
                 const testTargetNames = value.stdout.split('\n');
                 const testTargets = testTargetNames.map(item => {
                     const label = `${test}:${item.split(':').slice(-1)[0]}`;
-                    const t = new BazelTarget(this.context, this.bazelService, label, item, target.action);
+                    const t = new BazelTarget(this.context, this.bazelService, label, item, item, target.action, '');
                     return {
                         label: t.label,
-                        detail: t.detail,
+                        detail: t.buildPath,
                         target: t  // Create a copy of target with the updated label
                     };
                 });
                 // Create the special all inclusive target ...
                 const allTestsInPath = `${path}/...`;
                 const label = `${path.split('/').slice(-1)[0]}/...`;
-                const t = new BazelTarget(this.context, this.bazelService, label, allTestsInPath, target.action);
+                const t = new BazelTarget(this.context, this.bazelService, label, allTestsInPath, allTestsInPath, target.action, '');
                 testTargets.unshift({
                     label: t.label,
-                    detail: t.detail,
+                    detail: t.buildPath,
                     target: t
                 });
 
@@ -136,7 +136,7 @@ export class TestController implements BazelTargetController {
             quickPick.placeholder = 'Loading test targets...';
 
             // Show a loading message or spinner (using icon)
-            quickPick.items = [{ label: '$(sync~spin) Loading...', alwaysShow: true, detail: undefined, target: new BazelTarget(this.context, this.bazelService, '', '', '') }];
+            quickPick.items = [{ label: '$(sync~spin) Loading...', alwaysShow: true, detail: undefined, target: BazelTarget.createEmpty(this.context, this.bazelService) }];
 
             // Show the QuickPick UI
             quickPick.show();

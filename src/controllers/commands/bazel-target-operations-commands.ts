@@ -26,8 +26,9 @@ import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BazelService } from '../../services/bazel-service';
 import { ExtensionUtils } from '../../services/extension-utils';
+import { IconService } from '../../services/icon-service';
 import { BazelTargetCategory, BazelTargetTreeProvider } from '../../ui/bazel-target-tree-provider';
-import { showSimpleQuickPick } from '../../ui/quick-pick';
+import { BazelController } from '../bazel-controller';
 import { BazelTargetOperationsController } from '../bazel-target-operations-controller';
 import { BazelTargetControllerManager } from '../target-controllers/bazel-target-controller-manager';
 import * as vscode from 'vscode';
@@ -35,6 +36,8 @@ import * as vscode from 'vscode';
 export function registerBazelTargetOperationsCommands(
     context: vscode.ExtensionContext,
     bazelService: BazelService,
+    iconService: IconService,
+    bazelController: BazelController,
     bazelTargetControllerManager: BazelTargetControllerManager,
     bazelTargetManager: BazelTargetManager,
     bazelActionManager: BazelActionManager,
@@ -43,7 +46,10 @@ export function registerBazelTargetOperationsCommands(
     const bazelTargetOpsController = new BazelTargetOperationsController(
         context,
         bazelService,
+        iconService,
+        bazelController,
         bazelTargetControllerManager,
+        bazelActionManager,
         bazelTargetManager,
         bazelTreeProvider
     );
@@ -55,13 +61,15 @@ export function registerBazelTargetOperationsCommands(
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.addActionAndTarget`, () => {
-        bazelActionManager.getActions().then(actions => {
+
+        bazelTargetOpsController.pickTargetAndAction();
+       /*  bazelActionManager.getActions().then(actions => {
             showSimpleQuickPick(actions, (action) => {
                 if (action) {
                     bazelTargetOpsController.pickTargetFromAction(action);
                 }
             });
-        });
+        }); */
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.removeTarget`, (target: BazelTarget) => {

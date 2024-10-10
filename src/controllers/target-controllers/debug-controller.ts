@@ -71,7 +71,7 @@ export class DebugController implements BazelTargetController {
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {
-        throw Error(`Unsupported operation for debug controller to get execute command for target ${target.detail}`);
+        throw Error(`Unsupported operation for debug controller to get execute command for target ${target.buildPath}`);
     }
 
     private async debugInBazel(target: BazelTarget): Promise<boolean> {
@@ -131,6 +131,6 @@ export class DebugController implements BazelTargetController {
     }
 
     public async pickTarget(target?: BazelTarget): Promise<BazelTarget | undefined> {
-        throw Error(`Unsupported operation for debug controller to pick target ${target? target.detail : ''}`);
+        throw Error(`Unsupported operation for debug controller to pick target ${target? target.buildPath : ''}`);
     }
 }

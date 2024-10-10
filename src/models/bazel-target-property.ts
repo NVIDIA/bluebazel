@@ -37,7 +37,7 @@ export class BazelTargetProperty {
         target: BazelTarget,
         private readonly toStringFn: (bazelTargetProperty: BazelTargetProperty) => string
     ) {
-        this.id = `${target.action}${name}For${target.detail}`;
+        this.id = `${target.action}${name}For${target.buildPath}`;
         this.history = new BazelTargetPropertyHistory(context, name, 10);
     }
 

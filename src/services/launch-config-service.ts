@@ -23,7 +23,6 @@
 ////////////////////////////////////////////////////////////////////////////////////
 
 import { BAZEL_BIN, BazelService } from './bazel-service';
-import { Console } from './console';
 import { EnvVarsUtils } from './env-vars-utils';
 import { BazelTarget } from '../models/bazel-target';
 import * as path from 'path';
@@ -38,9 +37,7 @@ export class LaunchConfigService {
 
 
     public async createRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
-        const language = await target.getLanguage();  // Determine language from the target
-
-        switch (language) {
+        switch (BazelService.inferLanguageFromRuleType(target.ruleType)) {
         case 'cpp':
             return await this.createCppRunUnderLaunchConfig(target);
         case 'python':
@@ -48,14 +45,12 @@ export class LaunchConfigService {
         case 'go':
             return await this.createGoRunUnderLaunchConfig(target);
         default:
-            throw new Error(`Unsupported language for run under: ${language}`);
+            throw new Error(`Unsupported language for run under: ${target.ruleType}`);
         }
     }
 
     public async createDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
-        const language = await target.getLanguage();  // Determine language from the target
-
-        switch (language) {
+        switch (BazelService.inferLanguageFromRuleType(target.ruleType)) {
         case 'cpp':
             return await this.createCppDirectLaunchConfig(target);
         case 'python':
@@ -63,7 +58,7 @@ export class LaunchConfigService {
         case 'go':
             return await this.createGoDirectLaunchConfig(target);
         default:
-            throw new Error(`Unsupported language for direct launch: ${language}`);
+            throw new Error(`Unsupported language for direct launch: ${target.ruleType}`);
         }
     }
 
@@ -76,7 +71,7 @@ export class LaunchConfigService {
 
     // C++ Run Under Bazel configuration (existing logic)
     private async createCppRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
-        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
         const bazelArgs = target.getBazelArgs().toString();
         const configArgs = target.getConfigArgs().toString();
         const workingDirectory = '${workspaceFolder}';
@@ -168,7 +163,7 @@ export class LaunchConfigService {
     // Python Direct Debug configuration
     private async createPythonDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const workingDirectory = '${workspaceFolder}';
-        const pythonFile = `${workingDirectory}/${target.detail}`;
+        const pythonFile = `${workingDirectory}/${target.buildPath}`;
         const args = target.getRunArgs().toString();
         const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
         // TODO: This may not always work and perhaps we need a way to
@@ -196,7 +191,7 @@ export class LaunchConfigService {
 
     // Go Run Under Bazel configuration
     private async createGoRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
-        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
         const bazelArgs = target.getBazelArgs().toString();
         const configArgs = target.getConfigArgs().toString();
         const workingDirectory = '${workspaceFolder}';

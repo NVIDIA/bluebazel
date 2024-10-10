@@ -72,7 +72,7 @@ export class RunController implements BazelTargetController {
         const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
         // target is in the form of a relative path: bazel-bin/path/executable
         // bazelTarget is in the form of //path:executable
-        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
 
         const runCommand = this.getRunInBazelCommand(target);
         if (!runCommand) {
@@ -105,7 +105,7 @@ export class RunController implements BazelTargetController {
         // Map run targets to QuickPick items
         const items: BazelTargetQuickPickItem[] = runTargets.map(runTarget => ({
             label: runTarget.label,
-            detail: runTarget.detail,
+            detail: runTarget.buildPath,
             target: runTarget,
         }));
 
@@ -145,7 +145,7 @@ export class RunController implements BazelTargetController {
         const configArgs = target.getConfigArgs();
         const executable = this.configurationManager.getExecutableCommand();
         const bazelArgs = target.getBazelArgs();
-        const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
         let runArgs = target.getRunArgs().toString();
         if (runArgs.length > 0) {
             runArgs = '-- ' + runArgs;
@@ -185,7 +185,7 @@ export class RunController implements BazelTargetController {
             quickPick.placeholder = 'Loading run targets...';
 
             // Show a loading message or spinner (using icon)
-            quickPick.items = [{ label: '$(sync~spin) Loading...', alwaysShow: true, detail: undefined, target: new BazelTarget(this.context, this.bazelService, '', '', '') }];
+            quickPick.items = [{ label: '$(sync~spin) Loading...', alwaysShow: true, detail: undefined, target: BazelTarget.createEmpty(this.context, this.bazelService) }];
 
             // Show the QuickPick UI
             quickPick.show();

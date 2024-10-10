@@ -32,6 +32,7 @@ import * as vscode from 'vscode';
 export class BazelTargetManager {
     private targets: Map<BazelAction, BazelTarget[]> = new Map();
     private availableRunTargets: BazelTarget[] = [];
+    private availableTargets: Map<BazelAction, BazelTarget[]> = new Map();
     private selectedTargets: Map<BazelAction, BazelTarget> = new Map();
 
     constructor(private readonly context: vscode.ExtensionContext,
@@ -40,6 +41,7 @@ export class BazelTargetManager {
         this.loadTargets();
         this.loadSelectedTargets();
         this.loadAvailableRunTargets();
+        this.loadAvailableTargets();
     }
 
     // Load run targets from storage
@@ -48,6 +50,26 @@ export class BazelTargetManager {
         const storedTargets = this.context.workspaceState.get<SerializedBazelTarget[]>('bazelAvailableRunTargets', []);
         // Deserialize each stored target into an instance of BazelTarget
         this.availableRunTargets = storedTargets.map(item => BazelTarget.fromJSON(this.context, this.bazelService, item));
+    }
+
+    private loadAvailableTargets() {
+        this.availableTargets = this.loadMap('bazelAvailableTargets');
+    }
+
+    public getMapTargets(map: Map<BazelAction, BazelTarget[]>, action?: BazelAction): BazelTarget[] {
+        if (action) {
+            return map.get(action) || [];
+        } else {
+            const allTargets: BazelTarget[] = [];
+            this.targets.forEach(targetsArray => {
+                allTargets.push(...targetsArray);
+            });
+            return allTargets;
+        }
+    }
+
+    public getAvailableTargets(action?: BazelAction): BazelTarget[] {
+        return this.getMapTargets(this.availableTargets, action);
     }
 
     // Methods to manage run targets
@@ -60,9 +82,14 @@ export class BazelTargetManager {
         this.context.workspaceState.update('bazelAvailableRunTargets', this.availableRunTargets);
     }
 
-    private loadTargets() {
+    public updateAvailableTargets(targets: Map<BazelAction, BazelTarget[]>) {
+        this.availableTargets = targets;
+        this.saveAvailableTargets();
+    }
+
+    private loadMap(key: string): Map<BazelAction, BazelTarget[]> {
         // Retrieve stored targets from workspaceState
-        const storedTargets = this.context.workspaceState.get<{ [key: string]: SerializedBazelTarget[] }>('bazelTargets', {});
+        const storedTargets = this.context.workspaceState.get<{ [key: string]: SerializedBazelTarget[] }>(key, {});
 
         const deserializedTargets = new Map<BazelAction, BazelTarget[]>();
 
@@ -70,8 +97,11 @@ export class BazelTargetManager {
         Object.entries(storedTargets).forEach(([action, targets]) => {
             deserializedTargets.set(action as BazelAction, targets.map(t => BazelTarget.fromJSON(this.context, this.bazelService, t)));
         });
+        return deserializedTargets;
+    }
 
-        this.targets = deserializedTargets;
+    private loadTargets() {
+        this.targets = this.loadMap('bazelTargets');
     }
 
     private loadSelectedTargets() {
@@ -135,15 +165,7 @@ export class BazelTargetManager {
     }
 
     public getTargets(action?: BazelAction): BazelTarget[] {
-        if (action) {
-            return this.targets.get(action) || [];
-        } else {
-            const allTargets: BazelTarget[] = [];
-            this.targets.forEach(targetsArray => {
-                allTargets.push(...targetsArray);
-            });
-            return allTargets;
-        }
+        return this.getMapTargets(this.targets, action);
     }
 
     public removeSelectedTarget(target: BazelTarget) {
@@ -159,24 +181,32 @@ export class BazelTargetManager {
 
     public getSelectedTarget(action: BazelAction): BazelTarget {
         if (this.selectedTargets.has(action)) {
-            return this.selectedTargets.get(action) || new BazelTarget(this.context, this.bazelService, '', '', action);
+            return this.selectedTargets.get(action) || BazelTarget.createEmpty(this.context, this.bazelService, action);
         }
-        return new BazelTarget(this.context, this.bazelService, '', '', action);
+        return BazelTarget.createEmpty(this.context, this.bazelService, action);
     }
 
     public getTargetActions(): BazelAction[] {
         return Array.from(this.targets.keys());
     }
 
-    private saveTargets() {
+    private saveMap(key: string, map: Map<BazelAction, BazelTarget[]>) {
         // Serialize the map to an object before saving
         const serializedTargets: { [key: string]: SerializedBazelTarget[] } = {};
 
-        this.targets.forEach((targets, action) => {
+        map.forEach((targets, action) => {
             serializedTargets[action] = targets.map(target => target.toJSON());
         });
 
-        this.context.workspaceState.update('bazelTargets', serializedTargets);
+        this.context.workspaceState.update(key, serializedTargets);
+    }
+
+    private saveAvailableTargets() {
+        this.saveMap('bazelAvailableTargets', this.availableTargets);
+    }
+
+    private saveTargets() {
+        this.saveMap('bazelTargets', this.targets);
     }
 
     private saveSelectedTargets() {

@@ -24,10 +24,10 @@
 
 import { BazelController } from './bazel-controller';
 import { registerBazelCommands } from './commands/bazel-commands';
+import { registerBazelTargetOperationsCommands } from './commands/bazel-target-operations-commands';
 import { registerDebugCommands } from './commands/debug-commands';
 import { registerMultiPropTreeItemCommands } from './commands/multi-prop-tree-item-commands';
 import { registerSinglePropTreeItemCommands } from './commands/single-prop-tree-item-commands';
-import { registerBazelTargetOperationsCommands } from './commands/bazel-target-operations-commands';
 import { registerTreeDataProviderCommands } from './commands/tree-data-provider-commands';
 import { registerUserCommands } from './commands/user-commands';
 import { BazelTargetControllerManager } from './target-controllers/bazel-target-controller-manager';
@@ -37,12 +37,14 @@ import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
+import { IconService } from '../services/icon-service';
 import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
 
 export function registerCommands(context: vscode.ExtensionContext,
     configurationManager: ConfigurationManager,
     bazelService: BazelService,
+    iconService: IconService,
     userCommandsController: UserCommandsController,
     bazelController: BazelController,
     bazelTargetControllerManager: BazelTargetControllerManager,
@@ -55,7 +57,7 @@ export function registerCommands(context: vscode.ExtensionContext,
     registerSinglePropTreeItemCommands(context, bazelTreeDataProvider);
     registerBazelCommands(context, bazelController);
     const debugController = bazelTargetControllerManager.getController('debug') as DebugController;
-    registerBazelTargetOperationsCommands(context, bazelService, bazelTargetControllerManager,
+    registerBazelTargetOperationsCommands(context, bazelService, iconService, bazelController, bazelTargetControllerManager,
         bazelTargetManager, bazelActionManager, bazelTreeDataProvider);
     registerDebugCommands(context, debugController);
     registerUserCommands(context, configurationManager, userCommandsController);

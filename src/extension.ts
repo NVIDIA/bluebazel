@@ -36,6 +36,7 @@ import { ConfigurationManager } from './services/configuration-manager';
 import { Console } from './services/console';
 import { EnvVarsUtils } from './services/env-vars-utils';
 import { ExtensionUtils } from './services/extension-utils';
+import { IconService } from './services/icon-service';
 import { LaunchConfigService } from './services/launch-config-service';
 import { ShellService } from './services/shell-service';
 import { TaskService } from './services/task-service';
@@ -50,6 +51,7 @@ let bazelService: BazelService;
 let launchConfigService: LaunchConfigService;
 let shellService: ShellService;
 let taskService: TaskService;
+let iconService: IconService;
 
 // Models
 let bazelEnvironment: BazelEnvironment;
@@ -140,11 +142,13 @@ async function initExtension(context: vscode.ExtensionContext) {
     // The bazel service interacts with the bazel command line tool to retrieve
     // information from the cli about bazel. This information includes things like
     // the fetching run targets or configs.
-    bazelService = new BazelService(configurationManager, shellService);
+    bazelService = new BazelService(context, configurationManager, shellService);
 
     // The launch config service interacts with the vscode launch configs.
     launchConfigService = new LaunchConfigService(context,
-        bazelService,  bazelEnvironment.getEnvVars());
+        bazelService, bazelEnvironment.getEnvVars());
+    
+    iconService = new IconService();
 
     /******
      * MODELS
@@ -205,13 +209,13 @@ async function initExtension(context: vscode.ExtensionContext) {
     registerCommands(context,
         configurationManager,
         bazelService,
+        iconService,
         userCommandsController,
         bazelController,
         bazelTargetControllerManager,
         bazelTargetManager,
         bazelActionManager,
         bazelTargetTreeProvider);
-
 }
 
 export function activate(context: vscode.ExtensionContext) {

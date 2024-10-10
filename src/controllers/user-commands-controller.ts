@@ -92,9 +92,9 @@ export class UserCommandsController {
             [UserCommandsController.CONFIG_KEYWORDS.runArgs, () => runTarget.getRunArgs().toString()],
             [UserCommandsController.CONFIG_KEYWORDS.testArgs, () => UserCommandsController.formatTestArgs(testTarget.getRunArgs().toString())],
             [UserCommandsController.CONFIG_KEYWORDS.runTarget, () => {
-                return BazelService.formatBazelTargetFromPath(runTarget.detail);
+                return BazelService.formatBazelTargetFromPath(runTarget.buildPath);
             }],
-            [UserCommandsController.CONFIG_KEYWORDS.testTarget, () => testTarget.detail],
+            [UserCommandsController.CONFIG_KEYWORDS.testTarget, () => testTarget.buildPath],
             [UserCommandsController.CONFIG_KEYWORDS.buildConfigs, () => buildTarget.getConfigArgs().toString()],
             [UserCommandsController.CONFIG_KEYWORDS.runConfigs, () => runTarget.getConfigArgs().toString()],
             [UserCommandsController.CONFIG_KEYWORDS.testConfigs, () => testTarget.getConfigArgs().toString()],
@@ -104,7 +104,7 @@ export class UserCommandsController {
             [UserCommandsController.CONFIG_KEYWORDS.buildEnvVars, () => buildTarget.getEnvVars().toStringArray().join(' ')],
             [UserCommandsController.CONFIG_KEYWORDS.runEnvVars, () => runTarget.getEnvVars().toStringArray().join(' ')],
             [UserCommandsController.CONFIG_KEYWORDS.testEnvVars, () => buildTarget.getEnvVars().toStringArray().join(' ')],
-            [UserCommandsController.CONFIG_KEYWORDS.buildTarget, () => testTarget.detail],
+            [UserCommandsController.CONFIG_KEYWORDS.buildTarget, () => testTarget.buildPath],
             [UserCommandsController.CONFIG_KEYWORDS.executable, () => this.configurationManager.getExecutableCommand()],
             [UserCommandsController.CONFIG_KEYWORDS.formatCommand, () => this.configurationManager.getFormatCommand()],
         ]);

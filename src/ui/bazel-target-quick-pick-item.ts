@@ -26,5 +26,5 @@ import { BazelTarget } from '../models/bazel-target';
 import * as vscode from 'vscode';
 
 export interface BazelTargetQuickPickItem extends vscode.QuickPickItem {
-    target: BazelTarget;
+    target?: BazelTarget;
 }

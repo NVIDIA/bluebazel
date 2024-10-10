@@ -50,7 +50,7 @@ export class BuildController implements BazelTargetController {
     ) { }
 
     public async execute(target: BazelTarget): Promise<void> {
-        const actualTarget = this.getActualBuildTarget(target.detail);
+        const actualTarget = this.getActualBuildTarget(target.buildPath);
         if (!actualTarget) {
             vscode.window.showErrorMessage('Build failed. Could not find run target.');
             return;
@@ -73,7 +73,7 @@ export class BuildController implements BazelTargetController {
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {
-        const actualTarget = this.getActualBuildTarget(target.detail);
+        const actualTarget = this.getActualBuildTarget(target.buildPath);
         if (!actualTarget) {
             return undefined;
         }
@@ -104,7 +104,7 @@ export class BuildController implements BazelTargetController {
                 typeof runTarget === 'object' &&
                 runTarget !== null &&
                 Object.keys(runTarget).includes('detail')) {
-                actualTarget = path.relative(BAZEL_BIN, runTarget.detail);
+                actualTarget = path.relative(BAZEL_BIN, runTarget.buildPath);
             } else {
                 return undefined;
             }
@@ -138,7 +138,7 @@ export class BuildController implements BazelTargetController {
         quickPick.items = targetList.map(label => ({
             label: label,
             // Leave out 'detail' key here as it would be redundant to label
-            target: new BazelTarget(this.context, this.bazelService, label, label, 'build')
+            target: new BazelTarget(this.context, this.bazelService, label, label, label, 'build', '')
         } as BazelTargetQuickPickItem));
         if (this.currentTargetPath.trim().length !== 0) {
             quickPick.buttons = [vscode.QuickInputButtons.Back];

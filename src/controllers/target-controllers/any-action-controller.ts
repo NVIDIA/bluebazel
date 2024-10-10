@@ -24,15 +24,14 @@
 
 import { BazelTargetController } from './bazel-target-controller';
 import { BazelAction, BazelTarget } from '../../models/bazel-target';
+import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BazelTargetPropertyHistory } from '../../models/bazel-target-property-history';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
-import { WorkspaceService } from '../../services/workspace-service';
 import { BazelTargetQuickPickItem } from '../../ui/bazel-target-quick-pick-item';
-import * as path from 'path';
 import * as vscode from 'vscode';
 
 
@@ -42,6 +41,7 @@ export class AnyActionController implements BazelTargetController {
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
         private readonly bazelService: BazelService,
+        private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTargetStateManager: BazelTargetStateManager
     ) {
         this.quickPickHistory = new Map<BazelAction, BazelTargetPropertyHistory>();
@@ -52,8 +52,8 @@ export class AnyActionController implements BazelTargetController {
             this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
             const executable = this.configurationManager.getExecutableCommand();
             await this.taskService.runTask(
-                `${target.action} ${target.detail}`, // task name
-                `${executable} ${target.action} ${target.detail}`,
+                `${target.action} ${target.buildPath}`, // task name
+                `${executable} ${target.action} ${target.buildPath}`,
                 this.configurationManager.isClearTerminalBeforeAction(),
                 target.id
             );
@@ -74,154 +74,101 @@ export class AnyActionController implements BazelTargetController {
             target.action,
             args.toString(),
             configArgs.toString(),
-            target.detail,
+            target.buildPath,
             envVars.toString()
         );
 
         return `${command}\n`;
     }
 
-    private currentTargetPath = '';
-
     public async pickTarget(currentTarget?: BazelTarget): Promise<BazelTarget | undefined> {
         if (!currentTarget) {
             throw new Error('Cannot call pickTarget on AnyActionController without a target that has action field populated');
         }
 
-        const history = this.getOrCreateHistory(currentTarget);
-        const targetList = await this.getTargetList();
+        const targets = this.bazelTargetManager.getAvailableTargets();
 
-        const dirBuildTargets = await BazelService.fetchBuildTargetNames(
-            this.currentTargetPath,
-            WorkspaceService.getInstance().getWorkspaceFolder().uri.path
-        );
-        this.addDirBuildTargetsToList(dirBuildTargets, targetList);
-
-        const quickPick = this.createQuickPick(targetList, currentTarget, history);
-        return this.handleQuickPickSelection(quickPick, currentTarget, history, targetList);
-    }
-
-    private getOrCreateHistory(currentTarget: BazelTarget): BazelTargetPropertyHistory {
-        let history = this.quickPickHistory.get(currentTarget.action);
-        if (!history) {
-            history = new BazelTargetPropertyHistory(this.context, `bazel${currentTarget.action}`, 10);
-            this.quickPickHistory.set(currentTarget.action, history);
-        }
-        return history;
-    }
-
-    private async getTargetList(): Promise<string[]> {
-        return await WorkspaceService.getInstance().getSubdirectoryPaths(
-            this.currentTargetPath.replace('//', '')
-        );
-    }
-
-
-    private addDirBuildTargetsToList(dirBuildTargets: string[], targetList: string[]): void {
-        dirBuildTargets.forEach(targetName => {
-            targetList.push(`${this.currentTargetPath === '' ? '//' : this.currentTargetPath}:${targetName}`);
-        });
-    }
-
-    private createQuickPick(
-        targetList: string[],
-        currentTarget: BazelTarget,
-        history: BazelTargetPropertyHistory
-    ): vscode.QuickPick<BazelTargetQuickPickItem> {
         const quickPick = vscode.window.createQuickPick<BazelTargetQuickPickItem>();
-        const quickPickItems = targetList.map(label => ({
-            label,
-            target: new BazelTarget(this.context, this.bazelService, label, label, currentTarget.action)
-        } as BazelTargetQuickPickItem));
+        quickPick.placeholder = 'Select a Bazel action or type a custom action...';
 
-        const historyTargets = history.getHistory().map(label => ({
-            label,
-            target: new BazelTarget(this.context, this.bazelService, label, label, currentTarget.action)
+        // Fetch the list of Bazel actions from BazelService.
+        const bazelActions = await this.bazelService.fetchTargetActions();
+
+        // Map Bazel actions to QuickPick items.
+        const actionItems: vscode.QuickPickItem[] = bazelActions.map(action => ({
+            label: action,
         }));
 
-        quickPickItems.unshift({ label: '', kind: vscode.QuickPickItemKind.Separator, target: new BazelTarget(this.context, this.bazelService, '', '', '') });
-        quickPickItems.unshift(...historyTargets);
-        quickPick.items = quickPickItems;
-        quickPick.ignoreFocusOut = true;
+        quickPick.items = actionItems;
 
-        if (this.currentTargetPath.trim().length !== 0) {
-            quickPick.buttons = [vscode.QuickInputButtons.Back];
-            quickPick.onDidTriggerButton(async item => {
-                if (item === vscode.QuickInputButtons.Back) {
-                    this.currentTargetPath = path.dirname(this.currentTargetPath);
-                    const target = await this.pickTarget(currentTarget);
-                    quickPick.hide();
-                    return target;
-                }
-            });
+        // Track selected action and current view state
+        let currentAction: string | undefined = undefined;
+
+        // Listener for when the user types in the quick pick.
+        quickPick.onDidChangeValue(value => {
+            if (value && !bazelActions.includes(value)) {
+                // Custom input, show all Bazel targets filtered by the input
+                showMatchingTargets(value, currentAction);
+            } else if (value === '' && currentAction) {
+                // Back to action selection if the user deletes the entire input.
+                quickPick.items = actionItems;
+                currentAction = undefined;
+                quickPick.placeholder = 'Select a Bazel action or type a custom action...';
+            }
+        });
+
+        // Listener for when the user selects an item.
+        quickPick.onDidChangeSelection(selection => {
+            const selectedAction = selection[0].label;
+
+            if (bazelActions.includes(selectedAction)) {
+                currentAction = selectedAction;
+                showMatchingTargets('', selectedAction);
+            }
+        });
+
+        // Function to show matching targets based on user input.
+        function showMatchingTargets(filterText: string, action?: string) {
+            const targetItems = targets
+                .filter(target =>
+                    (target.label.includes(filterText) || target.bazelPath.includes(filterText)) &&
+                    (!action || target.action === action)
+                )
+                .map(target => ({
+                    label: target.label,
+                    description: target.bazelPath, // Bazel path displayed below the label
+                    detail: action ? `Action: ${action}` : '',
+                    target: target, // Store the BazelTarget object for later use
+                }));
+
+            if (targetItems.length > 0) {
+                quickPick.items = targetItems;
+                quickPick.placeholder = 'Select a Bazel target...';
+            } else {
+                quickPick.items = [{ label: 'No matching targets found.' }];
+            }
         }
 
-        return quickPick;
-    }
-
-    private handleQuickPickSelection(
-        quickPick: vscode.QuickPick<BazelTargetQuickPickItem>,
-        currentTarget: BazelTarget,
-        history: BazelTargetPropertyHistory,
-        targetList: string[]
-    ): Promise<BazelTarget | undefined> {
-        return new Promise(resolve => {
-            quickPick.onDidChangeSelection(async value => {
-                this.currentTargetPath = '';
-                if (value[0]) {
-                    const item = value[0] as BazelTargetQuickPickItem;
-                    const res = item.label;
-                    if (res) {
-                        const isCustomInput = !targetList.includes(res);
-                        const isTarget = res.includes('...') || res.includes(':');
-
-                        if (!isTarget && !isCustomInput) {
-                            this.currentTargetPath = res;
-                            const target = await this.pickTarget(currentTarget);
-                            quickPick.hide();
-                            resolve(target);
-                        } else {
-                            quickPick.value = item.label;
-                            quickPick.hide();
-
-                            vscode.window.showInputBox({ value: item.label }).then(data => {
-                                if (data !== undefined) {
-                                    item.target.label = data;
-                                    item.target.detail = data;
-                                    history.add(item.target.label);
-                                    resolve(item.target);
-                                }
-                            });
-                        }
-                    }
-                }
-            });
-
-            quickPick.onDidChangeValue(value => {
-                const trimmedValue = value.trim();
-
-                // Check if custom input is not empty and not already in the list
-                const isCustomInput = trimmedValue !== '' && !quickPick.items.some(target => target.label === trimmedValue);
-
-                if (isCustomInput) {
-                    // Remove any previous custom input (if any)
-                    const nonCustomItems = quickPick.items.filter(item => item.target?.label !== value);
-
-                    // Add the new custom input to the list
-                    quickPick.items = [
-                        ...nonCustomItems,
-                        {
-                            label: trimmedValue,
-                            target: new BazelTarget(this.context, this.bazelService, trimmedValue, trimmedValue, currentTarget.action)
-                        }
-                    ];
-                } else {
-                    // Reset to the original items if input is empty
-                    quickPick.items = quickPick.items.filter(item => !item.target || item.label !== value);
-                }
-            });
-
-            quickPick.show();
+        // Handle user selection of a target.
+        quickPick.onDidAccept(() => {
+            const selection = quickPick.selectedItems[0];
+            if (selection && selection.target) {
+                // Do something with the selected BazelTarget
+                vscode.window.showInformationMessage(`Selected Target: ${selection.label}`);
+            } else if (currentAction) {
+                // User typed a custom action, show targets for it
+                showMatchingTargets('', currentAction);
+            } else {
+                vscode.window.showInformationMessage(`Selected Action: ${selection.label}`);
+            }
+            quickPick.hide();
         });
+
+        // Show the initial action selection list.
+        quickPick.show();
+
+        return undefined;
     }
+
+
 }

@@ -1,22 +1,47 @@
+import { BazelController } from './bazel-controller';
 import { BazelTargetControllerManager } from './target-controllers/bazel-target-controller-manager';
+import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
 import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelService } from '../services/bazel-service';
+import { IconService } from '../services/icon-service';
+import { BazelTargetQuickPick } from '../ui/bazel-target-quick-pick';
 import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
 
 export class BazelTargetOperationsController {
     constructor(
-        private context: vscode.ExtensionContext,
-        private bazelService: BazelService,
-        private bazelTargetControllerManager: BazelTargetControllerManager,
-        private bazelTargetManager: BazelTargetManager,
-        private bazelTreeProvider: BazelTargetTreeProvider
-    ) {}
+        private readonly context: vscode.ExtensionContext,
+        private readonly bazelService: BazelService,
+        private readonly iconService: IconService,
+        private readonly bazelController: BazelController,
+        private readonly bazelTargetControllerManager: BazelTargetControllerManager,
+        private readonly bazelActionManager: BazelActionManager,
+        private readonly bazelTargetManager: BazelTargetManager,
+        private readonly bazelTreeProvider: BazelTargetTreeProvider
+    ) {
 
-    public pickTargetFromAction(action: BazelAction) {
-        const target = new BazelTarget(this.context, this.bazelService, '', '', action);
+    }
+
+    public async pickTargetFromAction(action: BazelAction) {
+        const target = BazelTarget.createEmpty(this.context, this.bazelService, action);
         return this.pickTarget(target);
+    }
+
+    public async pickTargetAndAction() {
+        const actions = await this.bazelActionManager.getActions();
+        const bazelTargetQuickPick = new BazelTargetQuickPick(actions, this.iconService, this.bazelTargetManager);
+
+        try {
+            const selection = await bazelTargetQuickPick.show();
+            if (selection instanceof BazelTarget) {
+                vscode.window.showInformationMessage(`Selected bazel target: ${selection?.bazelPath}`);
+            } else {
+                vscode.window.showInformationMessage(`Selected: ${selection}`);
+            }
+        } catch (error) {
+            return Promise.reject(error);
+        }
     }
 
     public async pickTarget(oldTarget: BazelTarget) {
@@ -24,7 +49,7 @@ export class BazelTargetOperationsController {
         const pickedTarget = await controller.pickTarget(oldTarget);
 
         if (pickedTarget) {
-            if (oldTarget.detail !== '') {
+            if (oldTarget.buildPath !== '') {
                 this.bazelTargetManager.updateTarget(pickedTarget.clone(), oldTarget);
             } else {
                 const clonedTarget = pickedTarget.clone();

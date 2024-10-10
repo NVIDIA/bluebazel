@@ -35,6 +35,7 @@ export const BAZEL_BIN = 'bazel-bin';
 export class BazelService {
 
     constructor(
+        private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly shellService: ShellService
     ) { }
@@ -42,7 +43,7 @@ export class BazelService {
     /**
      * Fetches the list of Bazel actions that require a target.
      */
-    public async fetchBazelTargetActions(): Promise<string[]> {
+    public async fetchTargetActions(): Promise<string[]> {
         const actionsRequiringTarget: string[] = [
             'aquery',
             'build',
@@ -62,7 +63,7 @@ export class BazelService {
      */
     public async getBazelTargetBuildPath(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<string> {
         try {
-            const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
+            const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
             const executable = this.configurationManager.getExecutableCommand();
             const configs = target.getConfigArgs();
             const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
@@ -88,7 +89,7 @@ export class BazelService {
     /**
      * Fetches available run targets for Bazel.
      */
-    public async fetchRunTargets(cancellationToken?: vscode.CancellationToken): Promise<{ label: string, detail: string }[]> {
+    public async fetchRunTargets(cancellationToken?: vscode.CancellationToken): Promise<{ label: string, buildPath: string }[]> {
         try {
             const executable = this.configurationManager.getExecutableCommand();
             const cmd = this.configurationManager.getGenerateRunTargetsCommand();
@@ -103,10 +104,10 @@ export class BazelService {
                     if (targetName) {
                         return {
                             label: targetName,
-                            detail: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
+                            buildPath: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
                         };
                     }
-                    return { label: '', detail: '' };
+                    return { label: '', buildPath: '' };
                 })
                 .filter(target => target.label !== '');
 
@@ -119,6 +120,109 @@ export class BazelService {
             return Promise.reject(error);  // Rejecting instead of throwing
         }
     }
+
+    public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken): Promise<Map<BazelAction, BazelTarget[]>> {
+        // Initialize map entries for each action
+        const map: Map<BazelAction, BazelTarget[]> = new Map([
+            ['run', []],
+            ['build', []],
+            ['test', []],
+            ['*', []]
+        ]);
+
+        const isBuildTargetRegex = /library|proto|archive|module|object|bundle|package/;
+
+        try {
+            // Fetch all targets
+            const targets = await this.fetchAllTargets(cancellationToken);
+
+            // Iterate through fetched targets and categorize them by action
+            targets.forEach(item => {
+                const target = new BazelTarget(this.context, this, item.label, item.bazelPath, item.buildPath, '', item.ruleType);
+
+                // Determine which categories this target belongs to
+                if (target.ruleType.includes('_test')) {
+                    map.get('test')?.push(target);
+                    if (target.ruleType !== 'package_test') {
+                        map.get('run')?.push(target); // Tests can also be run
+                    }
+                    map.get('build')?.push(target); // Tests are built before running
+                } else if (target.ruleType.includes('_binary')) {
+                    map.get('run')?.push(target);
+                    map.get('build')?.push(target); // Binaries need to be built
+                } else if (isBuildTargetRegex.test(target.ruleType)) {
+                    map.get('build')?.push(target);
+                }
+
+                // All targets go into the wildcard group
+                map.get('*')?.push(target);
+            });
+
+        } catch (error) {
+            console.error(`Failed to fetch and categorize targets: ${error}`);
+        }
+
+        return map;
+    }
+
+
+    private async runQuery(query: string, cancellationToken?: vscode.CancellationToken): Promise<{ stdout: string, stderr: string}> {
+        try {
+            const executable = this.configurationManager.getExecutableCommand();
+            const data = await this.shellService.runShellCommand(`${executable} ${query}`, cancellationToken);
+            return data;
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    }
+
+    /**
+     * Fetches available run targets for Bazel.
+     */
+    public async fetchAllTargets(cancellationToken?: vscode.CancellationToken): Promise<{ label: string, ruleType: string, bazelPath: string, buildPath: string }[]> {
+        try {
+            // Run label_kind and package queries in parallel to save time
+            const [targetsQuery, buildPackagesQuery, testPackagesQuery] = await Promise.all([
+                this.runQuery('query //... --output=label_kind --keep_going', cancellationToken),
+                this.runQuery('query //... --output=package --keep_going', cancellationToken),
+                this.runQuery('query "tests(//...)" --output=package --keep_going', cancellationToken)
+            ]);
+
+            const targetOutputs = targetsQuery.stdout.split('\n');
+            const buildPackagesOutputs = buildPackagesQuery.stdout.split('\n');
+            const testPackagesOutputs = new Set(testPackagesQuery.stdout.split('\n'));
+
+            // Combine build and test package information
+            const unifiedPackages = buildPackagesOutputs.map(pkg =>
+                testPackagesOutputs.has(pkg) ? `package_test package //${pkg}/...` : `package_build package //${pkg}/...`
+            );
+            unifiedPackages.push('package_test package //...');
+
+
+            targetOutputs.push(...unifiedPackages);
+
+            // Process target outputs to extract necessary fields and filter out empty labels in one pass
+            const targets = unifiedPackages
+                .filter(line => line.trim() !== '')
+                .map(line => {
+                    const [ruleType, , target] = line.split(' ');
+                    const [targetPath, targetName = targetPath] = target.split(':');
+                    return {
+                        label: targetName,
+                        ruleType: ruleType,
+                        bazelPath: targetPath,
+                        buildPath: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
+                    };
+                });
+
+            // Sort the targets alphabetically
+            return targets.sort((a, b) => (a.bazelPath < b.bazelPath ? -1 : 1));
+        } catch (error) {
+            console.error('Error fetching run targets:', error);
+            return Promise.reject(error);
+        }
+    }
+
 
     /**
      * Searches for bash-completion scripts (e.g., for Bazel) in the specified directory.
@@ -251,86 +355,164 @@ export class BazelService {
         return targets;
     }
 
-    /**
-     * Gets the programming language of the Bazel target based on its rule type.
-     */
-    public async fetchTargetLanguage(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<string> {
-        try {
-            const bazelTarget = BazelService.formatBazelTargetFromPath(target.detail);
-            const executable = this.configurationManager.getExecutableCommand();
+    public static async fetchTargetsFromPathRecursively(rootDirectoryPath: string, cwd: string, targetTypes: string[]): Promise<{ name: string, ruleType: string, bazelPath: string }[]> {
+        const targets: { name: string, ruleType: string, bazelPath: string }[] = [];
 
-            const result = await this.shellService.runShellCommand(`${executable} query --output=label_kind ${bazelTarget}`, cancellationToken);
-            const ruleType = result.stdout.toLowerCase();
+        async function traverse(directoryPath: string) {
+            const directory = path.join(cwd, directoryPath);
 
-            // Infer the programming language from the rule type
-            if (ruleType.includes('go_')) {
-                return 'go';
-            } else if (ruleType.includes('py_')) {
-                return 'python';
-            } else if (ruleType.includes('cc_') || ruleType.includes('cpp_')) {
-                return 'cpp';
-            } else if (ruleType.includes('java_')) {
-                return 'java';
-            } else if (ruleType.includes('js_')) {
-                return 'javascript';
-            } else {
-                return 'unknown';  // If no rule type matches
-            }
-        } catch (error) {
-            Console.error('Error fetching target language:', error);
-            return Promise.reject(error);  // Rejecting instead of throwing
-        }
-    }
-
-    public async fetchTargetLanguageFromBuildFile(target: BazelTarget): Promise<string> {
-        try {
-            const buildPath = BazelService.formatBazelTargetFromPath(target.detail).split(':')[0];
-
-            const dirBuildTargets = await BazelService.fetchBuildTargets(
-                buildPath,
-                WorkspaceService.getInstance().getWorkspaceFolder().uri.path
-            );
-
-            // Find the matching target by comparing the label with the fetched targets
-            const matchedTarget = dirBuildTargets.find(t => t.name === target.label);
-
-            if (!matchedTarget) {
-                return 'unknown';  // If the target is not found, return unknown
+            let entries: fs.Dirent[];
+            try {
+                entries = await fs.promises.readdir(directory, { withFileTypes: true });
+            } catch (error) {
+                Console.error(`Error reading directory: ${directory}`, error);
+                return;
             }
 
-            // Infer the language from the rule type of the matched target
-            return this.inferLanguageFromRuleType(matchedTarget.ruleType);
+            // Collect all promises for fetching targets and traversing subdirectories
+            const subdirPromises: Promise<void>[] = [];
 
-        } catch (error) {
-            Console.error('Error fetching target language from BUILD file:', error);
-            return Promise.reject(error);
+            try {
+                // Fetch targets from the current directory
+                const dirTargetsPromise = BazelService.fetchTargetsFromPath(directoryPath, cwd, targetTypes);
+                const dirTargets = await dirTargetsPromise;
+                targets.push(...dirTargets);
+            } catch (error) {
+                Console.error(`Error fetching targets from: ${directoryPath}`, error);
+            }
+
+            // Traverse subdirectories in parallel
+            for (const entry of entries) {
+                if (entry.isDirectory()) {
+                    // Skip Bazel output directories and hidden directories
+                    if (['bazel-bin', 'bazel-out', 'bazel-testlogs', 'node_modules', '.git'].includes(entry.name)) {
+                        continue;
+                    }
+                    const subdirPath = path.join(directoryPath, entry.name);
+                    subdirPromises.push(traverse(subdirPath)); // Queue subdirectory traversal in parallel
+                }
+            }
+
+            // Wait for all subdirectory traversals to complete
+            await Promise.all(subdirPromises);
         }
+
+        await traverse(rootDirectoryPath);
+        return targets;
     }
 
-    private inferLanguageFromRuleType(ruleType: string): string {
+
+    public static async fetchTargetsFromPath(directoryPath: string, cwd: string, targetTypes: string[]): Promise<{ name: string, ruleType: string, bazelPath: string }[]> {
+        const directory = path.join(cwd, directoryPath);
+        const buildFilePaths = [path.join(directory, 'BUILD'), path.join(directory, 'BUILD.bazel')];
+
+        for (const buildFilePath of buildFilePaths) {
+            try {
+                // Using fs.promises.stat to check file existence asynchronously
+                await fs.promises.stat(buildFilePath);
+                const data = await fs.promises.readFile(buildFilePath, 'utf8');
+                return BazelService.extractTargetsFromFile(data, targetTypes, directoryPath);
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {  // Ignore if file does not exist
+                    Console.error(`Error reading build file: ${buildFilePath}`, error);
+                    return Promise.reject(error);
+                }
+            }
+        }
+
+        return [];
+    }
+
+    public static async fetchTargetsFromPaths(directoryPaths: string[], cwd: string, targetTypes: string[]): Promise<{ name: string, ruleType: string, bazelPath: string }[]> {
+        const targetPromises = directoryPaths.map(directoryPath =>
+            BazelService.fetchTargetsFromPath(directoryPath, cwd, targetTypes)
+        );
+
+        const targetResults = await Promise.all(targetPromises);
+        return targetResults.flat();  // Flatten the array of arrays
+    }
+
+    private static extractTargetsFromFile(buildFileContent: string, targetTypes: string[], directoryPath: string): { name: string, ruleType: string, bazelPath: string }[] {
+        const targets: { name: string, ruleType: string, bazelPath: string }[] = [];
+
+        // A more flexible regex to capture Bazel rules (ruleType(name=...)
+        const targetRegex = /(\w+)\s*\(\s*((?:.|\n)*?)\)/g; // Match rule with its arguments (multi-line and complex)
+        let match;
+
+        while ((match = targetRegex.exec(buildFileContent)) !== null) {
+            const ruleType = match[1]; // Capture rule type (e.g., go_binary, cc_library)
+            const argsContent = match[2]; // Capture arguments inside the parentheses
+
+            // Check if ruleType matches any in the targetTypes array or if targetTypes is empty (include all)
+            if (targetTypes.length === 0 || targetTypes.includes(ruleType)) {
+                // Find the name parameter within the arguments (ensure it is not commented out)
+                const nameMatch = /name\s*=\s*["']([^"']+)["']/m.exec(argsContent);
+                if (nameMatch) {
+                    const targetName = nameMatch[1];
+                    // Construct the fully qualified bazel path
+                    const normalizedDir = directoryPath.replace(/\\/g, '/'); // Normalize Windows paths
+                    const bazelPath = `//${normalizedDir}:${targetName}`;
+                    targets.push({ name: targetName, ruleType, bazelPath });
+                }
+            }
+        }
+
+        return targets;
+    }
+
+    public static inferLanguageFromRuleType(ruleType: string): string | undefined {
         // Check for Go-related rules
-        if (ruleType.includes('go_library') || ruleType.includes('go_binary')) {
+        if (ruleType.includes('go_')) {
             return 'go';
         }
 
         // Check for Python-related rules
-        if (ruleType.includes('py_library') || ruleType.includes('py_binary')) {
+        if (ruleType.includes('py_')) {
             return 'python';
         }
 
         // Check for C++-related rules
-        if (ruleType.includes('cc_library') || ruleType.includes('cc_binary') || ruleType.includes('cpp_library')) {
+        if (ruleType.includes('cc_') || ruleType.includes('cpp_')) {
             return 'cpp';
         }
 
         // Check for Java-related rules
-        if (ruleType.includes('java_library') || ruleType.includes('java_binary')) {
+        if (ruleType.includes('java_')) {
             return 'java';
         }
 
         // Check for JavaScript-related rules
-        if (ruleType.includes('js_library') || ruleType.includes('js_binary')) {
+        if (ruleType.includes('js_')) {
             return 'javascript';
+        }
+
+        // Check for Typescript-related rules
+        if (ruleType.includes('ts_')) {
+            return 'typescript';
+        }
+
+        // Check for Scala-related rules
+        if (ruleType.includes('scala_')) {
+            return 'scala';
+        }
+
+        // Check for Proto-related rules
+        if (ruleType.includes('proto_')) {
+            return 'proto';
+        }
+
+        // Check for Sh-related rules
+        if (ruleType.includes('sh_')) {
+            return 'bash';
+        }
+
+        // Check for Proto-related rules
+        if (ruleType.includes('json_')) {
+            return 'json';
+        }
+
+        if (ruleType.includes('package')) {
+            return undefined;
         }
 
         return 'unknown';  // Default case if no known rule types are found

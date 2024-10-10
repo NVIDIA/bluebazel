@@ -30,7 +30,8 @@ import * as vscode from 'vscode';
 
 export interface SerializedBazelTarget {
     label: string,
-    detail: string,
+    bazelPath: string,
+    buildPath: string,
     action: BazelAction,
     language: string,
     id: string
@@ -42,24 +43,31 @@ export class BazelTarget {
     private bazelArgs: BazelTargetMultiProperty;
     private configArgs: BazelTargetMultiProperty;
     private runArgs: BazelTargetProperty;
-    private language: string;
+    public readonly language?: string;
     public readonly id: string;
+
+    public static createEmpty(context: vscode.ExtensionContext,
+        bazelService: BazelService,
+        action?: BazelAction) {
+        return new BazelTarget(context, bazelService, '', '', '', action || '', '');
+    }
 
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly bazelService: BazelService,
         public label: string,
-        public detail: string,
+        public bazelPath: string,
+        public buildPath: string,
         public action: BazelAction,
-        language?: string,
+        public ruleType: string,
         id?: string
-    )
-    {
+    ) {
         if (id === undefined) {
-            this.id = `${action}For${detail}-${uuidv4()}`;
+            this.id = `${action}For${bazelPath}-${uuidv4()}`;
         } else {
             this.id = id;
         }
+        this.language = BazelService.inferLanguageFromRuleType(this.ruleType);
 
         this.envVars = new BazelTargetMultiProperty(context, 'Environment', 'EnvVars',
             this,
@@ -73,7 +81,7 @@ export class BazelTarget {
             function (bazelTargetProperty: BazelTargetMultiProperty): string {
                 let bazelArgs = '';
                 const args = bazelTargetProperty.toStringArray();
-                args.forEach((value:string) => {
+                args.forEach((value: string) => {
                     bazelArgs += `${value} `;
                 });
                 return bazelArgs;
@@ -88,7 +96,7 @@ export class BazelTarget {
             function (bazelTargetProperty: BazelTargetMultiProperty): string {
                 let configArgs = '';
                 const args = bazelTargetProperty.toStringArray();
-                args.forEach((value:string) => {
+                args.forEach((value: string) => {
                     configArgs += `--config=${value} `;
                 });
                 return configArgs;
@@ -105,16 +113,16 @@ export class BazelTarget {
                 return value;
             });
 
-        if (language !== undefined) {
-            this.language = language;
+        if (ruleType !== undefined) {
+            this.ruleType = ruleType;
         } else {
-            this.language = 'unknown';
+            this.ruleType = 'unknown';
         }
     }
 
     // Method to clone the target with a new ID
     public clone(cloneProperties = false): BazelTarget {
-        const newTarget = new BazelTarget(this.context, this.bazelService, this.label, this.detail, this.action, this.language);
+        const newTarget = new BazelTarget(this.context, this.bazelService, this.label, this.bazelPath, this.buildPath, this.action, this.ruleType);
 
         if (cloneProperties) {
             // Clone the properties
@@ -125,15 +133,6 @@ export class BazelTarget {
         }
 
         return newTarget;
-    }
-
-    public async getLanguage(): Promise<string> {
-        if (this.language === 'unknown') {
-            const language = await this.bazelService.fetchTargetLanguageFromBuildFile(this);
-            this.language = language;
-            return Promise.resolve(language);
-        }
-        return this.language;
     }
 
     public getEnvVars(): BazelTargetMultiProperty {
@@ -156,24 +155,25 @@ export class BazelTarget {
     public toJSON(): SerializedBazelTarget {
         return {
             label: this.label,
-            detail: this.detail,
+            bazelPath: this.bazelPath,
+            buildPath: this.buildPath,
             action: this.action,
-            language: this.language,
+            language: this.ruleType,
             id: this.id
         };
     }
 
     // Static method to create a BazelTarget object from serialized data
     public static fromJSON(context: vscode.ExtensionContext, bazelService: BazelService, data: SerializedBazelTarget): BazelTarget {
-        return new BazelTarget(context, bazelService, data.label, data.detail, data.action, data.language, data.id);
+        return new BazelTarget(context, bazelService, data.label, data.buildPath, data.action, data.language, data.id);
     }
 
     public isEqualTo(otherTarget: BazelTarget): boolean {
         return (
             this.label === otherTarget.label &&
-            this.detail === otherTarget.detail &&
+            this.buildPath === otherTarget.buildPath &&
             this.action === otherTarget.action &&
-            this.language === otherTarget.language &&
+            this.ruleType === otherTarget.ruleType &&
             this.id === otherTarget.id
         );
     }

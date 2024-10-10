@@ -45,6 +45,7 @@ export class BazelController {
     ) {
         this.isRefreshingRunTargets = false;
         vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.refreshRunTargetsState`, 'idle');
+        this.refreshAvailableTargets();
     }
 
     public async format() {
@@ -90,6 +91,16 @@ export class BazelController {
         );
     }
 
+    public async refreshAvailableTargets(cancellationToken?: vscode.CancellationToken): Promise<void> {
+        try {
+            const targets = await this.bazelService.fetchAllTargetsByAction(cancellationToken);
+            this.bazelTargetManager.updateAvailableTargets(targets);
+            vscode.window.showInformationMessage('Updated available targets');
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    }
+
     public async refreshAvailableRunTargets(cancellationToken?: vscode.CancellationToken): Promise<void> {
         if (this.isRefreshingRunTargets) {
             vscode.window.showWarningMessage('Run targets are still being refreshed...');
@@ -101,7 +112,7 @@ export class BazelController {
             vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.refreshRunTargetsState`, 'loading');
             const runTargets = await this.bazelService.fetchRunTargets(cancellationToken);
             const bazelTargets: BazelTarget[] = runTargets.map(item =>
-                new BazelTarget(this.context, this.bazelService, item.label, item.detail, 'run')
+                new BazelTarget(this.context, this.bazelService, item.label, '', item.buildPath, 'run', '')
             );
             this.bazelTargetManager.updateAvailableRunTargets(bazelTargets);
         } catch (error) {

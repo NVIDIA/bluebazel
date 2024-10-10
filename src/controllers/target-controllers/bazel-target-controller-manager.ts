@@ -94,6 +94,7 @@ export class BazelTargetControllerManager {
             configurationManager,
             taskService,
             bazelService,
+            bazelTargetManager,
             bazelTargetStateManager));
     }
 
