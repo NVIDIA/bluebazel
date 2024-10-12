@@ -23,8 +23,8 @@
 ////////////////////////////////////////////////////////////////////////////////////
 import { getExtensionDefaultSettings as getDefaultConfiguration, MergedConfiguration } from './configuration-utils';
 import { ExtensionUtils } from './extension-utils';
-import { WorkspaceConfiguration } from 'vscode';
 import * as vscode from 'vscode';
+import { WorkspaceConfiguration } from 'vscode';
 
 export class UserCustomButton {
     title: string;
@@ -126,14 +126,6 @@ export class ConfigurationManager {
         return [];
     }
 
-    public getGenerateRunTargetsCommand(): string {
-        const result = this.getConfig().get<string>('generateRunTargets');
-        if (result !== undefined) {
-            return result;
-        }
-
-        return 'query \'kind(cc_binary, //src/... )\'';
-    }
 
     public getSetupEnvironmentCommand(): string {
         const result = this.getConfig().get<string>('setupEnvironmentCommand');

@@ -30,7 +30,6 @@ import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-ta
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
-import { LaunchConfigService } from '../../services/launch-config-service';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
 import { WorkspaceService } from '../../services/workspace-service';
@@ -45,7 +44,6 @@ export class RunController implements BazelTargetController {
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
         private readonly bazelService: BazelService,
-        private readonly launchConfigService: LaunchConfigService,
         private readonly bazelController: BazelController,
         private readonly buildController: BuildController,
         private readonly bazelTargetManager: BazelTargetManager,
@@ -86,30 +84,6 @@ export class RunController implements BazelTargetController {
             this.configurationManager.isClearTerminalBeforeAction(),
             target.id,
             envVars);
-    }
-
-    public async getRunTargets(cancellationToken?: vscode.CancellationToken): Promise<BazelTargetQuickPickItem[]> {
-        let runTargets = this.bazelTargetManager.getAvailableRunTargets();
-
-        // If no available run targets, refresh them
-        if (runTargets.length === 0) {
-            try {
-                // Await refresh and ensure any errors are caught in the calling function
-                await this.bazelController.refreshAvailableRunTargets(cancellationToken);
-                runTargets = this.bazelTargetManager.getAvailableRunTargets();  // Refresh the list
-            } catch (error) {
-                return Promise.reject(error);  // Propagate the rejection
-            }
-        }
-
-        // Map run targets to QuickPick items
-        const items: BazelTargetQuickPickItem[] = runTargets.map(runTarget => ({
-            label: runTarget.label,
-            detail: runTarget.buildPath,
-            target: runTarget,
-        }));
-
-        return items;  // Return the QuickPick items
     }
 
     private async runDirect(target: BazelTarget) {
@@ -174,63 +148,5 @@ export class RunController implements BazelTargetController {
         const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
         const runArgs = target.getRunArgs().toString();
         return `${programPath} ${runArgs}`;
-    }
-
-    public async pickTarget(): Promise<BazelTarget | undefined> {
-        return new Promise((resolve) => {
-            // Create a QuickPick
-            const quickPick = vscode.window.createQuickPick<BazelTargetQuickPickItem>();
-            const cancellationTokenSource = new vscode.CancellationTokenSource();
-            // Set placeholder text to indicate that loading is in progress
-            quickPick.placeholder = 'Loading run targets...';
-
-            // Show a loading message or spinner (using icon)
-            quickPick.items = [{ label: '$(sync~spin) Loading...', alwaysShow: true, detail: undefined, target: BazelTarget.createEmpty(this.context, this.bazelService) }];
-
-            // Show the QuickPick UI
-            quickPick.show();
-
-            // Fetch the run targets asynchronously
-            this.getRunTargets(cancellationTokenSource.token)
-                .then(data => {
-                    quickPick.placeholder = 'Pick target...';
-                    // Once the data is loaded, update the QuickPick items
-                    quickPick.items = data;
-
-                    // Remove the loading message once the actual items are available
-                    if (quickPick.items.length > 0) {
-                        quickPick.activeItems = [quickPick.items[0]];  // Optionally, set the first item as active
-                    }
-                })
-                .catch(err => {
-                    vscode.window.showErrorMessage(`Error loading targets: ${err}`);
-                    resolve(undefined);  // Resolve with undefined on error
-                });
-
-            // Handle selection
-            quickPick.onDidChangeSelection(selection => {
-                const selectedItem = selection[0];  // Get the first selected item
-
-                if (selectedItem && selectedItem.target) {
-                    // Refresh launch configs with the selected target
-                    // TODO (jabbottn): Fix this so it refreshes everywhere
-                    // the target changes.
-                    // this.launchConfigService.refreshLaunchConfigs(selectedItem.target);
-                    resolve(selectedItem.target);  // Resolve with the selected target
-                } else {
-                    resolve(undefined);  // Resolve with undefined if no valid target
-                }
-
-                quickPick.dispose();  // Close the QuickPick UI
-            });
-
-            // Handle when the user cancels the QuickPick
-            quickPick.onDidHide(() => {
-                cancellationTokenSource.cancel();
-                cancellationTokenSource.dispose();
-                quickPick.dispose();
-                resolve(undefined);
-            });
-        });
     }
 }

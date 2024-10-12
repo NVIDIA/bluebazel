@@ -40,6 +40,7 @@ export class BazelTargetQuickPick {
 
         // Initialize a new VS Code QuickPick instance.
         this.quickPick = vscode.window.createQuickPick<BazelTargetQuickPickItem>();
+
         this.cancellationTokenSource = new vscode.CancellationTokenSource();
     }
 
@@ -123,11 +124,7 @@ export class BazelTargetQuickPick {
         // Construct QuickPick items for the matching targets.
         const prependItemText = this.defaultAction ? '' : `${actionPrefix} `;
 
-        const filteredTargets = targets
-            .filter(target => target.label.includes(filterText) || target.bazelPath.includes(filterText))
-            .slice(0, 50);
-
-        console.log(filterText, filteredTargets);
+        const filteredTargets = targets.filter(target => target.label.includes(filterText) || target.bazelPath.includes(filterText)).slice(0, 50);
 
         const targetItems = filteredTargets
             .map(target => ({
@@ -155,6 +152,7 @@ export class BazelTargetQuickPick {
         if ((this.currentAction || this.defaultAction) && selection && selection.target) {
             // If a valid action and target are selected, resolve with the target.
             if (this.resolve) {
+                selection.target.action = this.currentAction || this.defaultAction || '';
                 this.resolve(selection.target);
             }
             this.quickPick.hide();

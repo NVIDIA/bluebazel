@@ -35,7 +35,6 @@ import * as vscode from 'vscode';
 
 
 export class BazelController {
-    private isRefreshingRunTargets: boolean;
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
@@ -43,9 +42,9 @@ export class BazelController {
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTreeProvider: BazelTargetTreeProvider
     ) {
-        this.isRefreshingRunTargets = false;
-        vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.refreshRunTargetsState`, 'idle');
-        this.refreshAvailableTargets();
+        this.refreshAvailableTargets().catch(error => {
+            vscode.window.showErrorMessage(`Cannot update available targets: ${error}`);
+        });
     }
 
     public async format() {
@@ -98,28 +97,6 @@ export class BazelController {
             vscode.window.showInformationMessage('Updated available targets');
         } catch (error) {
             return Promise.reject(error);
-        }
-    }
-
-    public async refreshAvailableRunTargets(cancellationToken?: vscode.CancellationToken): Promise<void> {
-        if (this.isRefreshingRunTargets) {
-            vscode.window.showWarningMessage('Run targets are still being refreshed...');
-            return;
-        }
-
-        try {
-            this.isRefreshingRunTargets = true;
-            vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.refreshRunTargetsState`, 'loading');
-            const runTargets = await this.bazelService.fetchRunTargets(cancellationToken);
-            const bazelTargets: BazelTarget[] = runTargets.map(item =>
-                new BazelTarget(this.context, this.bazelService, item.label, '', item.buildPath, 'run', '')
-            );
-            this.bazelTargetManager.updateAvailableRunTargets(bazelTargets);
-        } catch (error) {
-            return Promise.reject(error);  // Ensure the rejection is propagated
-        } finally {
-            this.isRefreshingRunTargets = false;  // Ensure flag is reset even if there's an error
-            vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.refreshRunTargetsState`, 'idle');
         }
     }
 

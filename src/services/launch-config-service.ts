@@ -39,11 +39,11 @@ export class LaunchConfigService {
     public async createRunUnderLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         switch (BazelService.inferLanguageFromRuleType(target.ruleType)) {
         case 'cpp':
-            return await this.createCppRunUnderLaunchConfig(target);
+            return await this.createCppRunUnderLaunchConfig(target, cancellationToken);
         case 'python':
-            return await this.createPythonRunUnderLaunchConfig(target);
+            return await this.createPythonRunUnderLaunchConfig(target, cancellationToken);
         case 'go':
-            return await this.createGoRunUnderLaunchConfig(target);
+            return await this.createGoRunUnderLaunchConfig(target, cancellationToken);
         default:
             throw new Error(`Unsupported language for run under: ${target.ruleType}`);
         }
@@ -52,11 +52,11 @@ export class LaunchConfigService {
     public async createDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         switch (BazelService.inferLanguageFromRuleType(target.ruleType)) {
         case 'cpp':
-            return await this.createCppDirectLaunchConfig(target);
+            return await this.createCppDirectLaunchConfig(target, cancellationToken);
         case 'python':
-            return await this.createPythonDirectLaunchConfig(target);
+            return await this.createPythonDirectLaunchConfig(target, cancellationToken);
         case 'go':
-            return await this.createGoDirectLaunchConfig(target);
+            return await this.createGoDirectLaunchConfig(target, cancellationToken);
         default:
             throw new Error(`Unsupported language for direct launch: ${target.ruleType}`);
         }

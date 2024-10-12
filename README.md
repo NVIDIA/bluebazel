@@ -43,14 +43,12 @@ Follow the steps below to bind keyboard shortcuts to specific commands that are 
 2. **bluebazel.run** - Run the selected run target
 3. **bluebazel.debug** - Debug the selected run target
 4. **bluebazel.test** - Test the selected test target
-5. **bluebazel.refreshRunTargets** - Run the command to refresh the run targets
-6. **bluebazel.editRunArgs** - Set run arguments for the currently selected run target
-7. **bluebazel.editTestArgs** - Set test arguments for the currently selected test target
-8. **bluebazel.clean** - Clean
-9. **bluebazel.format** - Run the format command (set in settings)
-10. **bluebazel.refreshRunTargets** - Generate run targets
-11. **bluebazel.buildCurrentFile** - Build current active file
-12. **bluebazel.addActionAndTarget** - Add a new action and target.
+5. **bluebazel.editRunArgs** - Set run arguments for the currently selected run target
+6. **bluebazel.editTestArgs** - Set test arguments for the currently selected test target
+7. **bluebazel.clean** - Clean
+8. **bluebazel.format** - Run the format command (set in settings)
+9. **bluebazel.buildCurrentFile** - Build current active file
+10. **bluebazel.addActionAndTarget** - Add a new action and target.
 
 #### Example
 

@@ -22,6 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 import { BazelController } from './controllers/bazel-controller';
+import { BazelTargetOperationsController } from './controllers/bazel-target-operations-controller';
 import { registerCommands } from './controllers/command-controller';
 import { BazelTargetControllerManager } from './controllers/target-controllers/bazel-target-controller-manager';
 import { UserCommandsController } from './controllers/user-commands-controller';
@@ -109,6 +110,8 @@ async function initExtension(context: vscode.ExtensionContext) {
     // Initialize custom console for prefixing logging.
     Console.initialize(context);
 
+    Console.info('Initializing extension...');
+
     // Clean the workspace state if necessary
     workspaceStateManager = new WorkspaceStateManager(context);
     workspaceStateManager.refreshWorkspaceState();
@@ -121,11 +124,14 @@ async function initExtension(context: vscode.ExtensionContext) {
     bazelEnvironment = await BazelEnvironment.create(context, configurationManager);
 
     // Create an output channel specific to the extension.
-    outputChannel = vscode.window.createOutputChannel(ExtensionUtils.getExtensionDisplayName(context));
+    outputChannel = vscode.window.createOutputChannel(/* ExtensionUtils.getExtensionDisplayName(context) */'JOSHISAWESOME');
+    outputChannel.show(true);
+    outputChannel.appendLine('This is an output');
 
     /******
      * SERVICES
      ******/
+    Console.info('Initializing services...');
     // The shell service runs any shell commands that are needed by the extension and
     // can run said commands with the appropriate environment variables.
     shellService = new ShellService(WorkspaceService.getInstance().getWorkspaceFolder(),
@@ -147,13 +153,13 @@ async function initExtension(context: vscode.ExtensionContext) {
     // The launch config service interacts with the vscode launch configs.
     launchConfigService = new LaunchConfigService(context,
         bazelService, bazelEnvironment.getEnvVars());
-    
+
     iconService = new IconService();
 
     /******
      * MODELS
      ******/
-
+    Console.info('Initializing models...');
     // The bazel action manager stores all the possible bazel actions
     // (which are retrieved by the bazel service at load time). These
     // include but are not limited to 'build', 'run', 'clean', 'test', etc.
@@ -177,6 +183,7 @@ async function initExtension(context: vscode.ExtensionContext) {
     /******
      * CONTROLLERS
      ******/
+    Console.info('Initializing controllers...');
     // The bazel controller runs general extension tasks, such as formatting, cleaning, refreshing run targets, etc.
     bazelController = new BazelController(context, configurationManager, taskService, bazelService, bazelTargetManager, bazelTargetTreeProvider);
 
@@ -203,23 +210,34 @@ async function initExtension(context: vscode.ExtensionContext) {
         bazelTargetManager,
         bazelTargetStateManager);
 
+    // The operations controller that picks, adds, and removes targets
+    const bazelTargetOpsController = new BazelTargetOperationsController(
+        context,
+        bazelService,
+        iconService,
+        bazelTargetControllerManager,
+        bazelActionManager,
+        bazelTargetManager,
+        bazelTargetTreeProvider
+    );
+
     /******
      * COMMANDS
      ******/
+    Console.info('Registering commands...');
     registerCommands(context,
         configurationManager,
-        bazelService,
-        iconService,
         userCommandsController,
         bazelController,
         bazelTargetControllerManager,
+        bazelTargetOpsController,
         bazelTargetManager,
-        bazelActionManager,
         bazelTargetTreeProvider);
 }
 
 export function activate(context: vscode.ExtensionContext) {
     initExtension(context).then(() => {
+        Console.log('Make extension visible...');
         makeExtensionVisible(context);
     });
 }

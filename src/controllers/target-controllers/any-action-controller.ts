@@ -24,14 +24,11 @@
 
 import { BazelTargetController } from './bazel-target-controller';
 import { BazelAction, BazelTarget } from '../../models/bazel-target';
-import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BazelTargetPropertyHistory } from '../../models/bazel-target-property-history';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
-import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
-import { BazelTargetQuickPickItem } from '../../ui/bazel-target-quick-pick-item';
 import * as vscode from 'vscode';
 
 
@@ -40,8 +37,6 @@ export class AnyActionController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
-        private readonly bazelService: BazelService,
-        private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTargetStateManager: BazelTargetStateManager
     ) {
         this.quickPickHistory = new Map<BazelAction, BazelTargetPropertyHistory>();
@@ -80,95 +75,4 @@ export class AnyActionController implements BazelTargetController {
 
         return `${command}\n`;
     }
-
-    public async pickTarget(currentTarget?: BazelTarget): Promise<BazelTarget | undefined> {
-        if (!currentTarget) {
-            throw new Error('Cannot call pickTarget on AnyActionController without a target that has action field populated');
-        }
-
-        const targets = this.bazelTargetManager.getAvailableTargets();
-
-        const quickPick = vscode.window.createQuickPick<BazelTargetQuickPickItem>();
-        quickPick.placeholder = 'Select a Bazel action or type a custom action...';
-
-        // Fetch the list of Bazel actions from BazelService.
-        const bazelActions = await this.bazelService.fetchTargetActions();
-
-        // Map Bazel actions to QuickPick items.
-        const actionItems: vscode.QuickPickItem[] = bazelActions.map(action => ({
-            label: action,
-        }));
-
-        quickPick.items = actionItems;
-
-        // Track selected action and current view state
-        let currentAction: string | undefined = undefined;
-
-        // Listener for when the user types in the quick pick.
-        quickPick.onDidChangeValue(value => {
-            if (value && !bazelActions.includes(value)) {
-                // Custom input, show all Bazel targets filtered by the input
-                showMatchingTargets(value, currentAction);
-            } else if (value === '' && currentAction) {
-                // Back to action selection if the user deletes the entire input.
-                quickPick.items = actionItems;
-                currentAction = undefined;
-                quickPick.placeholder = 'Select a Bazel action or type a custom action...';
-            }
-        });
-
-        // Listener for when the user selects an item.
-        quickPick.onDidChangeSelection(selection => {
-            const selectedAction = selection[0].label;
-
-            if (bazelActions.includes(selectedAction)) {
-                currentAction = selectedAction;
-                showMatchingTargets('', selectedAction);
-            }
-        });
-
-        // Function to show matching targets based on user input.
-        function showMatchingTargets(filterText: string, action?: string) {
-            const targetItems = targets
-                .filter(target =>
-                    (target.label.includes(filterText) || target.bazelPath.includes(filterText)) &&
-                    (!action || target.action === action)
-                )
-                .map(target => ({
-                    label: target.label,
-                    description: target.bazelPath, // Bazel path displayed below the label
-                    detail: action ? `Action: ${action}` : '',
-                    target: target, // Store the BazelTarget object for later use
-                }));
-
-            if (targetItems.length > 0) {
-                quickPick.items = targetItems;
-                quickPick.placeholder = 'Select a Bazel target...';
-            } else {
-                quickPick.items = [{ label: 'No matching targets found.' }];
-            }
-        }
-
-        // Handle user selection of a target.
-        quickPick.onDidAccept(() => {
-            const selection = quickPick.selectedItems[0];
-            if (selection && selection.target) {
-                // Do something with the selected BazelTarget
-                vscode.window.showInformationMessage(`Selected Target: ${selection.label}`);
-            } else if (currentAction) {
-                // User typed a custom action, show targets for it
-                showMatchingTargets('', currentAction);
-            } else {
-                vscode.window.showInformationMessage(`Selected Action: ${selection.label}`);
-            }
-            quickPick.hide();
-        });
-
-        // Show the initial action selection list.
-        quickPick.show();
-
-        return undefined;
-    }
-
-
 }

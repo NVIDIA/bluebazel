@@ -44,15 +44,4 @@ export function registerBazelCommands(context: vscode.ExtensionContext,
         bazelController.buildSingle();
     }));
 
-    context.subscriptions.push(
-        vscode.commands.registerCommand(`${extensionName}.refreshRunTargets`, () => {
-
-            bazelController.refreshAvailableRunTargets()
-                .then(() => { /* Nothing to do */ })
-                .catch(err => vscode.window.showErrorMessage(err));
-        }),
-        vscode.commands.registerCommand(`${extensionName}.refreshingRunTargets`, () => {
-            // Do nothing
-        }));
-
 }

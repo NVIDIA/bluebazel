@@ -117,7 +117,7 @@ export class DebugController implements BazelTargetController {
             const envSetupCommand = this.configurationManager.getSetupEnvironmentCommand();
 
             // Construct the shell command to create the debug script
-            const scriptContent = `#!/bin/bash\nset -x\n${envSetupCommand}\n${envVars} ${executable} "\$@"\n`;
+            const scriptContent = `#!/bin/bash\nset -x\n${envSetupCommand}\n${envVars} ${executable} "$@"\n`;
             const scriptPath = `${WorkspaceService.getInstance().getWorkspaceFolder().uri.path}/.vscode/bazel_debug.sh`;
             const createScriptCmd = `echo '${scriptContent}' > ${scriptPath} && chmod +x ${scriptPath}`;
 
@@ -128,9 +128,5 @@ export class DebugController implements BazelTargetController {
             Console.error('Error creating local debug script:', error);
             throw new Error(`Could not create debug script. ${error}`);
         }
-    }
-
-    public async pickTarget(target?: BazelTarget): Promise<BazelTarget | undefined> {
-        throw Error(`Unsupported operation for debug controller to pick target ${target? target.buildPath : ''}`);
     }
 }

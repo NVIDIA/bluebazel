@@ -31,42 +31,113 @@ export class ShellService {
     constructor(private readonly workspaceFolder: vscode.WorkspaceFolder,
         private readonly outputChannel: vscode.OutputChannel,
         private readonly setupEnvVars: {[key: string]: string}
-    ) {}
+    ) { }
 
-    public static async run(cmd: string, cwd: string, setupEnvVars: {[key: string]: string}, cancellationToken?: vscode.CancellationToken, outputChannel?: vscode.OutputChannel): Promise<{ stdout: string, stderr: string }> {
+    public static async run(
+        cmd: string,
+        cwd: string,
+        setupEnvVars: { [key: string]: string },
+        cancellationToken?: vscode.CancellationToken,
+        outputChannel?: vscode.OutputChannel
+    ): Promise<{ stdout: string, stderr: string }> {
         return new Promise<{ stdout: string, stderr: string }>((resolve, reject) => {
             const execOptions: child.ExecOptions = {
                 cwd: cwd,
                 shell: 'bash',
                 maxBuffer: Number.MAX_SAFE_INTEGER,
                 windowsHide: false,
-                env: {...process.env, ...setupEnvVars}
+                env: { ...process.env, ...setupEnvVars }
             };
 
-            const proc = child.exec(`${cmd}`, execOptions,
-                (error: child.ExecException | null, stdout: string, stderr: string) => {
-                    if (error && error.code != 1) { // Error code 1 indicates grep couldn't find any matches
-                        resolve({ stdout: '', stderr: stderr.trim() });
-                    } else {
-                        resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+            console.log('executing', cmd);
+
+            const proc = child.exec(cmd, execOptions);
+
+            let stdout = '';
+            let stderr = '';
+
+            // Capture stdout line-by-line
+            proc.stdout?.on('data', (data: string) => {
+                stdout += data;
+                const lines = data.split('\n'); // Split the incoming data into lines
+                lines.forEach(line => {
+                    if (outputChannel) {
+                        outputChannel.appendLine(line); // Append each line to the output channel
                     }
-                },
-            );
+                });
+            });
 
-            if (outputChannel !== undefined) {
-                proc.stdout?.on('data', (data) => { outputChannel.appendLine(data); });
-                proc.stderr?.on('data', (data) => { outputChannel.appendLine(data); });
-            }
+            // Capture stderr line-by-line
+            proc.stderr?.on('data', (data: string) => {
+                stderr += data;
+                const lines = data.split('\n'); // Split the incoming data into lines
+                lines.forEach(line => {
+                    if (outputChannel) {
+                        outputChannel.appendLine(line); // Append each line to the output channel
+                    }
+                });
+            });
 
+            proc.on('close', (code) => {
+                if (code === 0) {
+                    resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+                } else {
+                    reject(new Error(`Process exited with code ${code}.`));
+                }
+            });
+
+            // Handle process errors
+            proc.on('error', (err) => {
+                reject(err);
+            });
+
+            // Handle cancellation
             if (cancellationToken) {
                 cancellationToken.onCancellationRequested(() => {
                     proc.kill();
                     reject(new Error(`${cmd} cancelled.`));
                 });
             }
-
         });
     }
+
+
+    // public static async run(cmd: string, cwd: string, setupEnvVars: {[key: string]: string}, cancellationToken?: vscode.CancellationToken, outputChannel?: vscode.OutputChannel): Promise<{ stdout: string, stderr: string }> {
+    //     return new Promise<{ stdout: string, stderr: string }>((resolve, reject) => {
+    //         const execOptions: child.ExecOptions = {
+    //             cwd: cwd,
+    //             shell: 'bash',
+    //             maxBuffer: Number.MAX_SAFE_INTEGER,
+    //             windowsHide: false,
+    //             env: {...process.env, ...setupEnvVars}
+    //         };
+
+    //         console.log('executing', cmd);
+    //         const proc = child.exec(`${cmd}`, execOptions,
+    //             (error: child.ExecException | null, stdout: string, stderr: string) => {
+    //                 if (error && error.code != 1) { // Error code 1 indicates grep couldn't find any matches
+    //                     resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+    //                 } else {
+    //                     console.log('done executing', cmd);
+    //                     resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
+    //                 }
+    //             },
+    //         );
+
+    //         if (outputChannel !== undefined) {
+    //             proc.stdout?.on('data', (data) => { outputChannel.appendLine(data); });
+    //             proc.stderr?.on('data', (data) => { outputChannel.appendLine(data); });
+    //         }
+
+    //         if (cancellationToken) {
+    //             cancellationToken.onCancellationRequested(() => {
+    //                 proc.kill();
+    //                 reject(new Error(`${cmd} cancelled.`));
+    //             });
+    //         }
+
+    //     });
+    // }
 
     public async runShellCommand(cmd: string, cancellationToken?: vscode.CancellationToken): Promise<{ stdout: string, stderr: string }> {
         return ShellService.run(cmd, this.workspaceFolder.uri.path, this.setupEnvVars, cancellationToken, this.outputChannel);

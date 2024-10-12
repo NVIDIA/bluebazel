@@ -34,6 +34,7 @@ export const BAZEL_BIN = 'bazel-bin';
 
 export class BazelService {
 
+    private readonly isBuildTargetRegex = /_library|_proto|_archive|_module|_object|_bundle|_package/;
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
@@ -86,41 +87,6 @@ export class BazelService {
         return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
     }
 
-    /**
-     * Fetches available run targets for Bazel.
-     */
-    public async fetchRunTargets(cancellationToken?: vscode.CancellationToken): Promise<{ label: string, buildPath: string }[]> {
-        try {
-            const executable = this.configurationManager.getExecutableCommand();
-            const cmd = this.configurationManager.getGenerateRunTargetsCommand();
-
-            const data = await this.shellService.runShellCommand(`${executable} ${cmd}`, cancellationToken);
-            const allOutputs = data.stdout.split('\n');
-
-            const targets = allOutputs
-                .filter(element => element.length >= 2 && element.startsWith('//'))
-                .map(element => {
-                    const [targetPath, targetName] = element.split(':');
-                    if (targetName) {
-                        return {
-                            label: targetName,
-                            buildPath: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
-                        };
-                    }
-                    return { label: '', buildPath: '' };
-                })
-                .filter(target => target.label !== '');
-
-            // Sort the targets alphabetically
-            targets.sort((a, b) => (a.label < b.label ? -1 : 1));
-
-            return targets;
-        } catch (error) {
-            Console.error('Error fetching run targets:', error);
-            return Promise.reject(error);  // Rejecting instead of throwing
-        }
-    }
-
     public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken): Promise<Map<BazelAction, BazelTarget[]>> {
         // Initialize map entries for each action
         const map: Map<BazelAction, BazelTarget[]> = new Map([
@@ -129,8 +95,6 @@ export class BazelService {
             ['test', []],
             ['*', []]
         ]);
-
-        const isBuildTargetRegex = /library|proto|archive|module|object|bundle|package/;
 
         try {
             // Fetch all targets
@@ -150,7 +114,7 @@ export class BazelService {
                 } else if (target.ruleType.includes('_binary')) {
                     map.get('run')?.push(target);
                     map.get('build')?.push(target); // Binaries need to be built
-                } else if (isBuildTargetRegex.test(target.ruleType)) {
+                } else if (this.isBuildTargetRegex.test(target.ruleType)) {
                     map.get('build')?.push(target);
                 }
 
@@ -159,7 +123,8 @@ export class BazelService {
             });
 
         } catch (error) {
-            console.error(`Failed to fetch and categorize targets: ${error}`);
+            Console.error(`Failed to fetch and categorize targets: ${error}`);
+            return Promise.reject(error);
         }
 
         return map;
@@ -180,12 +145,14 @@ export class BazelService {
      * Fetches available run targets for Bazel.
      */
     public async fetchAllTargets(cancellationToken?: vscode.CancellationToken): Promise<{ label: string, ruleType: string, bazelPath: string, buildPath: string }[]> {
+        Console.info('Fetching all targets from bazel...')
         try {
+
             // Run label_kind and package queries in parallel to save time
-            const [targetsQuery, buildPackagesQuery, testPackagesQuery] = await Promise.all([
-                this.runQuery('query //... --output=label_kind --keep_going', cancellationToken),
-                this.runQuery('query //... --output=package --keep_going', cancellationToken),
-                this.runQuery('query "tests(//...)" --output=package --keep_going', cancellationToken)
+            const [targetsQuery, buildPackagesQuery, testPackagesQuery] = /* await Promise.all */([
+                await this.runQuery(`query 'kind(".*(${this.isBuildTargetRegex.source}|_binary|_test)", //...)' --output=label_kind --keep_going`, cancellationToken),
+                await this.runQuery('query //... --output=package --keep_going', cancellationToken),
+                await this.runQuery('query "tests(//...)" --output=package --keep_going', cancellationToken)
             ]);
 
             const targetOutputs = targetsQuery.stdout.split('\n');
@@ -202,7 +169,7 @@ export class BazelService {
             targetOutputs.push(...unifiedPackages);
 
             // Process target outputs to extract necessary fields and filter out empty labels in one pass
-            const targets = unifiedPackages
+            const targets = targetOutputs
                 .filter(line => line.trim() !== '')
                 .map(line => {
                     const [ruleType, , target] = line.split(' ');
@@ -210,15 +177,16 @@ export class BazelService {
                     return {
                         label: targetName,
                         ruleType: ruleType,
-                        bazelPath: targetPath,
+                        bazelPath: target,
                         buildPath: path.join(BAZEL_BIN, ...targetPath.split('/'), targetName)
                     };
                 });
 
+            Console.info('Done fetching all bazel targets...')
             // Sort the targets alphabetically
             return targets.sort((a, b) => (a.bazelPath < b.bazelPath ? -1 : 1));
         } catch (error) {
-            console.error('Error fetching run targets:', error);
+            Console.error('Error fetching run targets:', error);
             return Promise.reject(error);
         }
     }

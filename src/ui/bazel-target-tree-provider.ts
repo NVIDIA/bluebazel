@@ -33,7 +33,7 @@ import * as vscode from 'vscode';
 
 export type BazelTreeElement = BazelTargetCategory | BazelTarget | BazelTargetMultiProperty | BazelTargetProperty | BazelTargetMultiPropertyItem | UserCustomCategory | UserCustomButton;
 
-export class BazelTargetCategory  {
+export class BazelTargetCategory {
     public readonly id: string;
     constructor(public readonly action: BazelAction) {
         this.id = action;
@@ -44,17 +44,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
     private _onDidChangeTreeData: vscode.EventEmitter<BazelTreeElement | undefined | void> = new vscode.EventEmitter<BazelTreeElement | undefined | void>();
     readonly onDidChangeTreeData: vscode.Event<BazelTreeElement | undefined | void> = this._onDidChangeTreeData.event;
 
-    public expandTarget(target: BazelTarget): void {
-        // Expand the parent category
-        const parentCategoryId = target.action; // Assuming 'action' is the identifier for the parent category
-        this.setExpandedState(parentCategoryId, true);
-
-        // Expand the target itself
-        this.setExpandedState(target.id, true);
-
-        // Refresh the tree view so the expanded state is reflected
-        this.refresh();
-    }
+    private expandedStateCache: { [key: string]: boolean } = {};
 
     // Define a map of BazelAction to vscode.ThemeIcon
     private iconMap: Map<BazelAction, vscode.ThemeIcon> = new Map([
@@ -89,11 +79,31 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTargetStateManager: BazelTargetStateManager
     ) {
+        // Load expanded state into memory at startup
+        const savedState = this.context.workspaceState.get<{ [key: string]: boolean }>('expandedState', {});
+        this.expandedStateCache = savedState || {};
+
         // Subscribe to target state changes
         this.bazelTargetStateManager.onDidChangeTargetState(() => {
             // Refresh the tree whenever a target state changes
             this.refresh();
         });
+    }
+
+    private debouncedSaveExpandedState = this.debounce(() => {
+        this.context.workspaceState.update('expandedState', this.expandedStateCache);
+    }, 500);  // Save after 500ms of inactivity
+
+    public expandTarget(target: BazelTarget): void {
+        // Expand the parent category
+        const parentCategoryId = target.action; // Assuming 'action' is the identifier for the parent category
+        this.setExpandedState(parentCategoryId, true);
+
+        // Expand the target itself
+        this.setExpandedState(target.id, true);
+
+        // Refresh the tree view so the expanded state is reflected
+        this.refresh();
     }
 
     private getIcon(element: BazelTarget | BazelTargetCategory): vscode.ThemeIcon {
@@ -126,35 +136,37 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         return this.actionOrder[action] || 99; // Assign default priority for unknown actions
     }
 
-    private getRootChildren(): Thenable<(BazelTargetCategory | UserCustomCategory)[]> {
-        // Get BazelActions and map them to BazelTargetCategory
-        const bazelActions: BazelAction[] = this.bazelTargetManager.getTargetActions();
+    private getRootChildren(): Promise<(BazelTargetCategory | UserCustomCategory)[]> {
+        return new Promise(resolve => {
+            // Get BazelActions and map them to BazelTargetCategory
+            const bazelActions: BazelAction[] = this.bazelTargetManager.getTargetActions();
 
-        // Set the context based on whether specific elements exist
-        vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.bazelTreeActions`, bazelActions.join('|'));
+            // Set the context based on whether specific elements exist
+            vscode.commands.executeCommand('setContext', `${ExtensionUtils.getExtensionName(this.context)}.bazelTreeActions`, bazelActions.join('|'));
 
-        // Map each BazelAction to BazelTargetCategory
-        const bazelTargetCategories = bazelActions.map(action => new BazelTargetCategory(action));
+            // Map each BazelAction to BazelTargetCategory
+            const bazelTargetCategories = bazelActions.map(action => new BazelTargetCategory(action));
 
-        // Sort the BazelTargetCategory based on the predefined action order
-        bazelTargetCategories.sort((a, b) => {
-            const orderA = this.getActionOrder(a.action);
-            const orderB = this.getActionOrder(b.action);
-            return orderA - orderB; // Ascending order: lower number means higher priority
+            // Sort the BazelTargetCategory based on the predefined action order
+            bazelTargetCategories.sort((a, b) => {
+                const orderA = this.getActionOrder(a.action);
+                const orderB = this.getActionOrder(b.action);
+                return orderA - orderB; // Ascending order: lower number means higher priority
+            });
+
+            // Get custom user buttons
+            const customButtons = this.configurationManager.getCustomButtons();
+
+            // Return the sorted categories as a resolved Promise
+            return resolve([...bazelTargetCategories, ...customButtons]);
         });
-
-        // Get custom user buttons
-        const customButtons = this.configurationManager.getCustomButtons();
-
-        // Return the sorted categories as a resolved Promise
-        return Promise.resolve([...bazelTargetCategories, ...customButtons]);
     }
 
-    private getChildrenForBazelTargetCategory(category: BazelTargetCategory): Thenable<BazelTarget[]> {
-        return Promise.resolve(this.bazelTargetManager.getTargets(category.action));
+    private getChildrenForBazelTargetCategory(category: BazelTargetCategory): BazelTarget[] {
+        return this.bazelTargetManager.getTargets(category.action);
     }
 
-    private getChildrenForBazelTarget(target: BazelTarget): Thenable<(BazelTargetProperty | BazelTargetMultiProperty)[]> {
+    private getChildrenForBazelTarget(target: BazelTarget): (BazelTargetProperty | BazelTargetMultiProperty)[] {
         const properties = [
             target.getEnvVars(),
             target.getConfigArgs(),
@@ -162,31 +174,33 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
             target.getRunArgs()
         ];
 
-        return Promise.resolve(properties);
+        return properties;
     }
 
-    private getChildrenForBazelTargetProperty(property: BazelTargetMultiProperty): Thenable<BazelTargetMultiPropertyItem[]> {
-        return Promise.resolve(property.get());
+    private getChildrenForBazelTargetProperty(property: BazelTargetMultiProperty): BazelTargetMultiPropertyItem[] {
+        return property.get();
     }
 
-    private getChildrenForUserCustomCategory(userCategory: UserCustomCategory): Thenable<UserCustomButton[]> {
-        return Promise.resolve(userCategory.buttons);
+    private getChildrenForUserCustomCategory(userCategory: UserCustomCategory): UserCustomButton[] {
+        return userCategory.buttons;
     }
 
     // Method to get children of a specific element (e.g., bazel target properties)
-    private getChildrenForElement(element: BazelTreeElement): Thenable<(BazelTarget | BazelTargetProperty | BazelTargetMultiProperty | BazelTargetMultiPropertyItem | UserCustomButton)[]> {
-        if (element instanceof BazelTargetCategory) {
-            return this.getChildrenForBazelTargetCategory(element);
-        } else if (element instanceof BazelTarget) {
-            return this.getChildrenForBazelTarget(element);
-        } else if (element instanceof BazelTargetMultiProperty) {
-            return this.getChildrenForBazelTargetProperty(element);
-        } else if (element instanceof UserCustomCategory) {
-            return this.getChildrenForUserCustomCategory(element);
-        } else {
-            // Any other type has no children
-            return Promise.resolve([]);
-        }
+    private getChildrenForElement(element: BazelTreeElement): Promise<(BazelTarget | BazelTargetProperty | BazelTargetMultiProperty | BazelTargetMultiPropertyItem | UserCustomButton)[]> {
+        return new Promise(resolve => {
+            if (element instanceof BazelTargetCategory) {
+                return resolve(this.getChildrenForBazelTargetCategory(element));
+            } else if (element instanceof BazelTarget) {
+                return resolve(this.getChildrenForBazelTarget(element));
+            } else if (element instanceof BazelTargetMultiProperty) {
+                return resolve(this.getChildrenForBazelTargetProperty(element));
+            } else if (element instanceof UserCustomCategory) {
+                return resolve(this.getChildrenForUserCustomCategory(element));
+            } else {
+                // Any other type has no children
+                return resolve([]);
+            }
+        });
     }
 
     // The getChildren method to fetch either root elements or child elements
@@ -200,8 +214,23 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         }
     }
 
-    refresh(): void {
-        this._onDidChangeTreeData.fire();
+    private debounce(func: (...args: unknown[]) => void, delay: number) {
+        let timeoutId: NodeJS.Timeout;
+
+        return function (this: any, ...args: unknown[]) {  // Preserve 'this' context and pass the args
+            clearTimeout(timeoutId);  // Clear the previous timer if the function is called again
+            timeoutId = setTimeout(() => {
+                func.apply(this, args);  // Call the original function after the delay
+            }, delay);
+        };
+    }
+
+    private debouncedRefresh = this.debounce(() => {
+        this._onDidChangeTreeData.fire();  // The actual refresh logic
+    }, 300);
+
+    public refresh() {
+        this.debouncedRefresh();
     }
 
     private getTargetCategoryTreeItem(element: BazelTargetCategory): vscode.TreeItem {
@@ -305,15 +334,13 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
 
     // Store the expanded/collapsed state in workspaceState
     private setExpandedState(itemId: string, isExpanded: boolean) {
-        const state = this.context.workspaceState.get<{ [key: string]: boolean }>('expandedState', {});
-        state[itemId] = isExpanded;
-        this.context.workspaceState.update('expandedState', state);
+        this.expandedStateCache[itemId] = isExpanded;
+        this.debouncedSaveExpandedState();
     }
 
     // Get the expanded/collapsed state for a given item
     private getExpandedState(itemId: string): boolean {
-        const state = this.context.workspaceState.get<{ [key: string]: boolean }>('expandedState', {});
-        return state[itemId] || false; // Default to collapsed if not stored
+        return this.expandedStateCache[itemId] ?? false;  // Default to false if not in cache
     }
 
     private getTreeItemModelId(element: BazelTreeElement): string {

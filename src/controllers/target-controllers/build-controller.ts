@@ -26,13 +26,11 @@ import { BazelTargetController } from './bazel-target-controller';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
-import { BAZEL_BIN, BazelService } from '../../services/bazel-service';
+import { BAZEL_BIN } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
-import { WorkspaceService } from '../../services/workspace-service';
-import { BazelTargetQuickPickItem } from '../../ui/bazel-target-quick-pick-item';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -44,7 +42,6 @@ export class BuildController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
-        private readonly bazelService: BazelService,
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTargetStateManager: BazelTargetStateManager
     ) { }
@@ -114,65 +111,4 @@ export class BuildController implements BazelTargetController {
         return actualTarget;
     }
 
-    private currentTargetPath = '';
-
-    public async pickTarget(currentTarget?: BazelTarget): Promise<BazelTarget | undefined>
-    {
-        const targetList = await WorkspaceService.getInstance().getSubdirectoryPaths(this.currentTargetPath.replace('//', ''));
-        // Prepend current run target option if we are in the root directory
-        if (this.currentTargetPath.trim().length === 0) {
-            targetList.unshift(BUILD_RUN_TARGET_STR);
-        }
-
-        const dirBuildTargets = await BazelService.fetchBuildTargetNames(
-            this.currentTargetPath,
-            WorkspaceService.getInstance().getWorkspaceFolder().uri.path
-        );
-
-        // Add each target to the data array
-        dirBuildTargets.forEach(targetName => {
-            targetList.push(`${this.currentTargetPath === '' ? '//' : this.currentTargetPath}:${targetName}`);
-        });
-
-        const quickPick = vscode.window.createQuickPick();
-        quickPick.items = targetList.map(label => ({
-            label: label,
-            // Leave out 'detail' key here as it would be redundant to label
-            target: new BazelTarget(this.context, this.bazelService, label, label, label, 'build', '')
-        } as BazelTargetQuickPickItem));
-        if (this.currentTargetPath.trim().length !== 0) {
-            quickPick.buttons = [vscode.QuickInputButtons.Back];
-            quickPick.onDidTriggerButton(async item => {
-                if (item === vscode.QuickInputButtons.Back) {
-                    this.currentTargetPath = path.dirname(this.currentTargetPath);
-                    const target = await this.pickTarget(currentTarget);
-                    return target;
-                }
-            });
-        }
-
-        return new Promise((resolve) => {
-            quickPick.onDidChangeSelection(async value => {
-                this.currentTargetPath = '';
-                if (value[0]) {
-                    const item = value[0] as BazelTargetQuickPickItem;
-                    const res = item.label;
-                    if (res !== undefined) {
-                        if (typeof res === 'string' && !res.includes('...') && res !== BUILD_RUN_TARGET_STR && !res.includes(':')) {
-                            this.currentTargetPath = res;
-                            const target = await this.pickTarget(currentTarget);
-                            quickPick.hide();
-                            resolve(target);
-                        } else {
-                            this.currentTargetPath = '';
-                            quickPick.hide();
-                            resolve(item.target);
-                        }
-                    }
-                }
-            });
-
-            quickPick.show();
-        });
-    }
 }

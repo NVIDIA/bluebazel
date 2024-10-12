@@ -1,4 +1,3 @@
-import { BazelController } from './bazel-controller';
 import { BazelTargetControllerManager } from './target-controllers/bazel-target-controller-manager';
 import { BazelActionManager } from '../models/bazel-action-manager';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
@@ -14,7 +13,6 @@ export class BazelTargetOperationsController {
         private readonly context: vscode.ExtensionContext,
         private readonly bazelService: BazelService,
         private readonly iconService: IconService,
-        private readonly bazelController: BazelController,
         private readonly bazelTargetControllerManager: BazelTargetControllerManager,
         private readonly bazelActionManager: BazelActionManager,
         private readonly bazelTargetManager: BazelTargetManager,
@@ -23,45 +21,84 @@ export class BazelTargetOperationsController {
 
     }
 
-    public async pickTargetFromAction(action: BazelAction) {
-        const target = BazelTarget.createEmpty(this.context, this.bazelService, action);
-        return this.pickTarget(target);
-    }
+    public async pickTarget(targetOrAction?: BazelTarget | BazelAction) {
+        const oldTarget = this.resolveOldTarget(targetOrAction);
 
-    public async pickTargetAndAction() {
-        const actions = await this.bazelActionManager.getActions();
+        const actions = oldTarget
+            ? [oldTarget.action]
+            : await this.bazelActionManager.getActions();
+
         const bazelTargetQuickPick = new BazelTargetQuickPick(actions, this.iconService, this.bazelTargetManager);
 
         try {
             const selection = await bazelTargetQuickPick.show();
-            if (selection instanceof BazelTarget) {
-                vscode.window.showInformationMessage(`Selected bazel target: ${selection?.bazelPath}`);
-            } else {
-                vscode.window.showInformationMessage(`Selected: ${selection}`);
-            }
+            this.handleTargetSelection(selection, oldTarget);
         } catch (error) {
             return Promise.reject(error);
         }
     }
 
-    public async pickTarget(oldTarget: BazelTarget) {
-        const controller = this.getController(oldTarget.action);
-        const pickedTarget = await controller.pickTarget(oldTarget);
+    /**
+     * Resolves the target or action into an old BazelTarget, if applicable.
+     */
+    private resolveOldTarget(targetOrAction?: BazelTarget | BazelAction): BazelTarget | undefined {
+        if (!targetOrAction) return undefined;
 
-        if (pickedTarget) {
-            if (oldTarget.buildPath !== '') {
-                this.bazelTargetManager.updateTarget(pickedTarget.clone(), oldTarget);
-            } else {
-                const clonedTarget = pickedTarget.clone();
-                this.bazelTargetManager.addTarget(clonedTarget);
-                this.bazelTreeProvider.expandTarget(clonedTarget);
-            }
-            const targetsOfAction = this.bazelTargetManager.getTargets(pickedTarget.action);
-            if (targetsOfAction.length === 1) {
-                this.bazelTargetManager.updateSelectedTarget(targetsOfAction[0]);
-            }
-            this.bazelTreeProvider.refresh();
+        return targetOrAction instanceof BazelTarget
+            ? targetOrAction
+            : BazelTarget.createEmpty(this.context, this.bazelService, targetOrAction);
+    }
+
+    /**
+     * Handles the selection from the QuickPick.
+     */
+    private handleTargetSelection(selection: BazelTarget | string | undefined, oldTarget?: BazelTarget) {
+        if (selection instanceof BazelTarget) {
+            this.addOrUpdateTarget(selection, oldTarget);
+        } else if (selection) {
+            const { action, target } = this.resolveActionAndTarget(selection, oldTarget);
+            const newTarget = new BazelTarget(
+                this.context,
+                this.bazelService,
+                target,
+                target,
+                '',
+                action,
+                oldTarget?.ruleType || ''
+            );
+            this.addOrUpdateTarget(newTarget, oldTarget);
         }
+    }
+
+    /**
+     * Resolves the action and target based on selection and oldTarget.
+     */
+    private resolveActionAndTarget(selection: string, oldTarget?: BazelTarget) {
+        if (oldTarget) {
+            return { action: oldTarget.action, target: selection };
+        } else {
+            const [action, ...targetParts] = selection.split(' ');
+            return { action, target: targetParts.join(' ') };
+        }
+    }
+
+
+    private addOrUpdateTarget(newTarget: BazelTarget, oldTarget?: BazelTarget) {
+        console.log('add target', newTarget, oldTarget);
+        console.time('add target');
+        if (oldTarget) {
+            this.bazelTargetManager.updateTarget(newTarget.clone(), oldTarget);
+        } else {
+            const clonedTarget = newTarget.clone();
+            this.bazelTargetManager.addTarget(clonedTarget);
+            this.bazelTreeProvider.expandTarget(clonedTarget);
+        }
+        const targetsOfAction = this.bazelTargetManager.getTargets(newTarget.action);
+        if (targetsOfAction.length === 1) {
+            this.bazelTargetManager.updateSelectedTarget(targetsOfAction[0]);
+        }
+        console.timeEnd('add target');
+        this.bazelTreeProvider.refresh();
     }
 
     public async copyTarget(target: BazelTarget) {
