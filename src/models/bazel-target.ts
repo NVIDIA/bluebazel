@@ -33,7 +33,7 @@ export interface SerializedBazelTarget {
     bazelPath: string,
     buildPath: string,
     action: BazelAction,
-    language: string,
+    ruleType: string,
     id: string
 }
 
@@ -158,14 +158,14 @@ export class BazelTarget {
             bazelPath: this.bazelPath,
             buildPath: this.buildPath,
             action: this.action,
-            language: this.ruleType,
+            ruleType: this.ruleType,
             id: this.id
         };
     }
 
     // Static method to create a BazelTarget object from serialized data
     public static fromJSON(context: vscode.ExtensionContext, bazelService: BazelService, data: SerializedBazelTarget): BazelTarget {
-        return new BazelTarget(context, bazelService, data.label, data.buildPath, data.action, data.language, data.id);
+        return new BazelTarget(context, bazelService, data.label, data.bazelPath, data.buildPath, data.action, data.ruleType, data.id);
     }
 
     public isEqualTo(otherTarget: BazelTarget): boolean {

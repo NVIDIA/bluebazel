@@ -93,7 +93,7 @@ export class BazelController {
     public async refreshAvailableTargets(cancellationToken?: vscode.CancellationToken): Promise<void> {
         try {
             const targets = await this.bazelService.fetchAllTargetsByAction(cancellationToken);
-            this.bazelTargetManager.updateAvailableTargets(targets);
+            await this.bazelTargetManager.updateAvailableTargets(targets);
             vscode.window.showInformationMessage('Updated available targets');
         } catch (error) {
             return Promise.reject(error);

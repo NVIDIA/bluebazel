@@ -84,8 +84,6 @@ export class BazelTargetOperationsController {
 
 
     private addOrUpdateTarget(newTarget: BazelTarget, oldTarget?: BazelTarget) {
-        console.log('add target', newTarget, oldTarget);
-        console.time('add target');
         if (oldTarget) {
             this.bazelTargetManager.updateTarget(newTarget.clone(), oldTarget);
         } else {
@@ -97,7 +95,6 @@ export class BazelTargetOperationsController {
         if (targetsOfAction.length === 1) {
             this.bazelTargetManager.updateSelectedTarget(targetsOfAction[0]);
         }
-        console.timeEnd('add target');
         this.bazelTreeProvider.refresh();
     }
 

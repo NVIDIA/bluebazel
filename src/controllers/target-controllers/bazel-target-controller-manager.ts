@@ -33,7 +33,6 @@ import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
-import { LaunchConfigService } from '../../services/launch-config-service';
 import { ShellService } from '../../services/shell-service';
 import { TaskService } from '../../services/task-service';
 import { BazelController } from '../bazel-controller';
@@ -48,7 +47,6 @@ export class BazelTargetControllerManager {
         taskService: TaskService,
         shellService: ShellService,
         bazelService: BazelService,
-        launchConfigService: LaunchConfigService,
         bazelController: BazelController,
         bazelEnvironment: BazelEnvironment,
         bazelTargetManager: BazelTargetManager,

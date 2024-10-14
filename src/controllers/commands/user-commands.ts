@@ -50,8 +50,8 @@ export function registerUserCommands(context: vscode.ExtensionContext,
 
     const extensionName = ExtensionUtils.getExtensionName(context);
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.customButton`, (button: UserCustomButton) => {
-        const command = button.methodName;
-        vscode.commands.executeCommand(command);
+        const registeredCommand = button.methodName;
+        vscode.commands.executeCommand(registeredCommand, button.command);
     }));
 
 }

@@ -26,6 +26,12 @@
 import * as child from 'child_process';
 import * as vscode from 'vscode';
 
+export interface ProcessOutput {
+    stdout: string,
+    stderr: string,
+    exitCode: number
+}
+
 export class ShellService {
 
     constructor(private readonly workspaceFolder: vscode.WorkspaceFolder,
@@ -39,8 +45,8 @@ export class ShellService {
         setupEnvVars: { [key: string]: string },
         cancellationToken?: vscode.CancellationToken,
         outputChannel?: vscode.OutputChannel
-    ): Promise<{ stdout: string, stderr: string }> {
-        return new Promise<{ stdout: string, stderr: string }>((resolve, reject) => {
+    ): Promise<ProcessOutput> {
+        return new Promise<ProcessOutput>((resolve, reject) => {
             const execOptions: child.ExecOptions = {
                 cwd: cwd,
                 shell: 'bash',
@@ -48,8 +54,6 @@ export class ShellService {
                 windowsHide: false,
                 env: { ...process.env, ...setupEnvVars }
             };
-
-            console.log('executing', cmd);
 
             const proc = child.exec(cmd, execOptions);
 
@@ -79,11 +83,10 @@ export class ShellService {
             });
 
             proc.on('close', (code) => {
-                if (code === 0) {
-                    resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
-                } else {
-                    reject(new Error(`Process exited with code ${code}.`));
+                if (code !== 0) {
+                    reject(new Error(`Error running ${cmd} exited with code: ${code}`));
                 }
+                resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code });
             });
 
             // Handle process errors
@@ -100,44 +103,6 @@ export class ShellService {
             }
         });
     }
-
-
-    // public static async run(cmd: string, cwd: string, setupEnvVars: {[key: string]: string}, cancellationToken?: vscode.CancellationToken, outputChannel?: vscode.OutputChannel): Promise<{ stdout: string, stderr: string }> {
-    //     return new Promise<{ stdout: string, stderr: string }>((resolve, reject) => {
-    //         const execOptions: child.ExecOptions = {
-    //             cwd: cwd,
-    //             shell: 'bash',
-    //             maxBuffer: Number.MAX_SAFE_INTEGER,
-    //             windowsHide: false,
-    //             env: {...process.env, ...setupEnvVars}
-    //         };
-
-    //         console.log('executing', cmd);
-    //         const proc = child.exec(`${cmd}`, execOptions,
-    //             (error: child.ExecException | null, stdout: string, stderr: string) => {
-    //                 if (error && error.code != 1) { // Error code 1 indicates grep couldn't find any matches
-    //                     resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
-    //                 } else {
-    //                     console.log('done executing', cmd);
-    //                     resolve({ stdout: stdout.trim(), stderr: stderr.trim() });
-    //                 }
-    //             },
-    //         );
-
-    //         if (outputChannel !== undefined) {
-    //             proc.stdout?.on('data', (data) => { outputChannel.appendLine(data); });
-    //             proc.stderr?.on('data', (data) => { outputChannel.appendLine(data); });
-    //         }
-
-    //         if (cancellationToken) {
-    //             cancellationToken.onCancellationRequested(() => {
-    //                 proc.kill();
-    //                 reject(new Error(`${cmd} cancelled.`));
-    //             });
-    //         }
-
-    //     });
-    // }
 
     public async runShellCommand(cmd: string, cancellationToken?: vscode.CancellationToken): Promise<{ stdout: string, stderr: string }> {
         return ShellService.run(cmd, this.workspaceFolder.uri.path, this.setupEnvVars, cancellationToken, this.outputChannel);

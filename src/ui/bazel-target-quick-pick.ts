@@ -40,6 +40,7 @@ export class BazelTargetQuickPick {
 
         // Initialize a new VS Code QuickPick instance.
         this.quickPick = vscode.window.createQuickPick<BazelTargetQuickPickItem>();
+        this.quickPick.ignoreFocusOut = true;
 
         this.cancellationTokenSource = new vscode.CancellationTokenSource();
     }
@@ -115,6 +116,7 @@ export class BazelTargetQuickPick {
         this.quickPick.show();
         this.quickPick.matchOnDetail = true;
 
+
         // Define a prefix for targets based on the current action.
         const actionPrefix = this.defaultAction || this.currentAction || '';
 
@@ -132,10 +134,11 @@ export class BazelTargetQuickPick {
                 detail: `${prependItemText}${target.bazelPath}`,
                 iconPath: this.iconService.getIcon(target.language),
                 target: target,
+                alwaysShow: true,
             } as BazelTargetQuickPickItem));
 
         // If matching targets are found, display them in the QuickPick.
-        if (targetItems.length > 0) {
+        if (targetItems.  length > 0) {
             this.quickPick.items = targetItems;
             this.quickPick.placeholder = 'Select a Bazel target...';
         } else {

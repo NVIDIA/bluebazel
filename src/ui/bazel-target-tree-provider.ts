@@ -90,22 +90,6 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         });
     }
 
-    private debouncedSaveExpandedState = this.debounce(() => {
-        this.context.workspaceState.update('expandedState', this.expandedStateCache);
-    }, 500);  // Save after 500ms of inactivity
-
-    public expandTarget(target: BazelTarget): void {
-        // Expand the parent category
-        const parentCategoryId = target.action; // Assuming 'action' is the identifier for the parent category
-        this.setExpandedState(parentCategoryId, true);
-
-        // Expand the target itself
-        this.setExpandedState(target.id, true);
-
-        // Refresh the tree view so the expanded state is reflected
-        this.refresh();
-    }
-
     private getIcon(element: BazelTarget | BazelTargetCategory): vscode.ThemeIcon {
         // Return the icon based on the action, defaulting to the 'question' icon
         return this.iconMap.get(element.action) || this.defaultIcon;
@@ -214,23 +198,8 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         }
     }
 
-    private debounce(func: (...args: unknown[]) => void, delay: number) {
-        let timeoutId: NodeJS.Timeout;
-
-        return function (this: any, ...args: unknown[]) {  // Preserve 'this' context and pass the args
-            clearTimeout(timeoutId);  // Clear the previous timer if the function is called again
-            timeoutId = setTimeout(() => {
-                func.apply(this, args);  // Call the original function after the delay
-            }, delay);
-        };
-    }
-
-    private debouncedRefresh = this.debounce(() => {
-        this._onDidChangeTreeData.fire();  // The actual refresh logic
-    }, 300);
-
     public refresh() {
-        this.debouncedRefresh();
+        this._onDidChangeTreeData.fire();
     }
 
     private getTargetCategoryTreeItem(element: BazelTargetCategory): vscode.TreeItem {
@@ -332,10 +301,22 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
 
     }
 
+    public expandTarget(target: BazelTarget): void {
+        // Expand the parent category
+        const parentCategoryId = target.action; // Assuming 'action' is the identifier for the parent category
+        this.setExpandedState(parentCategoryId, true);
+
+        // Expand the target itself
+        this.setExpandedState(target.id, true);
+
+        // Refresh the tree view so the expanded state is reflected
+        this.refresh();
+    }
+
     // Store the expanded/collapsed state in workspaceState
     private setExpandedState(itemId: string, isExpanded: boolean) {
         this.expandedStateCache[itemId] = isExpanded;
-        this.debouncedSaveExpandedState();
+        this.context.workspaceState.update('expandedState', this.expandedStateCache);
     }
 
     // Get the expanded/collapsed state for a given item

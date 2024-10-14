@@ -47,4 +47,5 @@ export class ExtensionUtils {
     public static getExtensionVersion(context: vscode.ExtensionContext): string {
         return context.extension.packageJSON.version;
     }
+
 }

@@ -59,4 +59,9 @@ export class Console {
     public static error(message?: any, ...optionalParams: any[]) {
         console.error(Console.instance.prefix, message, ...optionalParams);
     }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    public static time(message?: any) {
+        console.time(`${Console.instance.prefix} ${message}`);
+    }
 }

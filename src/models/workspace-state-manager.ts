@@ -28,14 +28,27 @@ import * as vscode from 'vscode';
 
 
 export class WorkspaceStateManager {
-    constructor(private readonly context: vscode.ExtensionContext) {}
+    private versionChangeHappened = false;
 
-    public refreshWorkspaceState() {
+    constructor(private readonly context: vscode.ExtensionContext) {
+        this.versionChangeHappened = this.checkVersionChange();
+    }
+
+
+    private checkVersionChange(): boolean {
         const version = ExtensionUtils.getExtensionVersion(this.context);
         const oldVersion = this.context.workspaceState.get<string>('version', '');
-        if (oldVersion !== version) {
+        return oldVersion !== version;
+    }
+
+    public versionChanged(): boolean {
+        return this.versionChangeHappened;
+    }
+
+    public refreshWorkspaceState() {
+        if (this.versionChanged()) {
             this.clearWorkspaceState();
-            this.context.workspaceState.update('version', version);
+            this.context.workspaceState.update('version', ExtensionUtils.getExtensionVersion(this.context));
         }
     }
 

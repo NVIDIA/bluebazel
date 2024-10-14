@@ -22,6 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 
+import { Console } from './console';
 import { ExtensionUtils } from './extension-utils';
 import { ShellService } from './shell-service';
 import { WorkspaceService } from './workspace-service';
@@ -78,7 +79,7 @@ export class EnvironmentService {
                 return envArray;
             } catch (error) {
                 // Log the error for debugging purposes
-                console.error('Error fetching setup environment:', error);
+                Console.error('Error fetching setup environment:', error);
                 return Promise.reject(error);
             }
         }

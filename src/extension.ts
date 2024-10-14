@@ -37,8 +37,8 @@ import { ConfigurationManager } from './services/configuration-manager';
 import { Console } from './services/console';
 import { EnvVarsUtils } from './services/env-vars-utils';
 import { ExtensionUtils } from './services/extension-utils';
+import { FileStorageService } from './services/file-storage-service';
 import { IconService } from './services/icon-service';
-import { LaunchConfigService } from './services/launch-config-service';
 import { ShellService } from './services/shell-service';
 import { TaskService } from './services/task-service';
 import { WorkspaceService } from './services/workspace-service';
@@ -49,10 +49,10 @@ import * as vscode from 'vscode';
 // Services
 let configurationManager: ConfigurationManager;
 let bazelService: BazelService;
-let launchConfigService: LaunchConfigService;
 let shellService: ShellService;
 let taskService: TaskService;
 let iconService: IconService;
+let fileStorageService: FileStorageService;
 
 // Models
 let bazelEnvironment: BazelEnvironment;
@@ -124,9 +124,7 @@ async function initExtension(context: vscode.ExtensionContext) {
     bazelEnvironment = await BazelEnvironment.create(context, configurationManager);
 
     // Create an output channel specific to the extension.
-    outputChannel = vscode.window.createOutputChannel(/* ExtensionUtils.getExtensionDisplayName(context) */'JOSHISAWESOME');
-    outputChannel.show(true);
-    outputChannel.appendLine('This is an output');
+    outputChannel = vscode.window.createOutputChannel(ExtensionUtils.getExtensionDisplayName(context));
 
     /******
      * SERVICES
@@ -150,11 +148,11 @@ async function initExtension(context: vscode.ExtensionContext) {
     // the fetching run targets or configs.
     bazelService = new BazelService(context, configurationManager, shellService);
 
-    // The launch config service interacts with the vscode launch configs.
-    launchConfigService = new LaunchConfigService(context,
-        bazelService, bazelEnvironment.getEnvVars());
-
+    // The icon service that looks up the current theme icons
     iconService = new IconService();
+
+    // The file storage service to handle storing bazel targets
+    fileStorageService = new FileStorageService(context);
 
     /******
      * MODELS
@@ -168,7 +166,7 @@ async function initExtension(context: vscode.ExtensionContext) {
     // This manager holds all the bazel targets for the project.
     // These items will appear in the tree view and each target
     // has associated details about it including its action and label.
-    bazelTargetManager = new BazelTargetManager(context, bazelService);
+    bazelTargetManager = new BazelTargetManager(context, bazelService, fileStorageService, workspaceStateManager);
 
     // This manager holds runtime only information about a target's
     // state and is used to control the UI elements when a target's
@@ -179,6 +177,7 @@ async function initExtension(context: vscode.ExtensionContext) {
      * UI
      ******/
     bazelTargetTreeProvider = new BazelTargetTreeProvider(context, configurationManager, bazelTargetManager, bazelTargetStateManager);
+    bazelTargetManager.awaitLoading().then(() => bazelTargetTreeProvider.refresh());
 
     /******
      * CONTROLLERS
@@ -204,7 +203,6 @@ async function initExtension(context: vscode.ExtensionContext) {
         taskService,
         shellService,
         bazelService,
-        launchConfigService,
         bazelController,
         bazelEnvironment,
         bazelTargetManager,
