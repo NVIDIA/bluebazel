@@ -25,7 +25,6 @@
 import { BazelTargetController } from './bazel-target-controller';
 import { BuildController } from './build-controller';
 import { BazelTarget } from '../../models/bazel-target';
-import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
@@ -33,8 +32,6 @@ import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
 import { WorkspaceService } from '../../services/workspace-service';
-import { BazelTargetQuickPickItem } from '../../ui/bazel-target-quick-pick-item';
-import { BazelController } from '../bazel-controller';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -44,9 +41,7 @@ export class RunController implements BazelTargetController {
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
         private readonly bazelService: BazelService,
-        private readonly bazelController: BazelController,
         private readonly buildController: BuildController,
-        private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTargetStateManager: BazelTargetStateManager
     ) { }
 

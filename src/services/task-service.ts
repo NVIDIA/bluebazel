@@ -51,11 +51,18 @@ export class TaskService {
     }
 
 
-    public async runTask(taskName: string, command: string, clearTerminalFirst: boolean, id = '', envVars: { [key: string]: string } = {}, executionType: 'shell' | 'process' = 'shell') {
+    public async runTask(taskName: string,
+        command: string,
+        clearTerminalFirst: boolean,
+        id = '', envVars: { [key: string]: string } = {},
+        executionType: 'shell' | 'process' = 'shell',
+        resolveOn: 'onDidStartTask' | 'onDidEndTask' = 'onDidEndTask',
+        problemMatcher = '$gcc',
+        showProgress = true) {
         const workspaceFolder = this.workspaceFolder;
 
         const envVarsObj = { ...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars };
-        let execution: vscode.ShellExecution | vscode.ProcessExecution;
+        let execution: vscode.ShellExecution | vscode.ProcessExecution | vscode.CustomExecution;
         if (executionType === 'shell') {
             execution = new vscode.ShellExecution(command, {
                 cwd: workspaceFolder.uri.path, env: envVarsObj,
@@ -73,7 +80,7 @@ export class TaskService {
             taskName,
             ExtensionUtils.getExtensionDisplayName(this.context),
             execution,
-            '$gcc'  // Adjust this as necessary
+            problemMatcher  // Adjust this as necessary
         );
 
         task.presentationOptions = {
@@ -85,19 +92,32 @@ export class TaskService {
         }
 
         const taskExecution = await vscode.tasks.executeTask(task);
-        return this.showProgressOfTask(taskName, taskExecution);
+        if (showProgress) {
+            return this.showProgressOfTask(taskName, taskExecution, resolveOn);
+        } else {
+            return taskExecution;
+        }
     }
 
-    private showProgressOfTask(title: string, execution: vscode.TaskExecution) {
+    private showProgressOfTask(title: string, execution: vscode.TaskExecution, resolveOn: 'onDidStartTask' | 'onDidEndTask' = 'onDidEndTask') {
         return showProgress(title, (cancellationToken) => {
-            return new Promise<void>((resolve, reject) => {
-                const disposable = vscode.tasks.onDidEndTask(e => {
-                    if (e.execution === execution) {
-                        disposable.dispose();
-                        resolve();
-                    }
-                });
-
+            return new Promise<vscode.TaskExecution>((resolve, reject) => {
+                if (resolveOn === 'onDidEndTask') {
+                    const disposable = vscode.tasks.onDidEndTask(e => {
+                        if (e.execution === execution) {
+                            disposable.dispose();
+                            resolve(e.execution);
+                        }
+                    });
+                }
+                if (resolveOn === 'onDidStartTask') {
+                    const disposable = vscode.tasks.onDidStartTask(e => {
+                        if (e.execution === execution) {
+                            disposable.dispose();
+                            resolve(e.execution);
+                        }
+                    });
+                }
                 cancellationToken.onCancellationRequested(() => {
                     execution.terminate();
                     reject(new Error(`${title} cancelled.`));

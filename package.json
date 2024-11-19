@@ -267,12 +267,12 @@
                 {
                     "command": "bluebazel.debug",
                     "group": "inline@2",
-                    "when": "(viewItem == runIdleTarget || viewItem == runExecutingTarget) && view == bluebazelView"
+                    "when": "(viewItem == runIdleTarget || viewItem == runExecutingTarget || viewItem == testIdleTarget || viewItem == testExecutingTarget) && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.executingTarget",
                     "group": "inline@2",
-                    "when": "viewItem == runDebuggingTarget && view == bluebazelView"
+                    "when": "(viewItem == runDebuggingTarget || viewItem == testDebuggingTarget) && view == bluebazelView"
                 },
                 {
                     "command": "bluebazel.customButton",
@@ -344,7 +344,27 @@
                     ]
                 }
             }
-        }
+        },
+        "problemMatchers": [
+            {
+                "name": "dlv-ready",
+                "owner": "custom",
+                "fileLocation": ["relative", "."],
+                "pattern": [
+                    {
+                        "regexp": "API server listening at (.+)",
+                        "file": 1,
+                        "message": 0,
+                        "line": 0
+                    }
+                ],
+                "background": {
+                    "activeOnStart": true,
+                    "beginsPattern": "Running command line",
+                    "endsPattern": "API server listening at"
+                }
+            }
+        ]
     },
     "scripts": {
         "vscode:prepublish": "npm run compile && npm run esbuild-base -- --minify",

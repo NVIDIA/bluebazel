@@ -62,9 +62,7 @@ export class BazelTargetControllerManager {
             configurationManager,
             taskService,
             bazelService,
-            bazelController,
             buildController,
-            bazelTargetManager,
             bazelTargetStateManager);
 
         this.controllers.set('build', buildController);
@@ -77,8 +75,8 @@ export class BazelTargetControllerManager {
 
         this.controllers.set('debug', new DebugController(context,
             configurationManager,
+            taskService,
             bazelService,
-            shellService,
             buildController,
             bazelEnvironment,
             bazelTargetStateManager));
