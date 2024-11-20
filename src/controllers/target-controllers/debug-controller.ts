@@ -102,6 +102,10 @@ export class DebugController implements BazelTargetController {
             runArgs = '-- ' + runArgs;
         }
 
+        const envVarsList = target.getEnvVars().toStringArray();
+        const extraDebugEnvVars = DebugController.getDebugEnvVars(target);
+        envVarsList.push(...extraDebugEnvVars);
+
         // Remove extra whitespaces
         const command = cleanAndFormat(
             executable,
@@ -109,7 +113,7 @@ export class DebugController implements BazelTargetController {
             bazelArgs.toString(),
             DebugController.getRunUnderArg(target, port),
             configArgs.toString(),
-            target.action === 'test' ? EnvVarsUtils.toTestEnvVars(target.getEnvVars().toStringArray()) : '',
+            target.action === 'test' ? EnvVarsUtils.toTestEnvVars(envVarsList) : '',
             bazelTarget,
             runArgs
         );
@@ -131,13 +135,18 @@ export class DebugController implements BazelTargetController {
 
     private async startDebugServer(target: BazelTarget, port: number, command: string): Promise<vscode.TaskExecution | void> {
 
-        const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
+        const envVarsList = target.getEnvVars().toStringArray();
+
+        const extraDebugEnvVars = DebugController.getDebugEnvVars(target);
+        envVarsList.push(...extraDebugEnvVars);
+
+        const envVars = EnvVarsUtils.listToObject(envVarsList);
         // target is in the form of a relative path: bazel-bin/path/executable
         // bazelTarget is in the form of //path:executable
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
 
         return this.taskService.runTask(
-            `debug ${bazelTarget}`,
+            `debug ${target.action} ${bazelTarget}`,
             command,
             this.configurationManager.isClearTerminalBeforeAction(),
             target.id,
@@ -207,6 +216,21 @@ export class DebugController implements BazelTargetController {
 
     private static getRunUnderArg(target: BazelTarget, port: number): string {
         return `--run_under="${DebugController.getDebugServerCommand(target, port)}"`;
+    }
+
+    private static getDebugEnvVars(target: BazelTarget): string[] {
+        switch (BazelService.inferLanguageFromRuleType(target.ruleType)) {
+        case 'cpp':
+            return [];
+        case 'python':
+            return [];
+        case 'go':
+            // This is necessary because bazel tests in go will call bzltestutils.Wrap and
+            // spawn a child process which dlv is not connected to. Turn it off.
+            return target.ruleType.includes('test') ? ['GO_TEST_WRAP=0'] : [];
+        default:
+            return [];
+        }
     }
 
     private static getDebugServerCommand(target: BazelTarget, port: number): string {

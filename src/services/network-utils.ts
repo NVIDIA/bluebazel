@@ -59,7 +59,7 @@ function checkPortAvailable(port: number, host: string): Promise<void> {
 export async function waitForPort(
     port: number,
     cancellationToken: vscode.CancellationToken,
-    pollingIntervalMs = 500,
+    pollingIntervalMs = 50,
     host = '127.0.0.1',
 ): Promise<void> {
 

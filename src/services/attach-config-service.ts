@@ -86,7 +86,12 @@ export class AttachConfigService {
             cwd: '${workspaceFolder}',
             trace: 'verbose', // Enable verbose logging for debugging
             showLog: true,
-            disconnectAction: 'terminate',
+            substitutePath: [ // This is necessary for test breakpoints to work
+                {
+                    from: '${workspaceFolder}',
+                    to: ''
+                }
+            ]
         };
     }
 }
