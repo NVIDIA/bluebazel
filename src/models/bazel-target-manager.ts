@@ -56,13 +56,27 @@ export class BazelTargetManager {
                 Console.error('Error loading user targets:', error);
             });
         }
+
         this.selectedTargetsLoaded = this.loadSelectedTargets()
             .then(() => {
-                Console.log('All targets loaded successfully');
+                Console.log('Selected targets loaded successfully');
             }).catch(error => {
                 Console.error('Error loading targets:', error);
             });
-        this.availableTargetsLoaded = this.loadAvailableTargets();
+
+        this.availableTargetsLoaded = this.loadAvailableTargets().then(() => {
+            Console.log('Available targets loaded successfully');
+        }).catch(error => {
+            Console.error('Error loading targets:', error);
+        });
+    }
+
+    public async areAvailableTargetsLoaded(): Promise<boolean> {
+        const marker = Symbol('notResolved');
+        return Promise.race([
+            this.availableTargetsLoaded.then(() => true),
+            Promise.resolve(marker).then(() => false),
+        ]);
     }
 
     public async awaitLoading() {
@@ -71,14 +85,19 @@ export class BazelTargetManager {
 
     // Make loadAvailableTargets async
     private async loadAvailableTargets(): Promise<void> {
-        const rawData = await this.fileStorageService.readJsonFromFile<{ [key: string]: SerializedBazelTarget[] }>(this.availableTargetsFileName);
-        if (rawData) {
-            this.availableTargets = new Map(
-                Object.entries(rawData).map(([action, targets]) => {
-                    return [action as BazelAction, targets.map(t => BazelTarget.fromJSON(this.context, this.bazelService, t))] as [string, BazelTarget[]];
-                })
-            );
-        }
+        await this.fileStorageService.readJsonArrayElementsFromFileAsStream<SerializedBazelTarget>(this.availableTargetsFileName, (path, value) => {
+            const action = path[0] as string;
+            const targets = this.availableTargets.get(action) || [];
+            targets.push(BazelTarget.fromJSON(this.context, this.bazelService, value));
+            this.availableTargets.set(action, targets);
+        });
+        // if (rawData) {
+        //     this.availableTargets = new Map(
+        //         Object.entries(rawData).map(([action, targets]) => {
+        //             return [action as BazelAction, targets.map(t => BazelTarget.fromJSON(this.context, this.bazelService, t))] as [string, BazelTarget[]];
+        //         })
+        //     );
+        // }
     }
 
     // Make loadTargets async

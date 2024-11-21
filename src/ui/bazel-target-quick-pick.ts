@@ -113,9 +113,9 @@ export class BazelTargetQuickPick {
         // Determine the filter text to match targets.
         const filterText = this.defaultAction ? value : value.split(' ').slice(1).join(' ');
         this.quickPick.busy = true; // Indicate that the QuickPick is busy.
+
         this.quickPick.show();
         this.quickPick.matchOnDetail = true;
-
 
         // Define a prefix for targets based on the current action.
         const actionPrefix = this.defaultAction || this.currentAction || '';
@@ -137,16 +137,21 @@ export class BazelTargetQuickPick {
                 alwaysShow: true,
             } as BazelTargetQuickPickItem));
 
+        const targetsAvailable = targets.length > 0 || await this.bazelTargetManager.areAvailableTargetsLoaded();
+        if (targetsAvailable) {
         // If matching targets are found, display them in the QuickPick.
-        if (targetItems.  length > 0) {
-            this.quickPick.items = targetItems;
-            this.quickPick.placeholder = 'Select a Bazel target...';
-        } else {
+            if (targetItems.  length > 0) {
+                this.quickPick.items = targetItems;
+                this.quickPick.placeholder = 'Select a Bazel target...';
+            } else {
             // Display a message if no targets are found.
-            this.quickPick.items = [{ label: 'No matching targets found.' }];
+                this.quickPick.items = [{ label: `${value} No matching targets found.` }];
+            }
+            this.quickPick.busy = false; // Mark the QuickPick as not busy.
+        } else {
+            this.quickPick.items =  [{ label: `${value} $(sync~spin) Loading available targets...` }];
         }
 
-        this.quickPick.busy = false; // Mark the QuickPick as not busy.
     }
 
     // Handle the acceptance of the selected item in the QuickPick.

@@ -1,8 +1,15 @@
 import { Console } from './console';
+import { stream } from 'fast-glob';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
+import { chain } from 'stream-chain';
+import { parser } from 'stream-json';
+import { pick } from 'stream-json/filters/Pick';
+import { streamValues } from 'stream-json/streamers/StreamValues';
 import * as vscode from 'vscode';
+import oboe = require('oboe');
+
 
 
 export class FileStorageService {
@@ -37,6 +44,37 @@ export class FileStorageService {
         await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
     }
 
+    public async readJsonArrayElementsFromFileAsStream<T>(
+        fileName: string,
+        onElement: (path: (string | number)[], value: T) => void
+    ): Promise<void> {
+        if (!this.storagePath) {
+            vscode.window.showErrorMessage('Cannot save data: No workspace opened.');
+            return;
+        }
+        const filePath = path.join(this.storagePath, fileName);
+
+        return new Promise<void>((resolve, reject) => {
+
+            oboe(fs.createReadStream(filePath))
+                .node('!*.*', (value, path) => {
+                // Match all array elements in the JSON
+                    if (typeof path[path.length - 1] === 'number') {
+                        // If the last part of the path is a number, it's an array index
+                        onElement(path, value);
+                    }
+                })
+                .done(() => {
+                    Console.log('Finished processing the JSON file.');
+                    resolve();
+                })
+                .fail((err) => {
+                    Console.error('Error processing the JSON file:', err);
+                    reject(err);
+                });
+        });
+    }
+
     /**
      * Asynchronously reads the data from a JSON file.
      * @param fileName The name of the file to read the data from.
@@ -61,7 +99,8 @@ export class FileStorageService {
             });
 
             let jsonString = '';
-            rl.on('line', (line) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            rl.on('line', (line: any) => {
                 jsonString += line;
             });
 
@@ -75,7 +114,8 @@ export class FileStorageService {
                 }
             });
 
-            rl.on('error', (err) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            rl.on('error', (err: { message: any; }) => {
                 vscode.window.showErrorMessage(`Error reading JSON file: ${err.message}`);
                 reject(err);
             });
