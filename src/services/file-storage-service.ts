@@ -1,3 +1,4 @@
+import { Console } from './console';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
@@ -32,6 +33,7 @@ export class FileStorageService {
         }
 
         const filePath = path.join(this.storagePath, fileName);
+        Console.log('writing file', filePath);
         await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
     }
 

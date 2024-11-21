@@ -102,14 +102,14 @@ export class TaskService {
     private showProgressOfTask(title: string, execution: vscode.TaskExecution, resolveOn: 'onDidStartTask' | 'onDidEndTask' = 'onDidEndTask') {
         return showProgress(title, (cancellationToken) => {
             return new Promise<vscode.TaskExecution>((resolve, reject) => {
-                if (resolveOn === 'onDidEndTask') {
-                    const disposable = vscode.tasks.onDidEndTask(e => {
-                        if (e.execution === execution) {
-                            disposable.dispose();
-                            resolve(e.execution);
-                        }
-                    });
-                }
+                // if (resolveOn === 'onDidEndTask') {
+                const disposable = vscode.tasks.onDidEndTask(e => {
+                    if (e.execution === execution) {
+                        disposable.dispose();
+                        resolve(e.execution);
+                    }
+                });
+                // }
                 if (resolveOn === 'onDidStartTask') {
                     const disposable = vscode.tasks.onDidStartTask(e => {
                         if (e.execution === execution) {
@@ -118,6 +118,7 @@ export class TaskService {
                         }
                     });
                 }
+
                 cancellationToken.onCancellationRequested(() => {
                     execution.terminate();
                     reject(new Error(`${title} cancelled.`));

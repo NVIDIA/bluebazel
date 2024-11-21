@@ -2,10 +2,12 @@ import { BazelService } from './bazel-service';
 import { EnvVarsUtils } from './env-vars-utils';
 import { BazelTarget } from '../models/bazel-target';
 import * as vscode from 'vscode';
+import path = require('path');
 
 export class AttachConfigService {
     constructor(
         private readonly context: vscode.ExtensionContext,
+        private readonly bazelService: BazelService,
         private readonly setupEnvVars: string[]
     ) {}
 
@@ -28,24 +30,50 @@ export class AttachConfigService {
     /**
      * Create a C++ attach configuration.
      */
-    private createCppAttachConfig(target: BazelTarget, port: number): vscode.DebugConfiguration {
-        return {
-            name: `${target.label} (Attach)`,
+    private async createCppAttachConfig(target: BazelTarget, port: number): Promise<vscode.DebugConfiguration> {
+        const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
+        const workingDirectory = '${workspaceFolder}';
+        const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+        const programPath = path.join(workingDirectory, targetPath);
+
+        const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
+
+        const config = {
+            name: `${bazelTarget} (Attach)`,
             type: 'cppdbg',
-            request: 'attach',
-            miDebuggerServerAddress: `localhost:${port}`, // Port where gdbserver is listening
-            program: '${workspaceFolder}/path/to/binary', // Adjust path to point to the binary
-            cwd: '${workspaceFolder}',
-            environment: EnvVarsUtils.listToArrayOfObjects(this.setupEnvVars),
+            // Oddly enough, gdb requires launch when attaching because
+            // attach is reserved for process id...
+            request: 'launch',
+            program: programPath,
+            miDebuggerServerAddress: `127.0.0.1:${port}`,
+            miDebuggerPath: '/usr/bin/gdb',
+            stopAtEntry: false,
+            cwd: workingDirectory,
+            sourceFileMap: { '/proc/self/cwd': workingDirectory },
+            environment: [...EnvVarsUtils.listToArrayOfObjects(this.setupEnvVars), ...envVars],
             externalConsole: false,
+            targetArchitecture: 'x64',
+            customLaunchSetupCommands: [
+                {
+                    description: '',
+                    text: `-file-exec-and-symbols ${programPath}`,
+                    ignoreFailures: false
+                }
+            ],
             setupCommands: [
                 {
                     description: 'Enable pretty-printing for gdb',
                     text: '-enable-pretty-printing',
                     ignoreFailures: true
                 }
-            ]
+            ],
+            logging: {
+                programOutput: true
+            },
+            internalConsoleOptions: 'openOnSessionStart',
+            useExtendedRemote: true,
         };
+        return config;
     }
 
     /**

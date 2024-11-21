@@ -46,7 +46,7 @@ export class BazelTargetOperationsController {
 
         return targetOrAction instanceof BazelTarget
             ? targetOrAction
-            : BazelTarget.createEmpty(this.context, this.bazelService, targetOrAction);
+            : undefined;
     }
 
     /**

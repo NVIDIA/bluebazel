@@ -135,6 +135,7 @@ export class BazelService {
         try {
             const executable = this.configurationManager.getExecutableCommand();
             const data = await this.shellService.runShellCommand(`${executable} ${query}`, cancellationToken);
+            Console.info('running query', `${executable} ${query}`);
             return data;
         } catch (error) {
             Console.error('Error running query', query, error);

@@ -53,6 +53,7 @@ export class DebugController implements BazelTargetController {
         private readonly bazelTargetStateManager: BazelTargetStateManager
     ) {
         this.attachConfigService = new AttachConfigService(context,
+            bazelService,
             bazelEnvironment.getEnvVars());
         this.launchConfigService = new LaunchConfigService(context,
             bazelService,
@@ -159,15 +160,14 @@ export class DebugController implements BazelTargetController {
 
         // Find an open port
         const port = await getAvailablePort();
+        // Create a debug attach config
+        const config = await this.attachConfigService.createAttachConfig(target, port);
 
         // Get the command to launch the debug server (including the target)
         const runCommand = this.getDebugInBazelCommand(target, port);
 
         // Launch a debug server and await until the task execution starts
         const serverExec = await this.startDebugServer(target, port, runCommand);
-
-        // Create a debug attach config
-        const config = await this.attachConfigService.createAttachConfig(target, port);
 
         // Listen for early cancellation of the debug server
         const waitForPortCancellation = new vscode.CancellationTokenSource();
