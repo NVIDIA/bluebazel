@@ -168,6 +168,19 @@ export class BazelTargetManager {
         }
     }
 
+    public hasTarget(target: BazelTarget): boolean {
+        if (!this.targets.has(target.action)) {
+            return false;
+        }
+
+        const targets = this.targets.get(target.action) || [];
+        const index = targets.findIndex(t => t.id === target.id);
+        if (index === -1) {
+            return false;
+        }
+        return true;
+    }
+
     public updateTarget(target: BazelTarget, oldTarget: BazelTarget) {
         if (target.action !== oldTarget.action) {
             throw Error('Cannot update targets of differing actions');

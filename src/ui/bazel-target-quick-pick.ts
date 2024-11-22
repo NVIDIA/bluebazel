@@ -137,21 +137,13 @@ export class BazelTargetQuickPick {
                 alwaysShow: true,
             } as BazelTargetQuickPickItem));
 
-        const targetsAvailable = targets.length > 0 || await this.bazelTargetManager.areAvailableTargetsLoaded();
-        if (targetsAvailable) {
+        // const targetsAvailable = targets.length > 0 || await this.bazelTargetManager.areAvailableTargetsLoaded();
         // If matching targets are found, display them in the QuickPick.
-            if (targetItems.  length > 0) {
-                this.quickPick.items = targetItems;
-                this.quickPick.placeholder = 'Select a Bazel target...';
-            } else {
-            // Display a message if no targets are found.
-                this.quickPick.items = [{ label: `${value} No matching targets found.` }];
-            }
-            this.quickPick.busy = false; // Mark the QuickPick as not busy.
-        } else {
-            this.quickPick.items =  [{ label: `${value} $(sync~spin) Loading available targets...` }];
+        if (targetItems.  length > 0) {
+            this.quickPick.items = targetItems;
+            this.quickPick.placeholder = 'Select a Bazel target...';
         }
-
+        this.quickPick.busy = false; // Mark the QuickPick as not busy.
     }
 
     // Handle the acceptance of the selected item in the QuickPick.

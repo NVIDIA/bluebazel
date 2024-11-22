@@ -1,12 +1,7 @@
 import { Console } from './console';
-import { stream } from 'fast-glob';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as readline from 'readline';
-import { chain } from 'stream-chain';
-import { parser } from 'stream-json';
-import { pick } from 'stream-json/filters/Pick';
-import { streamValues } from 'stream-json/streamers/StreamValues';
 import * as vscode from 'vscode';
 import oboe = require('oboe');
 
@@ -40,7 +35,6 @@ export class FileStorageService {
         }
 
         const filePath = path.join(this.storagePath, fileName);
-        Console.log('writing file', filePath);
         await fs.promises.writeFile(filePath, JSON.stringify(data, null, 2), 'utf8');
     }
 
