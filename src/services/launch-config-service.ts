@@ -203,7 +203,7 @@ export class LaunchConfigService {
         const args = target.getRunArgs().toString();
 
         return {
-            name: `${programPath} (Direct)`,
+            name: `${targetPath} (Direct)`,
             type: 'go',
             request: 'launch',
             mode: 'exec',

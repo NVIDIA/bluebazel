@@ -60,16 +60,23 @@ export class BuildController implements BazelTargetController {
             return;
         }
 
+        // Both the run and debug controllers can call build,
+        // we don't want to change the state if it isn't idle.
+        const shouldChangeState = this.bazelTargetStateManager.getTargetState(target) === BazelTargetState.Idle;
         try {
-            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
-            await showProgress(`${target.action} ${actualTarget}`, (cancellationToken) => {
+            if (shouldChangeState) {
+                this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
+            }
+            await showProgress(`Building ${actualTarget}`, (cancellationToken) => {
                 return this.taskService.runTask(`${target.action} ${actualTarget}`,
                     buildCommand, this.configurationManager.isClearTerminalBeforeAction(), cancellationToken, target.id);
             });
         } catch (error) {
             return Promise.reject(error);
         } finally {
-            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Idle);
+            if (shouldChangeState) {
+                this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Idle);
+            }
         }
     }
 

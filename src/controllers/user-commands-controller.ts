@@ -68,7 +68,7 @@ export class UserCommandsController {
 
     public async runCustomTask(command: string): Promise<void> {
         let completeCommand = this.resolveKeywords(command);
-        return showProgress(`${completeCommand}`, async (cancellationToken) => {
+        return showProgress(`Running ${completeCommand}`, async (cancellationToken) => {
             try {
                 completeCommand = await this.resolveExtensionCommands(completeCommand);
                 completeCommand = await this.resolveCommands(completeCommand);

@@ -61,15 +61,13 @@ export class DebugController implements BazelTargetController {
             bazelEnvironment.getEnvVars());
     }
 
-
-
     public async execute(target: BazelTarget): Promise<void> {
         try {
             this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Debugging);
 
             const shouldRunDirect = this.configurationManager.shouldRunBinariesDirect() && target.action === 'run';
             if (!shouldRunDirect) {
-                await this.debugInBazel(target);
+                return this.debugInBazel(target);
             } else {
                 await this.debugDirect(target);
             }

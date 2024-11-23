@@ -28,3 +28,14 @@ export function cleanAndFormat(...args: string[]): string {
         .map(arg => arg.trim())            // Trim spaces from each string
         .join(' ');                         // Join the cleaned parts with a single space
 }
+
+export function capitalizeFirstLetter(str: string): string {
+    if (str === undefined) {
+        return '';
+    }
+
+    if (str.length < 1) {
+        return str;
+    }
+    return str.charAt(0).toUpperCase() + str.slice(1);
+}

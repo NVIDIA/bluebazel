@@ -84,3 +84,7 @@ export async function waitForPort(
     // If the cancellation was requested, throw an error or simply return
     throw new Error(`Waiting for port ${port} was cancelled.`);
 }
+
+export function isRemoteSession(): boolean {
+    return vscode.env.remoteName !== undefined;
+}

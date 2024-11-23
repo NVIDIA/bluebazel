@@ -149,6 +149,6 @@ export async function showProgress<T>(
 
     const cancellation = new vscode.CancellationTokenSource();
     const longMethodPromise = longMethod(cancellation.token);
-    // showProgressStatus(title, longMethodPromise, cancellation);
+    showProgressStatus(title, longMethodPromise, cancellation);
     return showProgressWindow(title, longMethodPromise, cancellation);
 }

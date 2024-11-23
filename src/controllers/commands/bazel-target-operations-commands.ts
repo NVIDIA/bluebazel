@@ -73,6 +73,7 @@ export function registerBazelTargetOperationsCommands(
         // Do nothing
     }));
 
+    // Make build, run, and test selected target commands public for hotkey binding
     ['build', 'run', 'test'].forEach(action => {
         context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.${action}`, () => {
             const selectedTarget = bazelTargetManager.getSelectedTarget(action);

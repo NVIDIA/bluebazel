@@ -29,6 +29,7 @@ import { BazelTargetProperty } from '../models/bazel-target-property';
 import { BazelTargetState, BazelTargetStateManager } from '../models/bazel-target-state-manager';
 import { ConfigurationManager, UserCustomButton, UserCustomCategory as UserCustomCategory } from '../services/configuration-manager';
 import { ExtensionUtils } from '../services/extension-utils';
+import { capitalizeFirstLetter } from '../services/string-utils';
 import * as vscode from 'vscode';
 
 export type BazelTreeElement = BazelTargetCategory | BazelTarget | BazelTargetMultiProperty | BazelTargetProperty | BazelTargetMultiPropertyItem | UserCustomCategory | UserCustomButton;
@@ -95,16 +96,6 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         return this.iconMap.get(element.action) || this.defaultIcon;
     }
 
-    private capitalizeFirstLetter(str: string): string {
-        if (str === undefined) {
-            return '';
-        }
-
-        if (str.length < 1) {
-            return str;
-        }
-        return str.charAt(0).toUpperCase() + str.slice(1);
-    }
 
     // Sort order: prioritize build, run, test, then everything else
     private actionOrder: { [key: string]: number } = {
@@ -207,16 +198,15 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         const collapsibleState = isExpanded ? vscode.TreeItemCollapsibleState.Expanded : vscode.TreeItemCollapsibleState.Collapsed;
 
 
-        const treeItem = new vscode.TreeItem(`${this.capitalizeFirstLetter(element.action)}`, collapsibleState);
+        const treeItem = new vscode.TreeItem(`${capitalizeFirstLetter(element.action)}`, collapsibleState);
         treeItem.id = element.id;
         treeItem.contextValue = `${element.action}Category`;
         treeItem.iconPath = this.getIcon(element); // Icon customization based on action
-        console.log('tree item category', treeItem.id, 'expanded', isExpanded);
         return treeItem;
     }
 
     private formatTargetContextValue(target: BazelTarget, targetState: BazelTargetState) {
-        return `${target.action}${this.capitalizeFirstLetter(targetState)}Target`;
+        return `${target.action}${capitalizeFirstLetter(targetState)}Target`;
     }
 
     /**

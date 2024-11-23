@@ -27,7 +27,7 @@ import { BazelAction, BazelTarget } from '../../models/bazel-target';
 import { BazelTargetPropertyHistory } from '../../models/bazel-target-property-history';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { ConfigurationManager } from '../../services/configuration-manager';
-import { cleanAndFormat } from '../../services/string-utils';
+import { capitalizeFirstLetter, cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
 import { showProgress } from '../../ui/progress';
 import * as vscode from 'vscode';
@@ -47,7 +47,8 @@ export class AnyActionController implements BazelTargetController {
         try {
             this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
             const executable = this.configurationManager.getExecutableCommand();
-            await showProgress(`${target.action} ${target.bazelPath}`, (cancellationToken) => {
+
+            await showProgress(`${capitalizeFirstLetter(target.action)}ing ${target.bazelPath}`, (cancellationToken) => {
                 return this.taskService.runTask(
                     `${target.action} ${target.bazelPath}`, // task name
                     `${executable} ${target.action} ${target.bazelPath}`,

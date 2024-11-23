@@ -1,6 +1,9 @@
 import { BAZEL_BIN, BazelService } from './bazel-service';
 import { EnvVarsUtils } from './env-vars-utils';
+import { isRemoteSession } from './network-utils';
 import { BazelTarget } from '../models/bazel-target';
+import { debug } from 'console';
+import { config } from 'process';
 import * as vscode from 'vscode';
 import path = require('path');
 
@@ -101,7 +104,7 @@ export class AttachConfigService {
      * Create a Go attach configuration.
      */
     private createGoAttachConfig(target: BazelTarget, port: number): vscode.DebugConfiguration {
-        return {
+        const debugConfig = {
             name: `${target.label} (Attach)`,
             type: 'go',
             request: 'attach',
@@ -111,12 +114,17 @@ export class AttachConfigService {
             cwd: '${workspaceFolder}',
             trace: 'verbose', // Enable verbose logging for debugging
             showLog: true,
-            substitutePath: [ // This is necessary for test breakpoints to work
+        } as vscode.DebugConfiguration;
+
+        if (isRemoteSession()) {
+            // Paths don't match up for vscode over ssh
+            debugConfig.substitutePath = [ // This is necessary for test breakpoints to work
                 {
                     from: '${workspaceFolder}',
                     to: ''
                 }
-            ]
-        };
+            ];
+        }
+        return debugConfig;
     }
 }

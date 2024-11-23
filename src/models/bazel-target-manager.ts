@@ -237,7 +237,6 @@ export class BazelTargetManager {
         const serializedTargets: { [key: string]: SerializedBazelTarget[] } = {};
         this.availableTargets.forEach((targets, action) => {
             serializedTargets[action] = targets.map(target => target.toJSON());
-            console.log('target count', targets.length);
         });
         this.fileStorageService.writeJsonToFile(this.availableTargetsFileName, serializedTargets); // Fire-and-forgets
     }

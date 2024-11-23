@@ -24,6 +24,7 @@
 import { ConfigurationManager } from './configuration-manager';
 import { Console } from './console';
 import { ShellService } from './shell-service';
+import { cleanAndFormat } from './string-utils';
 import { WorkspaceService } from './workspace-service';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
 import * as fs from 'fs';
@@ -66,8 +67,14 @@ export class BazelService {
         try {
             const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
             const executable = this.configurationManager.getExecutableCommand();
-            const configs = target.getConfigArgs();
-            const cmd = `cquery ${configs} --output=starlark --starlark:expr=target.files_to_run.executable.path`;
+            const configs = target.getConfigArgs().toString();
+            const args = target.getBazelArgs().toString();
+            const cmd = cleanAndFormat(
+                'cquery',
+                args,
+                configs,
+                '--output=starlark --starlark:expr=target.files_to_run.executable.path'
+            );
 
             const result = await this.shellService.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, cancellationToken);
             return result.stdout;
