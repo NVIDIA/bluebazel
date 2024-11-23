@@ -2,7 +2,7 @@
     "name": "bluebazel",
     "displayName": "Blue Bazel",
     "description": "Bazel vscode UI integration to build, debug, and test targets",
-    "version": "0.0.9",
+    "version": "1.0.0",
     "engines": {
         "vscode": "^1.85.2"
     },
@@ -16,7 +16,7 @@
     "activationEvents": [
         "workspaceContains:WORKSPACE"
     ],
-    "main": "./out/extension.js",
+    "main": "./out/main.js",
     "contributes": {
         "views": {
             "explorer": [

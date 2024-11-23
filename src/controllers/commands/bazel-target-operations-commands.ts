@@ -82,4 +82,11 @@ export function registerBazelTargetOperationsCommands(
             }
         }));
     });
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.debug`, () => {
+        const selectedTarget = bazelTargetManager.getSelectedTarget('run');
+        if (selectedTarget) {
+            bazelTargetOpsController.executeTarget(selectedTarget);
+        }
+    }));
 }
