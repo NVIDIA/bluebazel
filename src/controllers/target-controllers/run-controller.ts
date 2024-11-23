@@ -32,6 +32,7 @@ import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
 import { WorkspaceService } from '../../services/workspace-service';
+import { showProgress } from '../../ui/progress';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -62,23 +63,27 @@ export class RunController implements BazelTargetController {
 
     private async runInBazel(target: BazelTarget) {
 
-        const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
         // target is in the form of a relative path: bazel-bin/path/executable
         // bazelTarget is in the form of //path:executable
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
 
-        const runCommand = this.getRunInBazelCommand(target);
-        if (!runCommand) {
-            vscode.window.showErrorMessage('Run failed. Could not get run target.');
-            return;
-        }
+        return showProgress(`${target.action} ${bazelTarget}`, async (cancellationToken) => {
+            const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
 
-        return this.taskService.runTask(
-            `${target.action} ${bazelTarget}`,
-            runCommand,
-            this.configurationManager.isClearTerminalBeforeAction(),
-            target.id,
-            envVars);
+            const runCommand = this.getRunInBazelCommand(target);
+            if (!runCommand) {
+                vscode.window.showErrorMessage('Run failed. Could not get run target.');
+                return;
+            }
+
+            return this.taskService.runTask(
+                `${target.action} ${bazelTarget}`,
+                runCommand,
+                this.configurationManager.isClearTerminalBeforeAction(),
+                cancellationToken,
+                target.id,
+                envVars);
+        });
     }
 
     private async runDirect(target: BazelTarget) {
@@ -86,14 +91,18 @@ export class RunController implements BazelTargetController {
             await this.buildController.execute(target);
         }
 
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
-        // Program (executable) path with respect to workspace.
-        const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
+        return showProgress(`${target.action} ${target.buildPath}`, async (cancellationToken) => {
+            const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+            // Program (executable) path with respect to workspace.
+            const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
 
-        const args = target.getRunArgs().toString();
-        const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
+            const args = target.getRunArgs().toString();
+            const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
 
-        return this.taskService.runTask(`${target.action} ${programPath}`, `${programPath} ${args}`, this.configurationManager.isClearTerminalBeforeAction(), target.id, envVars, 'process');
+            return this.taskService.runTask(`${target.action} ${programPath}`, `${programPath} ${args}`,
+                this.configurationManager.isClearTerminalBeforeAction(), cancellationToken,
+                target.id, envVars, 'process');
+        });
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {

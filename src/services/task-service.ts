@@ -24,7 +24,6 @@
 
 import { EnvVarsUtils } from './env-vars-utils';
 import { ExtensionUtils } from './extension-utils';
-import { showProgress } from '../ui/progress';
 import { clearTerminal } from '../ui/terminal';
 import * as vscode from 'vscode';
 
@@ -54,11 +53,12 @@ export class TaskService {
     public async runTask(taskName: string,
         command: string,
         clearTerminalFirst: boolean,
-        id = '', envVars: { [key: string]: string } = {},
+        cancellationToken?: vscode.CancellationToken,
+        id = '',
+        envVars: { [key: string]: string } = {},
         executionType: 'shell' | 'process' = 'shell',
         resolveOn: 'onDidStartTask' | 'onDidEndTask' = 'onDidEndTask',
-        problemMatcher = '$gcc',
-        showProgress = true) {
+        problemMatcher = '$gcc') {
         const workspaceFolder = this.workspaceFolder;
 
         const envVarsObj = { ...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars };
@@ -92,37 +92,28 @@ export class TaskService {
         }
 
         const taskExecution = await vscode.tasks.executeTask(task);
-        if (showProgress) {
-            return this.showProgressOfTask(taskName, taskExecution, resolveOn);
-        } else {
-            return taskExecution;
-        }
-    }
 
-    private showProgressOfTask(title: string, execution: vscode.TaskExecution, resolveOn: 'onDidStartTask' | 'onDidEndTask' = 'onDidEndTask') {
-        return showProgress(title, (cancellationToken) => {
-            return new Promise<vscode.TaskExecution>((resolve, reject) => {
-                // if (resolveOn === 'onDidEndTask') {
-                const disposable = vscode.tasks.onDidEndTask(e => {
-                    if (e.execution === execution) {
+        return new Promise<vscode.TaskExecution>((resolve, reject) => {
+            // if (resolveOn === 'onDidEndTask') {
+            const disposable = vscode.tasks.onDidEndTask(e => {
+                if (e.execution === taskExecution) {
+                    disposable.dispose();
+                    resolve(e.execution);
+                }
+            });
+            // }
+            if (resolveOn === 'onDidStartTask') {
+                const disposable = vscode.tasks.onDidStartTask(e => {
+                    if (e.execution === taskExecution) {
                         disposable.dispose();
                         resolve(e.execution);
                     }
                 });
-                // }
-                if (resolveOn === 'onDidStartTask') {
-                    const disposable = vscode.tasks.onDidStartTask(e => {
-                        if (e.execution === execution) {
-                            disposable.dispose();
-                            resolve(e.execution);
-                        }
-                    });
-                }
+            }
 
-                cancellationToken.onCancellationRequested(() => {
-                    execution.terminate();
-                    reject(new Error(`${title} cancelled.`));
-                });
+            cancellationToken?.onCancellationRequested(() => {
+                taskExecution.terminate();
+                reject(new Error(`${taskName} cancelled.`));
             });
         });
     }

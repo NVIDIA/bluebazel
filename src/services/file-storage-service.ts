@@ -40,7 +40,8 @@ export class FileStorageService {
 
     public async readJsonArrayElementsFromFileAsStream<T>(
         fileName: string,
-        onElement: (path: (string | number)[], value: T) => void
+        onElement: (path: (string | number)[], value: T) => void,
+        cancellationToken?: vscode.CancellationToken
     ): Promise<void> {
         if (!this.storagePath) {
             vscode.window.showErrorMessage('Cannot save data: No workspace opened.');
@@ -49,10 +50,16 @@ export class FileStorageService {
         const filePath = path.join(this.storagePath, fileName);
 
         return new Promise<void>((resolve, reject) => {
+            cancellationToken?.onCancellationRequested(() => {
+                reject(new Error('Reading json file as stream cancelled'));
+            });
 
             oboe(fs.createReadStream(filePath))
                 .node('!*.*', (value, path) => {
-                // Match all array elements in the JSON
+                    if (cancellationToken?.isCancellationRequested) {
+                        reject(new Error('Reading json file as stream cancelled'));
+                    }
+                    // Match all array elements in the JSON
                     if (typeof path[path.length - 1] === 'number') {
                         // If the last part of the path is a number, it's an array index
                         onElement(path, value);

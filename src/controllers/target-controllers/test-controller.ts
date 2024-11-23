@@ -29,6 +29,7 @@ import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
+import { showProgress } from '../../ui/progress';
 import * as vscode from 'vscode';
 
 
@@ -48,14 +49,18 @@ export class TestController implements BazelTargetController {
 
         const taskLabel = `${target.action} ${target.buildPath}`;
 
-        try {
-            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
-            await this.taskService.runTask(taskLabel, testCommand, this.configurationManager.isClearTerminalBeforeAction(), target.id);
-        } catch (error) {
-            return Promise.reject(error);
-        } finally {
-            this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Idle);
-        }
+        return showProgress(`${target.action} ${target.buildPath}`, async (cancellationToken) => {
+            try {
+                this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
+                await this.taskService.runTask(taskLabel, testCommand,
+                    this.configurationManager.isClearTerminalBeforeAction(),
+                    cancellationToken, target.id);
+            } catch (error) {
+                return Promise.reject(error);
+            } finally {
+                this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Idle);
+            }
+        });
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {

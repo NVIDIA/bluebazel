@@ -26,6 +26,7 @@ import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
 import { ShellService } from '../services/shell-service';
 import { TaskService } from '../services/task-service';
+import { showProgress } from '../ui/progress';
 import * as vscode from 'vscode';
 
 
@@ -67,13 +68,15 @@ export class UserCommandsController {
 
     public async runCustomTask(command: string): Promise<void> {
         let completeCommand = this.resolveKeywords(command);
-        try {
-            completeCommand = await this.resolveExtensionCommands(completeCommand);
-            completeCommand = await this.resolveCommands(completeCommand);
-            this.taskService.runTask(completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction());
-        } catch (error) {
-            vscode.window.showErrorMessage(`Error running custom task: ${error}`);
-        }
+        return showProgress(`${completeCommand}`, async (cancellationToken) => {
+            try {
+                completeCommand = await this.resolveExtensionCommands(completeCommand);
+                completeCommand = await this.resolveCommands(completeCommand);
+                this.taskService.runTask(completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction(), cancellationToken);
+            } catch (error) {
+                vscode.window.showErrorMessage(`Error running custom task: ${error}`);
+            }
+        });
     }
 
     private static formatTestArgs(testArgs: string): string {

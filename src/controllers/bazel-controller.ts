@@ -26,10 +26,11 @@ import { BazelTarget } from '../models/bazel-target';
 import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
-import { ExtensionUtils } from '../services/extension-utils';
+import { Console } from '../services/console';
 import { TaskService } from '../services/task-service';
 import { WorkspaceService } from '../services/workspace-service';
 import { BazelTargetTreeProvider, BazelTreeElement } from '../ui/bazel-target-tree-provider';
+import { showProgress } from '../ui/progress';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -48,18 +49,23 @@ export class BazelController {
     }
 
     public async format() {
-        const executable = this.configurationManager.getExecutableCommand();
-        const cmd = this.configurationManager.getFormatCommand();
-        return this.taskService.runTask('format', `${executable} ${cmd}`, this.configurationManager.isClearTerminalBeforeAction());
+        return showProgress('Formatting', (cancellationToken) => {
+            const executable = this.configurationManager.getExecutableCommand();
+            const cmd = this.configurationManager.getFormatCommand();
+            return this.taskService.runTask('format', `${executable} ${cmd}`, this.configurationManager.isClearTerminalBeforeAction(), cancellationToken);
+        });
     }
 
     public async clean() {
-        const executable = this.configurationManager.getExecutableCommand();
-        await this.taskService.runTask(
-            'clean', // task name
-            `${executable} clean`,
-            this.configurationManager.isClearTerminalBeforeAction()
-        );
+        return showProgress('Cleaning', (cancellationToken) => {
+            const executable = this.configurationManager.getExecutableCommand();
+            return this.taskService.runTask(
+                'clean', // task name
+                `${executable} clean`,
+                this.configurationManager.isClearTerminalBeforeAction(),
+                cancellationToken
+            );
+        });
     }
 
     public async buildSingle() {
@@ -81,23 +87,29 @@ export class BazelController {
         }
 
         // Build single file command
-        const executable = this.configurationManager.getExecutableCommand();
-        await this.taskService.runTask(
-            'build', // task name
-            `${executable} build --compile_one_dependency ${filePath}`,
-            this.configurationManager.isClearTerminalBeforeAction(),
-            filePath
-        );
+        return showProgress(`Building ${filePath}`, (cancellationToken) => {
+            const executable = this.configurationManager.getExecutableCommand();
+            return this.taskService.runTask(
+                'build', // task name
+                `${executable} build --compile_one_dependency ${filePath}`,
+                this.configurationManager.isClearTerminalBeforeAction(),
+                cancellationToken,
+                filePath
+            );
+        });
     }
 
-    public async refreshAvailableTargets(cancellationToken?: vscode.CancellationToken): Promise<void> {
-        try {
-            const targets = await this.bazelService.fetchAllTargetsByAction(cancellationToken);
-            await this.bazelTargetManager.updateAvailableTargets(targets);
-            vscode.window.showInformationMessage('Updated available targets');
-        } catch (error) {
-            return Promise.reject(error);
-        }
+    public async refreshAvailableTargets(): Promise<void> {
+        return showProgress('Updating available targets', async (cancellationToken) => {
+            try {
+                const targets = await this.bazelService.fetchAllTargetsByAction(cancellationToken);
+                await this.bazelTargetManager.updateAvailableTargets(targets);
+                vscode.window.showInformationMessage('Updated available targets');
+            } catch (error) {
+                Console.error(error);
+                return Promise.reject(error);
+            }
+        });
     }
 
     public onTreeSelectionChanged(event: vscode.TreeViewSelectionChangeEvent<BazelTreeElement>) {

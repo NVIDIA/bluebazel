@@ -31,6 +31,7 @@ import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
+import { showProgress } from '../../ui/progress';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -61,7 +62,10 @@ export class BuildController implements BazelTargetController {
 
         try {
             this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
-            await this.taskService.runTask(`${target.action} ${actualTarget}`, buildCommand, this.configurationManager.isClearTerminalBeforeAction(), target.id);
+            await showProgress(`${target.action} ${actualTarget}`, (cancellationToken) => {
+                return this.taskService.runTask(`${target.action} ${actualTarget}`,
+                    buildCommand, this.configurationManager.isClearTerminalBeforeAction(), cancellationToken, target.id);
+            });
         } catch (error) {
             return Promise.reject(error);
         } finally {

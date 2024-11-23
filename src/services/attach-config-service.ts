@@ -1,4 +1,4 @@
-import { BazelService } from './bazel-service';
+import { BAZEL_BIN, BazelService } from './bazel-service';
 import { EnvVarsUtils } from './env-vars-utils';
 import { BazelTarget } from '../models/bazel-target';
 import * as vscode from 'vscode';
@@ -82,21 +82,18 @@ export class AttachConfigService {
     private createPythonAttachConfig(target: BazelTarget, port: number): vscode.DebugConfiguration {
         return {
             name: `${target.label} (Attach)`,
-            type: 'python',
+            type: 'debugpy',
             request: 'attach',
             connect: {
                 host: 'localhost',
                 port: port // Port where debugpy is listening
             },
-            cwd: '${workspaceFolder}',
             pathMappings: [
                 {
                     localRoot: '${workspaceFolder}',
-                    remoteRoot: '/app' // Adjust as needed for your environment
+                    remoteRoot: '.'
                 }
             ],
-            justMyCode: false,
-            console: 'integratedTerminal'
         };
     }
 

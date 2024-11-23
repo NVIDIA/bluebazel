@@ -23,8 +23,8 @@
 ////////////////////////////////////////////////////////////////////////////////////
 import { getExtensionDefaultSettings as getDefaultConfiguration, MergedConfiguration } from './configuration-utils';
 import { ExtensionUtils } from './extension-utils';
-import * as vscode from 'vscode';
 import { WorkspaceConfiguration } from 'vscode';
+import * as vscode from 'vscode';
 
 export class UserCustomButton {
     title: string;
@@ -98,7 +98,7 @@ export class ConfigurationManager {
 
     public getExtensionDisplayName(): string {
         if (this.context === undefined) {
-            throw new Error('Error: context must be defined before calling getExtensionDisplayName');
+            throw new Error('Context must be defined before calling getExtensionDisplayName');
         }
         return ExtensionUtils.getExtensionDisplayName(this.context);
     }

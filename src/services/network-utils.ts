@@ -1,9 +1,17 @@
 import * as net from 'net';
 import * as vscode from 'vscode';
 
-export async function getAvailablePort(): Promise<number> {
+export async function getAvailablePort(cancellationToken?: vscode.CancellationToken): Promise<number> {
     return new Promise<number>((resolve, reject) => {
         const server = net.createServer();
+        // Handle cancellation
+        if (cancellationToken) {
+            const disposable = cancellationToken.onCancellationRequested(() => {
+                server.close();
+                disposable.dispose();
+                reject(new Error('Operation cancelled'));
+            });
+        }
 
         // Let the OS assign an available port by listening on port 0
         server.listen(0, '127.0.0.1', () => {

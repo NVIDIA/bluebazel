@@ -89,11 +89,12 @@ export class BazelService {
 
     public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken): Promise<Map<BazelAction, BazelTarget[]>> {
         // Initialize map entries for each action
+        const testTargets: BazelTarget[] = [];
         const map: Map<BazelAction, BazelTarget[]> = new Map([
             ['run', []],
             ['build', []],
-            ['test', []],
-            ['*', []]
+            ['test', testTargets],
+            ['coverage', testTargets]
         ]);
 
         try {
@@ -117,9 +118,6 @@ export class BazelService {
                 } else if (this.isBuildTargetRegex.test(target.ruleType)) {
                     map.get('build')?.push(target);
                 }
-
-                // All targets go into the wildcard group
-                map.get('*')?.push(target);
             });
 
         } catch (error) {

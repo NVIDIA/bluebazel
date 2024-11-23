@@ -36,6 +36,7 @@ import { getAvailablePort, waitForPort } from '../../services/network-utils';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
 import { WorkspaceService } from '../../services/workspace-service';
+import { showProgress } from '../../ui/progress';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -134,7 +135,7 @@ export class DebugController implements BazelTargetController {
         return `${DebugController.getDebugServerCommand(target, port)} ${programPath} ${runArgs}`;
     }
 
-    private async startDebugServer(target: BazelTarget, port: number, command: string): Promise<vscode.TaskExecution | void> {
+    private async startDebugServer(target: BazelTarget, port: number, command: string, cancellationToken?: vscode.CancellationToken): Promise<vscode.TaskExecution | void> {
 
         const envVarsList = target.getEnvVars().toStringArray();
 
@@ -150,6 +151,7 @@ export class DebugController implements BazelTargetController {
             `debug ${target.action} ${bazelTarget}`,
             command,
             this.configurationManager.isClearTerminalBeforeAction(),
+            cancellationToken,
             target.id,
             envVars, 'shell', 'onDidStartTask');
 
@@ -157,51 +159,52 @@ export class DebugController implements BazelTargetController {
 
     private async debugInBazel(target: BazelTarget) {
         // Start a debug server
+        return showProgress(`Debugging ${target.action} ${target.bazelPath}`, async (cancellationToken) => {
+            // Find an open port
+            const port = await getAvailablePort(cancellationToken);
+            // Create a debug attach config
+            const config = await this.attachConfigService.createAttachConfig(target, port);
 
-        // Find an open port
-        const port = await getAvailablePort();
-        // Create a debug attach config
-        const config = await this.attachConfigService.createAttachConfig(target, port);
+            // Get the command to launch the debug server (including the target)
+            const runCommand = this.getDebugInBazelCommand(target, port);
 
-        // Get the command to launch the debug server (including the target)
-        const runCommand = this.getDebugInBazelCommand(target, port);
+            // Launch a debug server and await until the task execution starts
+            const serverExec = await this.startDebugServer(target, port, runCommand, cancellationToken);
 
-        // Launch a debug server and await until the task execution starts
-        const serverExec = await this.startDebugServer(target, port, runCommand);
+            // Listen for early cancellation of the debug server
+            const waitForPortCancellation = new vscode.CancellationTokenSource();
+            const disposable = vscode.tasks.onDidEndTask(e => {
+                if (e.execution === serverExec) {
+                    disposable.dispose();
+                    waitForPortCancellation.cancel();
+                }
+            });
 
-        // Listen for early cancellation of the debug server
-        const waitForPortCancellation = new vscode.CancellationTokenSource();
-        const disposable = vscode.tasks.onDidEndTask(e => {
-            if (e.execution === serverExec) {
-                disposable.dispose();
-                waitForPortCancellation.cancel();
+            // Wait for the port to open up by polling (the loop cancels when the server does)
+            await waitForPort(port, waitForPortCancellation.token);
+
+            // Start debugging
+            const started = await vscode.debug.startDebugging(
+                WorkspaceService.getInstance().getWorkspaceFolder(),
+                config
+            );
+
+            // Get the debug session id for terminating the server
+            let debugSessionId = '';
+            if (started) {
+                const session = vscode.debug.activeDebugSession;
+                if (session && session.name === config.name) {
+                    debugSessionId = session.id;
+                }
             }
-        });
 
-        // Wait for the port to open up by polling (the loop cancels when the server does)
-        await waitForPort(port, waitForPortCancellation.token);
-
-        // Start debugging
-        const started = await vscode.debug.startDebugging(
-            WorkspaceService.getInstance().getWorkspaceFolder(),
-            config
-        );
-
-        // Get the debug session id for terminating the server
-        let debugSessionId = '';
-        if (started) {
-            const session = vscode.debug.activeDebugSession;
-            if (session && session.name === config.name) {
-                debugSessionId = session.id;
-            }
-        }
-
-        // Kill the server when the debugging is disconnected
-        const disp = vscode.debug.onDidTerminateDebugSession((session) => {
-            if (session.id === debugSessionId) {
-                disp.dispose(); // Clean up the event listener
-                serverExec?.terminate();
-            }
+            // Kill the server when the debugging is disconnected
+            const disp = vscode.debug.onDidTerminateDebugSession((session) => {
+                if (session.id === debugSessionId) {
+                    disp.dispose(); // Clean up the event listener
+                    serverExec?.terminate();
+                }
+            });
         });
     }
 
@@ -210,8 +213,10 @@ export class DebugController implements BazelTargetController {
         if (this.configurationManager.isBuildBeforeLaunch()) {
             await this.buildController.execute(target);
         }
-        const config = await this.launchConfigService.createDirectLaunchConfig(target);
-        await vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), config);
+        return showProgress(`Debugging ${target.action} ${target.buildPath}`, async (cancellationToken) => {
+            const config = await this.launchConfigService.createDirectLaunchConfig(target, cancellationToken);
+            await vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), config);
+        });
     }
 
     private static getRunUnderArg(target: BazelTarget, port: number): string {
@@ -234,18 +239,20 @@ export class DebugController implements BazelTargetController {
     }
 
     private static getDebugServerCommand(target: BazelTarget, port: number): string {
-        switch (BazelService.inferLanguageFromRuleType(target.ruleType)) {
+        const language = BazelService.inferLanguageFromRuleType(target.ruleType);
+        switch (language) {
         case 'cpp':
             // Run under GDB, listening on port
             return `gdbserver :${port}`;
-        case 'python':
-            // Run under Debugpy (Python)
-            return `python -m debugpy --listen ${port}`;
         case 'go':
             // Run under Delve (Go)
             return `dlv exec --headless --listen=:${port} --api-version=2`;
+        case 'python':
+            throw new Error(`Python is unsupported for debug in bazel (try direct binary in settings): ${target.bazelPath}`);
+            // Run under Debugpy (Python)
+            // return `python3 -m debugpy --listen :${port} --wait-for-client`;
         default:
-            throw new Error(`Unsupported language for run under: ${target.ruleType}`);
+            throw new Error(`Unsupported language ${language} for debug in bazel: ${target.bazelPath}`);
         }
     }
 

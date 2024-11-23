@@ -29,6 +29,7 @@ import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-ta
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
+import { showProgress } from '../../ui/progress';
 import * as vscode from 'vscode';
 
 
@@ -46,12 +47,15 @@ export class AnyActionController implements BazelTargetController {
         try {
             this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
             const executable = this.configurationManager.getExecutableCommand();
-            await this.taskService.runTask(
-                `${target.action} ${target.buildPath}`, // task name
-                `${executable} ${target.action} ${target.buildPath}`,
-                this.configurationManager.isClearTerminalBeforeAction(),
-                target.id
-            );
+            await showProgress(`${target.action} ${target.bazelPath}`, (cancellationToken) => {
+                return this.taskService.runTask(
+                    `${target.action} ${target.bazelPath}`, // task name
+                    `${executable} ${target.action} ${target.bazelPath}`,
+                    this.configurationManager.isClearTerminalBeforeAction(),
+                    cancellationToken,
+                    target.id
+                );
+            });
         } catch (error) {
             return Promise.reject(error);
         } finally {

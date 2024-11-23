@@ -39,6 +39,7 @@ export class BazelTargetManager {
 
     private readonly targetsFileName = 'targets.json';
     private readonly availableTargetsFileName = 'availableTargets.json';
+    private readonly availableTargetsLoadCancellationSource: vscode.CancellationTokenSource;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -64,7 +65,8 @@ export class BazelTargetManager {
                 Console.error('Error loading targets:', error);
             });
 
-        this.availableTargetsLoaded = this.loadAvailableTargets().then(() => {
+        this.availableTargetsLoadCancellationSource = new vscode.CancellationTokenSource();
+        this.availableTargetsLoaded = this.loadAvailableTargets(this.availableTargetsLoadCancellationSource.token).then(() => {
             Console.log('Available targets loaded successfully');
         }).catch(error => {
             Console.error('Error loading targets:', error);
@@ -84,20 +86,13 @@ export class BazelTargetManager {
     }
 
     // Make loadAvailableTargets async
-    private async loadAvailableTargets(): Promise<void> {
+    private async loadAvailableTargets(cancellationToken?: vscode.CancellationToken): Promise<void> {
         await this.fileStorageService.readJsonArrayElementsFromFileAsStream<SerializedBazelTarget>(this.availableTargetsFileName, (path, value) => {
             const action = path[0] as string;
             const targets = this.availableTargets.get(action) || [];
             targets.push(BazelTarget.fromJSON(this.context, this.bazelService, value));
             this.availableTargets.set(action, targets);
-        });
-        // if (rawData) {
-        //     this.availableTargets = new Map(
-        //         Object.entries(rawData).map(([action, targets]) => {
-        //             return [action as BazelAction, targets.map(t => BazelTarget.fromJSON(this.context, this.bazelService, t))] as [string, BazelTarget[]];
-        //         })
-        //     );
-        // }
+        }, cancellationToken);
     }
 
     // Make loadTargets async
@@ -142,6 +137,7 @@ export class BazelTargetManager {
     }
 
     public async updateAvailableTargets(targets: Map<BazelAction, BazelTarget[]>) {
+        this.availableTargetsLoadCancellationSource.cancel();
         await this.availableTargetsLoaded;
         this.availableTargets = targets;
         this.saveAvailableTargets(); // Fire-and-forget, don't await
@@ -241,6 +237,7 @@ export class BazelTargetManager {
         const serializedTargets: { [key: string]: SerializedBazelTarget[] } = {};
         this.availableTargets.forEach((targets, action) => {
             serializedTargets[action] = targets.map(target => target.toJSON());
+            console.log('target count', targets.length);
         });
         this.fileStorageService.writeJsonToFile(this.availableTargetsFileName, serializedTargets); // Fire-and-forgets
     }

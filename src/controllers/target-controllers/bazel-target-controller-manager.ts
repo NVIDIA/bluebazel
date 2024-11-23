@@ -65,13 +65,15 @@ export class BazelTargetControllerManager {
             buildController,
             bazelTargetStateManager);
 
+        const testController = new TestController(context,
+            configurationManager,
+            taskService,
+            bazelTargetStateManager);
+
         this.controllers.set('build', buildController);
         this.controllers.set('run', runController);
 
-        this.controllers.set('test', new TestController(context,
-            configurationManager,
-            taskService,
-            bazelTargetStateManager));
+        this.controllers.set('test', testController);
 
         this.controllers.set('debug', new DebugController(context,
             configurationManager,
@@ -80,6 +82,9 @@ export class BazelTargetControllerManager {
             buildController,
             bazelEnvironment,
             bazelTargetStateManager));
+
+        // Coverage operates very similar to test, so use test controller
+        this.controllers.set('coverage', testController);
 
         this.controllers.set('*', new AnyActionController(context,
             configurationManager,

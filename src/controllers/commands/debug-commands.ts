@@ -32,7 +32,9 @@ export function registerDebugCommands(context: vscode.ExtensionContext,
 
     const extensionName = ExtensionUtils.getExtensionName(context);
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.debug`, (target: BazelTarget) => {
-        debugController.execute(target);
+        debugController.execute(target).catch(error => {
+            vscode.window.showErrorMessage(`${error}`);
+        });
     }));
 
 }
