@@ -21,7 +21,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-
 import * as vscode from 'vscode';
 
 function createSpinnerUpdater(updateCallback: (spinner: string) => void) {
@@ -44,7 +43,6 @@ function createSpinnerUpdater(updateCallback: (spinner: string) => void) {
     return { start, stop };
 }
 
-
 async function showProgressWindow<T>(
     title: string,
     longMethodPromise: Promise<T>,
@@ -60,7 +58,7 @@ async function showProgressWindow<T>(
             async (progress, cancellationToken) => {
                 const disposable = cancellationToken.onCancellationRequested(() => {
                     disposable.dispose();
-                    cancellationSource.cancel();
+                    cancellationSource.cancel(); // Propagate cancellation
                 });
 
                 const spinnerUpdater = createSpinnerUpdater((spinner) => {
@@ -68,13 +66,8 @@ async function showProgressWindow<T>(
                 });
 
                 try {
-                    // Start spinner animation
                     spinnerUpdater.start();
-
-                    // Await the long-running method
                     const result = await longMethodPromise;
-
-                    // Stop spinner and report success
                     spinnerUpdater.stop();
                     progress.report({ increment: undefined, message: 'Finished' });
                     resolve(result);
@@ -96,59 +89,60 @@ export async function showProgressStatus<T>(
 ): Promise<T> {
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
 
-    const spinnerUpdater = createSpinnerUpdater((spinner) => {
-        statusBarItem.text = `${spinner} ${title} $(x)`;
+    statusBarItem.text = `$(sync~spin) ${title}`;
+
+    const cancelCommand = `${title}.cancel`;
+    // Register the cancel command
+    const disposable = vscode.commands.registerCommand(cancelCommand, () => {
+        disposable.dispose();
+        cancellationSource.cancel(); // Trigger cancellation
     });
 
     try {
+        // Configure the status bar item
         statusBarItem.tooltip = 'Click to cancel';
-        statusBarItem.command = {
-            command: `${title}.cancel`, // Custom command for cancellation
-            title: 'Cancel',
-        };
+        statusBarItem.command = cancelCommand;
         statusBarItem.show();
 
-        // Register the cancel command
-        const disposable = vscode.commands.registerCommand(
-            statusBarItem.command.command,
-            () => {
-                disposable.dispose();
-                cancellationSource.cancel();
-                statusBarItem.text = `${title} Cancelled`;
-                setTimeout(() => statusBarItem.dispose(), 2000);
-            }
-        );
-
-        // Start spinner animation
-        spinnerUpdater.start();
-
-        // Execute the long method
+        // Await the long-running task
         const result = await longMethodPromise;
 
-        // Update the status bar on success
-        spinnerUpdater.stop();
-        statusBarItem.text = `✔️ ${title} Completed`;
-        setTimeout(() => statusBarItem.dispose(), 2000); // Remove after 2 seconds
+        statusBarItem.text = `${title} Completed`;
+        setTimeout(() => statusBarItem.dispose(), 2000);
 
         return result;
     } catch (error) {
-        // Handle cancellation or failure
         statusBarItem.text = `${title} Cancelled`;
-        setTimeout(() => statusBarItem.dispose(), 2000); // Remove after 2 seconds
+        setTimeout(() => statusBarItem.dispose(), 2000);
         throw error;
     } finally {
-        spinnerUpdater.stop();
         statusBarItem.dispose();
+        disposable.dispose();
     }
 }
 
 export async function showProgress<T>(
     title: string,
-    longMethod: (token: vscode.CancellationToken) => Promise<T>
+    longMethod: (token: vscode.CancellationToken) => Promise<T>,
+    cancellationSource?: vscode.CancellationTokenSource
 ): Promise<T> {
 
-    const cancellation = new vscode.CancellationTokenSource();
-    const longMethodPromise = longMethod(cancellation.token);
-    showProgressStatus(title, longMethodPromise, cancellation);
-    return showProgressWindow(title, longMethodPromise, cancellation);
+    if (cancellationSource === undefined) {
+        cancellationSource = new vscode.CancellationTokenSource();
+    }
+
+    const longMethodPromise = longMethod(cancellationSource.token);
+
+    // Start both the status bar and progress window
+    const statusPromise = showProgressStatus(title, longMethodPromise, cancellationSource);
+    const progressWindowPromise = showProgressWindow(title, longMethodPromise, cancellationSource);
+
+    // Ensure that cancellation or completion of one cancels/cleans up the other
+    try {
+        const result = await Promise.all([statusPromise, progressWindowPromise]);
+        return result[1]; // Return the actual result
+    } catch (error) {
+        cancellationSource.cancel(); // Ensure both are canceled
+        throw error;
+    }
 }
