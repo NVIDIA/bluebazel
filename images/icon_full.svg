@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+
+<svg
+   width="800px"
+   height="800px"
+   viewBox="0 0 32 32"
+   version="1.1"
+   id="svg1705"
+   sodipodi:docname="icon.svg"
+   inkscape:version="1.2.2 (b0a8486541, 2022-12-01)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs1709" />
+  <sodipodi:namedview
+     id="namedview1707"
+     pagecolor="#505050"
+     bordercolor="#ffffff"
+     borderopacity="1"
+     inkscape:showpageshadow="0"
+     inkscape:pageopacity="0"
+     inkscape:pagecheckerboard="1"
+     inkscape:deskcolor="#505050"
+     showgrid="false"
+     inkscape:zoom="0.93875"
+     inkscape:cx="675.8988"
+     inkscape:cy="261.51798"
+     inkscape:window-width="3840"
+     inkscape:window-height="2078"
+     inkscape:window-x="0"
+     inkscape:window-y="39"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1705" />
+  <title
+     id="title1689">file_type_blue_bazel</title>
+  <path
+     d="m 16,23 7,-7 v 7 l -7,7 z"
+     style="fill:#163262;fill-opacity:1"
+     id="path1703"
+     transform="matrix(1,0,0,1.1949229,0,-5.8476868)" />
+  <path
+     d="m 16,23 v 7 L 9,23 v -7 z"
+     style="fill:#3a51a2;fill-opacity:1"
+     id="path1701"
+     transform="matrix(1,0,0,1.1949229,0,-5.8476868)" />
+  <rect
+     style="fill:#333333;stroke:#ffffff;stroke-width:0;stroke-dasharray:none"
+     id="rect4660"
+     width="14.839971"
+     height="12.521019"
+     x="8.5047522"
+     y="4.8939619" />
+  <path
+     d="m 2,9 v 7 l 7,7 v -7 z"
+     style="fill:#6588cc;fill-opacity:1"
+     id="path1693"
+     transform="matrix(1,0,0,1.1949229,0,-5.8476868)" />
+  <path
+     d="M 13.330771,6.7559816 16,9 9,16 2,9 Z"
+     style="fill:#93bbf3;fill-opacity:1"
+     id="path1691"
+     sodipodi:nodetypes="ccccc"
+     transform="matrix(1,0,0,1.1949229,0,-5.8476868)" />
+  <path
+     d="m 30,9 v 7 l -7,7 v -7 z"
+     style="fill:#6588cc;fill-opacity:1"
+     id="path1697"
+     transform="matrix(1,0,0,1.1949229,0,-5.8476868)" />
+  <path
+     d="M 13.330771,6.7559816 16,9 9,16 2,9 Z"
+     style="fill:#93bbf3;stroke-width:0.99999516;stroke-dasharray:none;fill-opacity:1"
+     id="path1691-2"
+     sodipodi:nodetypes="ccccc"
+     transform="matrix(-1,0,0,1.1949229,31.992487,-5.8402951)" />
+  <path
+     d="m 16,12.44 7,7 -7,7 -7,-7 z"
+     style="fill:#6588cc;fill-opacity:1"
+     id="path1699"
+     transform="matrix(1,0,0,1.1949229,0,-5.8476868)" />
+  <g
+     id="g4396-4"
+     transform="matrix(0.47039675,0,0,0.56208785,8.5759165,-6.32245)">
+    <path
+       d="m 15.851703,14.517259 6.996528,5.273012 -7,7 -7.0000002,-7 z"
+       style="fill:#6588cc;fill-opacity:1"
+       id="path1699-3-0"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       d="m 15.848231,26.790271 v 7 l -7.0000002,-7 v -7 z"
+       style="fill:#3a51a2;fill-opacity:1"
+       id="path1701-6-6" />
+    <path
+       d="m 15.848231,26.790271 7,-7 v 7 l -7,7 z"
+       style="fill:#163262;fill-opacity:1"
+       id="path1703-8-2" />
+  </g>
+  <g
+     id="g4396-4-8"
+     transform="matrix(0.47039675,0,0,0.56208785,12.071808,1.6522098)">
+    <path
+       d="m 15.848231,12.790271 7,7 -7,7 -7.0000002,-7 z"
+       style="fill:#6588cc;fill-opacity:1"
+       id="path1699-3-0-2" />
+    <path
+       d="m 15.848231,26.790271 v 7 l -7.0000002,-7 v -7 z"
+       style="fill:#3a51a2;fill-opacity:1"
+       id="path1701-6-6-9" />
+    <path
+       d="m 15.848231,26.790271 7,-7 v 7 l -7,7 z"
+       style="fill:#163262;fill-opacity:1"
+       id="path1703-8-2-9" />
+  </g>
+  <g
+     id="g4396-4-9"
+     transform="matrix(0.47039675,0,0,0.56208785,5.0999134,1.593954)">
+    <path
+       d="m 15.848231,12.790271 7,7 -7,7 -7.0000002,-7 z"
+       style="fill:#6588cc;fill-opacity:1"
+       id="path1699-3-0-9" />
+    <path
+       d="m 15.848231,26.790271 v 7 l -7.0000002,-7 v -7 z"
+       style="fill:#3a51a2;fill-opacity:1"
+       id="path1701-6-6-1" />
+    <path
+       d="m 15.848231,26.790271 7,-7 v 7 l -7,7 z"
+       style="fill:#163262;fill-opacity:1"
+       id="path1703-8-2-4" />
+  </g>
+  <g
+     id="g4396-4-0"
+     transform="matrix(0.47039675,0,0,0.56208785,8.5624787,6.4801594)">
+    <path
+       d="m 15.848231,12.790271 7,7 -7,7 -7.0000002,-7 z"
+       style="fill:#6588cc;fill-opacity:1"
+       id="path1699-3-0-4" />
+    <path
+       d="m 15.848231,26.790271 v 7 l -7.0000002,-7 v -7 z"
+       style="fill:#3a51a2;fill-opacity:1"
+       id="path1701-6-6-2" />
+    <path
+       d="m 15.848231,26.790271 7,-7 v 7 l -7,7 z"
+       style="fill:#163262;fill-opacity:1"
+       id="path1703-8-2-96" />
+  </g>
+  <metadata
+     id="metadata3740">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>file_type_blue_bazel</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>
