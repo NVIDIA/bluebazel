@@ -22,19 +22,30 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 import { BazelTarget } from '../../models/bazel-target';
+import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { ExtensionUtils } from '../../services/extension-utils';
 import { DebugController } from '../target-controllers/debug-controller';
 import * as vscode from 'vscode';
 
 
 export function registerDebugCommands(context: vscode.ExtensionContext,
-    debugController: DebugController) {
+    debugController: DebugController,
+    bazelTargetManager: BazelTargetManager) {
 
     const extensionName = ExtensionUtils.getExtensionName(context);
-    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.debug`, (target: BazelTarget) => {
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.debugTarget`, (target: BazelTarget) => {
         debugController.execute(target).catch(error => {
             vscode.window.showErrorMessage(`${error}`);
         });
+    }));
+
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.debug`, () => {
+        const selectedTarget = bazelTargetManager.getSelectedTarget('run');
+        if (selectedTarget) {
+            debugController.execute(selectedTarget).catch(error => {
+                vscode.window.showErrorMessage(`${error}`);
+            });
+        }
     }));
 
 }

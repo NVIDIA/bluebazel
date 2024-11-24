@@ -105,6 +105,11 @@
                 "icon": "$(run)"
             },
             {
+                "command": "bluebazel.debugTarget",
+                "title": "Debug",
+                "icon": "$(debug-alt)"
+            },
+            {
                 "command": "bluebazel.executingTarget",
                 "title": "Executing...",
                 "icon": "$(sync~spin)"
@@ -275,7 +280,7 @@
                     "when": "viewItem =~ /ExecutingTarget$/ && view == bluebazelView"
                 },
                 {
-                    "command": "bluebazel.debug",
+                    "command": "bluebazel.debugTarget",
                     "group": "inline@2",
                     "when": "(viewItem == runIdleTarget || viewItem == runExecutingTarget || viewItem == testIdleTarget || viewItem == testExecutingTarget) && view == bluebazelView"
                 },

@@ -67,7 +67,7 @@ export class DebugController implements BazelTargetController {
 
             const shouldRunDirect = this.configurationManager.shouldRunBinariesDirect() && target.action === 'run';
             if (!shouldRunDirect) {
-                return this.debugInBazel(target);
+                await this.debugInBazel(target, );
             } else {
                 await this.debugDirect(target);
             }

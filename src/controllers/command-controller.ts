@@ -53,7 +53,7 @@ export function registerCommands(context: vscode.ExtensionContext,
     registerSinglePropTreeItemCommands(context, bazelTreeDataProvider);
     registerBazelCommands(context, bazelController);
     registerBazelTargetOperationsCommands(context, bazelTargetOpsController, bazelTargetManager);
-    registerDebugCommands(context, bazelTargetControllerManager.getController('debug') as DebugController);
+    registerDebugCommands(context, bazelTargetControllerManager.getController('debug') as DebugController, bazelTargetManager);
     registerUserCommands(context, configurationManager, userCommandsController);
 }
 

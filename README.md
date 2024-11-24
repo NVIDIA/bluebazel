@@ -1,4 +1,5 @@
-# Blue Bazel Extension for VS Code
+# ![Icon](images/icon_small.png) Blue Bazel
+## VS Code Extension for Bazel projects
 
 This extension provides integration into Visual Studio Code for building, running, debugging, and testing bazel or dazel projects.
 
