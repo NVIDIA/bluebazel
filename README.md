@@ -1,6 +1,9 @@
-# Blue Bazel Extension for VS Code
+# ![Icon](images/icon_small.png) Blue Bazel
+## VS Code Extension for Bazel projects
 
 This extension provides integration into Visual Studio Code for building, running, debugging, and testing bazel or dazel projects.
+
+![Demo of Blue Bazel Debug](images/demo_debug.gif)
 
 ![Screenshot of Blue Bazel](images/screenshot.png)
 
@@ -43,16 +46,12 @@ Follow the steps below to bind keyboard shortcuts to specific commands that are 
 2. **bluebazel.run** - Run the selected run target
 3. **bluebazel.debug** - Debug the selected run target
 4. **bluebazel.test** - Test the selected test target
-5. **bluebazel.pickBuildTarget** - Pick the build target
-6. **bluebazel.pickRunTarget** - Pick the run target
-7. **bluebazel.pickTestTarget** - Pick the test target
-8. **bluebazel.refreshRunTargets** - Run the command to refresh the run targets
-9. **bluebazel.editRunArgs** - Set run arguments for the currently selected run target
-10. **bluebazel.editTestArgs** - Set test arguments for the currently selected test target
-11. **bluebazel.clean** - Clean
-12. **bluebazel.format** - Run the format command (set in settings)
-13. **bluebazel.refreshRunTargets** - Generate run targets
-14. **bluebazel.buildCurrentFile** - Build current active file
+5. **bluebazel.editRunArgs** - Set run arguments for the currently selected run target
+6. **bluebazel.editTestArgs** - Set test arguments for the currently selected test target
+7. **bluebazel.clean** - Clean
+8. **bluebazel.format** - Run the format command (set in settings)
+9. **bluebazel.buildCurrentFile** - Build current active file
+10. **bluebazel.addActionAndTarget** - Add a new action and target.
 
 #### Example
 

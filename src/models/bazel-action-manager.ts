@@ -21,42 +21,33 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { BazelService } from '../services/bazel-service';
+import * as vscode from 'vscode';
 
-import * as glob from 'glob';
-import * as Mocha from 'mocha';
-import * as path from 'path';
+/**
+ * Model for retrieving all possible commands in bazel.
+ */
+export class BazelActionManager {
+    private actions: string[] = [];
+    private actionsPromise: Promise<string[]>;
 
-export function run(): Promise<void> {
-    // Create the mocha test
-    const mocha = new Mocha({
-        ui: 'tdd',
-        color: true
-    });
+    constructor(private context: vscode.ExtensionContext,
+        private readonly bazelService: BazelService,
+    ) {
+        this.actionsPromise = this.loadActions();
+    }
 
-    const testsRoot = path.resolve(__dirname, '..');
+    private async loadActions(): Promise<string[]> {
+        this.actions = await this.bazelService.fetchTargetActions();
+        return this.actions;
+    }
 
-    return new Promise((c, e) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
-            if (err) {
-                return e(err);
-            }
+    public async getActions(): Promise<string[]> {
+        return this.actionsPromise;
+    }
 
-            // Add files to the test suite
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
-
-            try {
-                // Run the mocha test
-                mocha.run(failures => {
-                    if (failures > 0) {
-                        e(new Error(`${failures} tests failed.`));
-                    } else {
-                        c();
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                e(err);
-            }
-        });
-    });
+    public async refreshActions() {
+        this.actions = await this.bazelService.fetchTargetActions();
+        this.actionsPromise = Promise.resolve(this.actions);
+    }
 }

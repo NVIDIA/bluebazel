@@ -21,42 +21,31 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { Model } from './model';
 
-import * as glob from 'glob';
-import * as Mocha from 'mocha';
-import * as path from 'path';
+export class ModelAccessor {
+    public static getString(model: Model): string {
+        const value = model.get<string>();
+        if (typeof value !== 'string') {
+            return '';
+        } else {
+            return value;
+        }
+    }
 
-export function run(): Promise<void> {
-    // Create the mocha test
-    const mocha = new Mocha({
-        ui: 'tdd',
-        color: true
-    });
+    public static getWithDefault<T>(model: Model, defaultValue?: T) {
+        const value = model.get<string>();
+        if (value === undefined) {
+            return defaultValue;
+        }
+        return value;
+    }
 
-    const testsRoot = path.resolve(__dirname, '..');
-
-    return new Promise((c, e) => {
-        glob('**/**.test.js', { cwd: testsRoot }, (err, files) => {
-            if (err) {
-                return e(err);
-            }
-
-            // Add files to the test suite
-            files.forEach(f => mocha.addFile(path.resolve(testsRoot, f)));
-
-            try {
-                // Run the mocha test
-                mocha.run(failures => {
-                    if (failures > 0) {
-                        e(new Error(`${failures} tests failed.`));
-                    } else {
-                        c();
-                    }
-                });
-            } catch (err) {
-                console.error(err);
-                e(err);
-            }
-        });
-    });
+    public static getStringArray(model: Model): string[] {
+        const values = model.get<string[]>();
+        if (!values) {
+            return [];
+        }
+        return values;
+    }
 }

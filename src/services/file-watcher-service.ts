@@ -21,29 +21,44 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import * as assert from 'assert';
+
 import * as vscode from 'vscode';
 
-suite('Extension E2E Tests', () => {
-    suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        await extension?.activate();
-    });
+export class FileWatcherService {
+    private watchers: vscode.FileSystemWatcher[] = [];
 
-    test('Commands are registered', () => {
-        // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
-        assert.notStrictEqual(extension, undefined);
-        if (extension === undefined) {
-            return false;
-        }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
-            }
-        });
-    });
+    constructor(private context: vscode.ExtensionContext) {}
 
-});
+    /**
+     * Adds a watcher for a specific file pattern with custom callbacks.
+     * @param pattern Glob pattern to match files
+     * @param onCreate Callback for file creation events
+     * @param onChange Callback for file change events
+     * @param onDelete Callback for file deletion events
+     */
+    public watch(
+        pattern: string,
+        onCreate: (uri: vscode.Uri) => void,
+        onChange: (uri: vscode.Uri) => void,
+        onDelete: (uri: vscode.Uri) => void
+    ): void {
+        const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+
+        // Register event listeners with the provided callbacks
+        watcher.onDidCreate(onCreate, this.context.subscriptions);
+        watcher.onDidChange(onChange, this.context.subscriptions);
+        watcher.onDidDelete(onDelete, this.context.subscriptions);
+
+        // Store the watcher for disposal later
+        this.watchers.push(watcher);
+        this.context.subscriptions.push(watcher);
+    }
+
+    /**
+     * Disposes of all file watchers to release resources.
+     */
+    public dispose(): void {
+        this.watchers.forEach((watcher) => watcher.dispose());
+        this.watchers = [];
+    }
+}
