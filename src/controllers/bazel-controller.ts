@@ -27,6 +27,7 @@ import { BazelTargetManager } from '../models/bazel-target-manager';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager } from '../services/configuration-manager';
 import { Console } from '../services/console';
+import { FileWatcherService } from '../services/file-watcher-service';
 import { TaskService } from '../services/task-service';
 import { WorkspaceService } from '../services/workspace-service';
 import { BazelTargetTreeProvider, BazelTreeElement } from '../ui/bazel-target-tree-provider';
@@ -38,11 +39,26 @@ import * as vscode from 'vscode';
 export class BazelController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
+        fileWatcherService: FileWatcherService,
         private readonly taskService: TaskService,
         private readonly bazelService: BazelService,
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTreeProvider: BazelTargetTreeProvider
     ) {
+        fileWatcherService.watch('**/BUILD{,.bazel}',
+            (uri) => {
+                Console.log(`BUILD file created: ${uri.fsPath}`);
+                this.refreshAvailableTargets(uri);
+            },
+            (uri) => {
+                Console.log(`BUILD file changed: ${uri.fsPath}`);
+                this.refreshAvailableTargets(uri);
+            },
+            (uri) => {
+                Console.log(`BUILD file deleted: ${uri.fsPath}`);
+                this.refreshAvailableTargets(uri);
+            }
+        );
         this.refreshAvailableTargets().catch(error => {
             vscode.window.showErrorMessage(`Cannot update available targets: ${error}`);
         });
@@ -99,7 +115,9 @@ export class BazelController {
         });
     }
 
-    public async refreshAvailableTargets(): Promise<void> {
+    public async refreshAvailableTargets(uri?: vscode.Uri): Promise<void> {
+        // TODO: In the future, use uri to only update the available targets based on
+        // uri if present in an append mode.
         return showProgress('Updating available targets', async (cancellationToken) => {
             try {
                 const targets = await this.bazelService.fetchAllTargetsByAction(cancellationToken);

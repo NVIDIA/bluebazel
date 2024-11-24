@@ -38,6 +38,7 @@ import { Console } from './services/console';
 import { EnvVarsUtils } from './services/env-vars-utils';
 import { ExtensionUtils } from './services/extension-utils';
 import { FileStorageService } from './services/file-storage-service';
+import { FileWatcherService } from './services/file-watcher-service';
 import { IconService } from './services/icon-service';
 import { ShellService } from './services/shell-service';
 import { TaskService } from './services/task-service';
@@ -154,6 +155,10 @@ async function initExtension(context: vscode.ExtensionContext) {
     // The file storage service to handle storing bazel targets
     fileStorageService = new FileStorageService(context);
 
+    // The file watcher service is to make sure bazel files
+    // are watched to update targets automatically.
+    const fileWatcherService = new FileWatcherService(context);
+
     /******
      * MODELS
      ******/
@@ -184,7 +189,9 @@ async function initExtension(context: vscode.ExtensionContext) {
      ******/
     Console.info('Initializing controllers...');
     // The bazel controller runs general extension tasks, such as formatting, cleaning, refreshing run targets, etc.
-    bazelController = new BazelController(context, configurationManager, taskService, bazelService, bazelTargetManager, bazelTargetTreeProvider);
+    bazelController = new BazelController(context, configurationManager,
+        fileWatcherService, taskService, bazelService,
+        bazelTargetManager, bazelTargetTreeProvider);
 
     // Attach the tree data provider to the view and capture events
     // on the tree view.

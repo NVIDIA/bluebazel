@@ -2,6 +2,8 @@
 
 This extension provides integration into Visual Studio Code for building, running, debugging, and testing bazel or dazel projects.
 
+![Demo of Blue Bazel Debug](images/demo_debug.gif){style="width:800px;"}
+
 ![Screenshot of Blue Bazel](images/screenshot.png)
 
 Follow the steps to install the extension:

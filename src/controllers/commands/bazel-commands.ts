@@ -32,6 +32,10 @@ export function registerBazelCommands(context: vscode.ExtensionContext,
 
     const extensionName = ExtensionUtils.getExtensionName(context);
 
+    context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.refreshTargets`, () => {
+        bazelController.refreshAvailableTargets();
+    }));
+
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.format`, () => {
         bazelController.format();
     }));

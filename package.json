@@ -115,6 +115,11 @@
                 "icon": "$(collapse-all)"
             },
             {
+                "command": "bluebazel.refreshTargets",
+                "title": "Refresh Targets",
+                "icon": "$(sync)"
+            },
+            {
                 "command": "bluebazel.customButton",
                 "title": "Custom Button",
                 "icon": "$(run)"
@@ -150,6 +155,11 @@
                 {
                     "command": "bluebazel.addActionAndTarget",
                     "group": "navigation@98",
+                    "when": "view == bluebazelView"
+                },
+                {
+                    "command": "bluebazel.refreshTargets",
+                    "group": "navigation@0",
                     "when": "view == bluebazelView"
                 },
                 {
@@ -371,6 +381,8 @@
     },
     "scripts": {
         "vscode:prepublish": "npm run compile && npm run esbuild-base -- --minify",
+        "package": "vsce package && npm run postpackage",
+        "postpackage": "mkdir -p releases && mv *.vsix releases/",
         "clean": "rm -rf out",
         "compile": "tsc -p ./ && npm run copy:images",
         "lint": "eslint src --ext ts",

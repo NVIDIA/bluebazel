@@ -30,3 +30,4 @@ Add capability to add multiple types of actions (not just build, run, test) such
 Add capability to add multiple targets to each action.
 Add capability to debug golang and python targets.
 Add autocomplete (if available) to config and bazel args for target properties.
+Add quickpick for all targets.
