@@ -2,7 +2,7 @@
     "name": "bluebazel",
     "displayName": "Blue Bazel",
     "description": "Bazel vscode UI integration to build, debug, and test targets",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "engines": {
         "vscode": "^1.85.2"
     },
@@ -325,6 +325,16 @@
                     "default": true,
                     "description": "Run and debug run targets directly (not under bazel)."
                 },
+                "bluebazel.refreshTargetsTimeoutMs": {
+                    "type": "number",
+                    "default": 0,
+                    "description": "Update available targets timeout in milliseconds. If set to 0, no timeout will occur."
+                },
+                "bluebazel.refreshTargetsOnFileChange": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "(Experimental) Update available targets when BUILD files change."
+                },
                 "bluebazel.engineLogging": {
                     "type": "boolean",
                     "default": false,
@@ -394,7 +404,6 @@
         "watch": "tsc -watch -p ./",
         "pretest": "npm run clean && npm run compile && npm run lint",
         "test": "node ./out/test/runTest.js",
-        "copy:images": "rm -r -f out/images && cp -r images out/",
         "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap"
     },
     "devDependencies": {

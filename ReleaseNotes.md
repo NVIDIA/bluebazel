@@ -31,3 +31,10 @@ Add capability to add multiple targets to each action.
 Add capability to debug golang and python targets.
 Add autocomplete (if available) to config and bazel args for target properties.
 Add quickpick for all targets.
+
+## 1.0.1
+
+Add code lens actions to some language unit tests (run test and debug test).
+Fix bug that caused multiple refresh targets to fire when multiple BUILD files were changed at once (usually a git operation).
+Add option to not refresh targets automatically when BUILD files change as it is still experimental.
+Add optional timeout in milliseconds to refresh targets.

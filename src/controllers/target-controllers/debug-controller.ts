@@ -67,7 +67,7 @@ export class DebugController implements BazelTargetController {
 
             const shouldRunDirect = this.configurationManager.shouldRunBinariesDirect() && target.action === 'run';
             if (!shouldRunDirect) {
-                await this.debugInBazel(target, );
+                await this.debugInBazel(target);
             } else {
                 await this.debugDirect(target);
             }
@@ -208,7 +208,7 @@ export class DebugController implements BazelTargetController {
 
     private async debugDirect(target: BazelTarget) {
         // Debug direct uses a launch config rather than attach config
-        if (this.configurationManager.isBuildBeforeLaunch()) {
+        if (this.configurationManager.shouldBuildBeforeLaunch()) {
             await this.buildController.execute(target);
         }
         return showProgress(`Debugging ${target.action} ${target.buildPath}`, async (cancellationToken) => {

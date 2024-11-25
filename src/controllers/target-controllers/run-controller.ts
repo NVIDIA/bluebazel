@@ -87,7 +87,7 @@ export class RunController implements BazelTargetController {
     }
 
     private async runDirect(target: BazelTarget) {
-        if (this.configurationManager.isBuildBeforeLaunch()) {
+        if (this.configurationManager.shouldBuildBeforeLaunch()) {
             await this.buildController.execute(target);
         }
 

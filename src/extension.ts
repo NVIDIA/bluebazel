@@ -44,6 +44,7 @@ import { ShellService } from './services/shell-service';
 import { TaskService } from './services/task-service';
 import { WorkspaceService } from './services/workspace-service';
 import { BazelTargetTreeProvider } from './ui/bazel-target-tree-provider';
+import { registerCodeLensProviders } from './ui/code-lens-provider-utils';
 import * as vscode from 'vscode';
 
 
@@ -181,8 +182,13 @@ async function initExtension(context: vscode.ExtensionContext) {
     /******
      * UI
      ******/
+    // This is the main tree view provider
     bazelTargetTreeProvider = new BazelTargetTreeProvider(context, configurationManager, bazelTargetManager, bazelTargetStateManager);
     bazelTargetManager.awaitLoading().then(() => bazelTargetTreeProvider.refresh());
+
+    // This registers all the code lens that provide actions
+    // in the editor, such as 'run test' and 'debug test'.
+    registerCodeLensProviders(context, bazelService);
 
     /******
      * CONTROLLERS
@@ -238,6 +244,7 @@ async function initExtension(context: vscode.ExtensionContext) {
         bazelTargetOpsController,
         bazelTargetManager,
         bazelTargetTreeProvider);
+
 }
 
 export function activate(context: vscode.ExtensionContext) {
