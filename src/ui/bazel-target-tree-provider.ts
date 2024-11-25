@@ -222,7 +222,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         treeItem.contextValue = this.formatTargetContextValue(element, targetState);
         treeItem.id = element.id;
         treeItem.label = element.label;
-        treeItem.tooltip = `${element.action} ${element.buildPath}`;
+        treeItem.tooltip = `${element.action} ${this.configurationManager.shouldRunBinariesDirect() ? element.buildPath : element.bazelPath}`;
         const selectedTarget = this.bazelTargetManager.getSelectedTarget(element.action);
         const isSelected = selectedTarget && selectedTarget.id === element.id;
         if (isSelected) {

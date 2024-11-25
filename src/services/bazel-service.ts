@@ -94,7 +94,7 @@ export class BazelService {
         return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
     }
 
-    public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken): Promise<Map<BazelAction, BazelTarget[]>> {
+    public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken, timeoutMs?: number): Promise<Map<BazelAction, BazelTarget[]>> {
         // Initialize map entries for each action
         const testTargets: BazelTarget[] = [];
         const map: Map<BazelAction, BazelTarget[]> = new Map([
@@ -106,7 +106,14 @@ export class BazelService {
 
         try {
             // Fetch all targets
-            const targets = await this.fetchAllTargets(cancellationToken);
+            // Race between the fetch operation and the timeout
+            const fetchPromise = this.fetchAllTargets(cancellationToken);
+            const targets = timeoutMs && timeoutMs !== 0 ? await Promise.race([
+                fetchPromise,
+                new Promise<never>((_, reject) =>
+                    setTimeout(() => reject(new Error('Update targets timed out')), timeoutMs)
+                )
+            ]) : await fetchPromise;
 
             // Iterate through fetched targets and categorize them by action
             targets.forEach(item => {
@@ -151,7 +158,7 @@ export class BazelService {
     /**
      * Fetches available run targets for Bazel.
      */
-    public async fetchAllTargets(cancellationToken?: vscode.CancellationToken): Promise<{ label: string, ruleType: string, bazelPath: string, buildPath: string }[]> {
+    public async fetchAllTargets(cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
         Console.info('Fetching all targets from bazel...');
         try {
             const filter = '"^(?!.*\\.aspect_rules_js|.*node_modules|.*bazel-|.*/\\.).*$"';
@@ -282,168 +289,6 @@ export class BazelService {
         return this.fetchAutocompleteForAction(action, 'configs', cancellationToken);
     }
 
-    /**
-     * Extracts Bazel targets and their rule types from the contents of a BUILD file.
-     */
-    public static async fetchBuildTargets(directoryPath: string, cwd: string): Promise<{ name: string, ruleType: string }[]> {
-        const directory = path.join(cwd, directoryPath);
-        const buildFilePaths = [path.join(directory, 'BUILD'), path.join(directory, 'BUILD.bazel')];
-
-        for (const buildFilePath of buildFilePaths) {
-            try {
-                if (fs.existsSync(buildFilePath)) {
-                    const data = await fs.promises.readFile(buildFilePath, 'utf8');
-                    return BazelService.extractBuildTargetsFromFile(data);
-                }
-            } catch (error) {
-                Console.error(`Error reading build file: ${buildFilePath}`, error);
-                return Promise.reject(error);
-            }
-        }
-
-        return [];
-    }
-
-    /**
-     * Wrapper to fetch only target names from the BUILD file.
-     */
-    public static async fetchBuildTargetNames(directoryPath: string, cwd: string): Promise<string[]> {
-        try {
-            // Call fetchBuildTargets to get both target names and rule types
-            const buildTargets = await BazelService.fetchBuildTargets(directoryPath, cwd);
-
-            // Extract and return only the target names as an array of strings
-            return buildTargets.map(target => target.name);
-        } catch (error) {
-            Console.error('Error fetching target names:', error);
-            return Promise.reject(error);
-        }
-    }
-
-    /**
-     * Extracts Bazel targets and their rule types from the BUILD file content.
-     * This method uses a basic regex to capture both target names and rule types.
-     */
-    private static extractBuildTargetsFromFile(buildFileContent: string): { name: string, ruleType: string }[] {
-        const targets: { name: string, ruleType: string }[] = [];
-        const targetRegex = /(cc_|go_|py_|java_|js_)(\w+)\s*\(\s*name\s*=\s*["']([^"']+)["']/g;
-        let match;
-
-        // Loop over all matches of the regex in the file content
-        while ((match = targetRegex.exec(buildFileContent)) !== null) {
-            const ruleType = match[1] + match[2];  // Capture the rule type (e.g., go_library, py_binary)
-            const targetName = match[3];  // Capture the target name
-            targets.push({ name: targetName, ruleType });
-        }
-
-        return targets;
-    }
-
-    public static async fetchTargetsFromPathRecursively(rootDirectoryPath: string, cwd: string, targetTypes: string[]): Promise<{ name: string, ruleType: string, bazelPath: string }[]> {
-        const targets: { name: string, ruleType: string, bazelPath: string }[] = [];
-
-        async function traverse(directoryPath: string) {
-            const directory = path.join(cwd, directoryPath);
-
-            let entries: fs.Dirent[];
-            try {
-                entries = await fs.promises.readdir(directory, { withFileTypes: true });
-            } catch (error) {
-                Console.error(`Error reading directory: ${directory}`, error);
-                return;
-            }
-
-            // Collect all promises for fetching targets and traversing subdirectories
-            const subdirPromises: Promise<void>[] = [];
-
-            try {
-                // Fetch targets from the current directory
-                const dirTargetsPromise = BazelService.fetchTargetsFromPath(directoryPath, cwd, targetTypes);
-                const dirTargets = await dirTargetsPromise;
-                targets.push(...dirTargets);
-            } catch (error) {
-                Console.error(`Error fetching targets from: ${directoryPath}`, error);
-            }
-
-            // Traverse subdirectories in parallel
-            for (const entry of entries) {
-                if (entry.isDirectory()) {
-                    // Skip Bazel output directories and hidden directories
-                    if (['bazel-bin', 'bazel-out', 'bazel-testlogs', 'node_modules', '.git'].includes(entry.name)) {
-                        continue;
-                    }
-                    const subdirPath = path.join(directoryPath, entry.name);
-                    subdirPromises.push(traverse(subdirPath)); // Queue subdirectory traversal in parallel
-                }
-            }
-
-            // Wait for all subdirectory traversals to complete
-            await Promise.all(subdirPromises);
-        }
-
-        await traverse(rootDirectoryPath);
-        return targets;
-    }
-
-
-    public static async fetchTargetsFromPath(directoryPath: string, cwd: string, targetTypes: string[]): Promise<{ name: string, ruleType: string, bazelPath: string }[]> {
-        const directory = path.join(cwd, directoryPath);
-        const buildFilePaths = [path.join(directory, 'BUILD'), path.join(directory, 'BUILD.bazel')];
-
-        for (const buildFilePath of buildFilePaths) {
-            try {
-                // Using fs.promises.stat to check file existence asynchronously
-                await fs.promises.stat(buildFilePath);
-                const data = await fs.promises.readFile(buildFilePath, 'utf8');
-                return BazelService.extractTargetsFromFile(data, targetTypes, directoryPath);
-            } catch (error) {
-                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {  // Ignore if file does not exist
-                    Console.error(`Error reading build file: ${buildFilePath}`, error);
-                    return Promise.reject(error);
-                }
-            }
-        }
-
-        return [];
-    }
-
-    public static async fetchTargetsFromPaths(directoryPaths: string[], cwd: string, targetTypes: string[]): Promise<{ name: string, ruleType: string, bazelPath: string }[]> {
-        const targetPromises = directoryPaths.map(directoryPath =>
-            BazelService.fetchTargetsFromPath(directoryPath, cwd, targetTypes)
-        );
-
-        const targetResults = await Promise.all(targetPromises);
-        return targetResults.flat();  // Flatten the array of arrays
-    }
-
-    private static extractTargetsFromFile(buildFileContent: string, targetTypes: string[], directoryPath: string): { name: string, ruleType: string, bazelPath: string }[] {
-        const targets: { name: string, ruleType: string, bazelPath: string }[] = [];
-
-        // A more flexible regex to capture Bazel rules (ruleType(name=...)
-        const targetRegex = /(\w+)\s*\(\s*((?:.|\n)*?)\)/g; // Match rule with its arguments (multi-line and complex)
-        let match;
-
-        while ((match = targetRegex.exec(buildFileContent)) !== null) {
-            const ruleType = match[1]; // Capture rule type (e.g., go_binary, cc_library)
-            const argsContent = match[2]; // Capture arguments inside the parentheses
-
-            // Check if ruleType matches any in the targetTypes array or if targetTypes is empty (include all)
-            if (targetTypes.length === 0 || targetTypes.includes(ruleType)) {
-                // Find the name parameter within the arguments (ensure it is not commented out)
-                const nameMatch = /name\s*=\s*["']([^"']+)["']/m.exec(argsContent);
-                if (nameMatch) {
-                    const targetName = nameMatch[1];
-                    // Construct the fully qualified bazel path
-                    const normalizedDir = directoryPath.replace(/\\/g, '/'); // Normalize Windows paths
-                    const bazelPath = `//${normalizedDir}:${targetName}`;
-                    targets.push({ name: targetName, ruleType, bazelPath });
-                }
-            }
-        }
-
-        return targets;
-    }
-
     public static inferLanguageFromRuleType(ruleType: string): string | undefined {
         // Check for Go-related rules
         if (ruleType.includes('go_')) {
@@ -501,4 +346,121 @@ export class BazelService {
 
         return 'unknown';  // Default case if no known rule types are found
     }
+
+    /**
+     * Extracts the Bazel target from a source file path.
+     * Dynamically determines the target name by inspecting the BUILD file.
+     * @param sourceFilePath - The full path to the test file.
+     * @returns The Bazel target as a string, or throws an error if extraction fails.
+     */
+    public static extractBazelTargetsAssociatedWithSourceFile(sourceFilePath: string): BazelTarget[] {
+        // Get the directory of the current file
+        const dir = path.dirname(sourceFilePath);
+
+        // Find the Bazel workspace root
+        const workspacePath = this.findWorkspaceRoot(dir);
+        if (!workspacePath) {
+            throw new Error('Could not find Bazel workspace');
+        }
+
+        // Compute the relative path to the package within the workspace
+        const relativePath = path.relative(workspacePath, dir);
+        if (!relativePath) {
+            throw new Error('Could not compute relative path');
+        }
+
+        // Find the test target in the BUILD file
+        const targetNames = this.getTargetsFromBuildFile(dir, sourceFilePath);
+        if (!targetNames) {
+            throw new Error('Could not find any targets in the BUILD file');
+        }
+
+        // Build the full Bazel target
+        return targetNames.map((target) => {
+            return {
+                label: target.targetName,
+                ruleType: target.ruleType,
+                bazelPath: `//${relativePath}:${target.targetName}`,
+                buildPath: path.join(BAZEL_BIN, ...relativePath.split('/'), target.targetName || '')
+            } as BazelTarget;
+        });
+    }
+
+    /**
+     * Finds the Bazel workspace root by searching for the `WORKSPACE` file.
+     * @param currentDir - The directory to start searching from.
+     * @returns The Bazel workspace root path as a string, or null if not found.
+     */
+    private static findWorkspaceRoot(currentDir: string): string | null {
+        let dir = currentDir;
+
+        const forever = true;
+        while (forever) {
+            if (fs.existsSync(path.join(dir, 'WORKSPACE'))) {
+                return dir;
+            }
+
+            const parentDir = path.dirname(dir);
+            if (parentDir === dir) {
+                // Reached the root directory
+                return null;
+            }
+
+            dir = parentDir;
+        }
+        return null;
+    }
+
+    /**
+     * Parses the BUILD file in the given directory to find all targets that include the specified file in their sources.
+     * Extracts both the Bazel rule type and the target name.
+     * @param dir - The directory containing the BUILD file.
+     * @param filePath - The full path to the file whose targets we want to find.
+     * @returns An array of objects with `ruleType` and `targetName`, or an empty array if no matching targets are found.
+     */
+    private static getTargetsFromBuildFile(dir: string, filePath: string): { ruleType: string; targetName: string }[] {
+        const buildFileNames = ['BUILD', 'BUILD.bazel'];
+        let buildFilePath: string | null = null;
+
+        // Find the BUILD file in the directory
+        for (const buildFileName of buildFileNames) {
+            const candidatePath = path.join(dir, buildFileName);
+            if (fs.existsSync(candidatePath)) {
+                buildFilePath = candidatePath;
+                break;
+            }
+        }
+
+        if (!buildFilePath) {
+            return []; // No BUILD file found
+        }
+
+        // Read the BUILD file content
+        const buildFileContent = fs.readFileSync(buildFilePath, 'utf8');
+        const fileName = path.basename(filePath);
+
+        // Updated regex to capture rule type, target name, and `srcs` attribute content
+        const regex = new RegExp(
+            '(\\w+)\\s*\\(\\s*name\\s*=\\s*"(.*?)".*?srcs\\s*=\\s*\\[([^\\]]*?)\\]',
+            'gs'
+        );
+
+        const matches: { ruleType: string; targetName: string }[] = [];
+        let match;
+
+        while ((match = regex.exec(buildFileContent)) !== null) {
+            const ruleType = match[1]; // The type of the Bazel rule (e.g., go_test)
+            const targetName = match[2]; // The name of the target
+            const srcsContent = match[3]; // The content of the `srcs` attribute
+
+            // Check if the file name is in the `srcs` list
+            const srcRegex = new RegExp(`["']${fileName}["']`);
+            if (srcRegex.test(srcsContent)) {
+                matches.push({ ruleType, targetName });
+            }
+        }
+
+        return matches; // Return all matching rule types and target names
+    }
+
 }

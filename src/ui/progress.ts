@@ -124,7 +124,8 @@ export async function showProgressStatus<T>(
 export async function showProgress<T>(
     title: string,
     longMethod: (token: vscode.CancellationToken) => Promise<T>,
-    cancellationSource?: vscode.CancellationTokenSource
+    cancellationSource?: vscode.CancellationTokenSource,
+    quiet = false
 ): Promise<T> {
 
     if (cancellationSource === undefined) {
@@ -133,14 +134,18 @@ export async function showProgress<T>(
 
     const longMethodPromise = longMethod(cancellationSource.token);
 
+
     // Start both the status bar and progress window
     const statusPromise = showProgressStatus(title, longMethodPromise, cancellationSource);
-    const progressWindowPromise = showProgressWindow(title, longMethodPromise, cancellationSource);
-
+    const promises = [statusPromise];
+    if (!quiet) {
+        const progressWindowPromise = showProgressWindow(title, longMethodPromise, cancellationSource);
+        promises.push(progressWindowPromise);
+    }
     // Ensure that cancellation or completion of one cancels/cleans up the other
     try {
-        const result = await Promise.all([statusPromise, progressWindowPromise]);
-        return result[1]; // Return the actual result
+        const result = await Promise.all(promises);
+        return result[0]; // Return the actual result
     } catch (error) {
         cancellationSource.cancel(); // Ensure both are canceled
         throw error;

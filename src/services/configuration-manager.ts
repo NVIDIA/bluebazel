@@ -174,7 +174,7 @@ export class ConfigurationManager {
         }
     }
 
-    public isBuildBeforeLaunch(): boolean
+    public shouldBuildBeforeLaunch(): boolean
     {
         const config = this.getConfig();
         const res = config.get<boolean>('buildAtRun');
@@ -205,4 +205,23 @@ export class ConfigurationManager {
         else
             return res;
     }
+
+    public shouldRefreshTargetsOnFileChange(): boolean
+    {
+        const config = this.getConfig();
+        const res = config.get<boolean>('refreshTargetsOnFileChange');
+        if (res === undefined)
+            return false;
+        else
+            return res;
+    }
+
+    public getRefreshTargetsTimeoutMs(): number {
+        const result = this.getConfig().get<number>('refreshTargetsTimeoutMs');
+        if (result !== undefined) {
+            return result;
+        }
+        return 0;
+    }
+
 }

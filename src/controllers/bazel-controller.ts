@@ -32,6 +32,7 @@ import { TaskService } from '../services/task-service';
 import { WorkspaceService } from '../services/workspace-service';
 import { BazelTargetTreeProvider, BazelTreeElement } from '../ui/bazel-target-tree-provider';
 import { showProgress } from '../ui/progress';
+import { time } from 'console';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -45,20 +46,14 @@ export class BazelController {
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTreeProvider: BazelTargetTreeProvider
     ) {
-        fileWatcherService.watch('**/BUILD{,.bazel}',
-            (uri) => {
-                Console.log(`BUILD file created: ${uri.fsPath}`);
-                this.refreshAvailableTargets(uri);
-            },
-            (uri) => {
-                Console.log(`BUILD file changed: ${uri.fsPath}`);
-                this.refreshAvailableTargets(uri);
-            },
-            (uri) => {
-                Console.log(`BUILD file deleted: ${uri.fsPath}`);
-                this.refreshAvailableTargets(uri);
-            }
-        );
+        if (this.configurationManager.shouldRefreshTargetsOnFileChange()) {
+            fileWatcherService.watch('**/BUILD{,.bazel}',
+                (affectedFiles: string[]) => {
+                    Console.log(`BUILD files affected: ${affectedFiles.length}`);
+                    this.refreshAvailableTargets(affectedFiles);
+                }
+            );
+        }
         this.refreshAvailableTargets().catch(error => {
             vscode.window.showErrorMessage(`Cannot update available targets: ${error}`);
         });
@@ -115,19 +110,20 @@ export class BazelController {
         });
     }
 
-    public async refreshAvailableTargets(uri?: vscode.Uri): Promise<void> {
+    public async refreshAvailableTargets(affectedFiles?: string[]): Promise<void> {
         // TODO: In the future, use uri to only update the available targets based on
         // uri if present in an append mode.
         return showProgress('Updating available targets', async (cancellationToken) => {
             try {
-                const targets = await this.bazelService.fetchAllTargetsByAction(cancellationToken);
+                const timeoutMs = this.configurationManager.getRefreshTargetsTimeoutMs();
+                const targets = await this.bazelService.fetchAllTargetsByAction(cancellationToken, timeoutMs);
                 await this.bazelTargetManager.updateAvailableTargets(targets);
                 vscode.window.showInformationMessage('Updated available targets');
             } catch (error) {
                 Console.error(error);
                 return Promise.reject(error);
             }
-        });
+        }, undefined, true);
     }
 
     public onTreeSelectionChanged(event: vscode.TreeViewSelectionChangeEvent<BazelTreeElement>) {

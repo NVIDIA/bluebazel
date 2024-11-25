@@ -47,9 +47,9 @@ export class TestController implements BazelTargetController {
             return;
         }
 
-        const taskLabel = `${target.action} ${target.buildPath}`;
+        const taskLabel = `${target.action} ${target.bazelPath}`;
 
-        return showProgress(`${capitalizeFirstLetter(target.action)}ing ${target.buildPath}`, async (cancellationToken) => {
+        return showProgress(`${capitalizeFirstLetter(target.action)}ing ${target.bazelPath}`, async (cancellationToken) => {
             try {
                 this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
                 await this.taskService.runTask(taskLabel, testCommand,
@@ -74,7 +74,7 @@ export class TestController implements BazelTargetController {
         const envVars = EnvVarsUtils.toTestEnvVars(target.getEnvVars().toStringArray());
         const testArgs = target.getRunArgs();
 
-        const bazelTarget = target.buildPath;
+        const bazelTarget = target.bazelPath;
         const command = cleanAndFormat(
             executable,
             'test',
