@@ -24,14 +24,12 @@
 
 import { BazelTargetController } from './bazel-target-controller';
 import { BuildController } from './build-controller';
-import { BazelEnvironment } from '../../models/bazel-environment';
+import { LanguageRegistry } from '../../languages/language-registry';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
-import { AttachConfigService } from '../../services/attach-config-service';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
-import { LaunchConfigService } from '../../services/launch-config-service';
 import { getAvailablePort, waitForPort } from '../../services/network-utils';
 import { cleanAndFormat } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
@@ -42,23 +40,18 @@ import * as vscode from 'vscode';
 
 
 export class DebugController implements BazelTargetController {
-    private attachConfigService: AttachConfigService;
-    private launchConfigService: LaunchConfigService;
 
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
         private readonly bazelService: BazelService,
         private readonly buildController: BuildController,
-        bazelEnvironment: BazelEnvironment,
         private readonly bazelTargetStateManager: BazelTargetStateManager
-    ) {
-        this.attachConfigService = new AttachConfigService(context,
-            bazelService,
-            bazelEnvironment.getEnvVars());
-        this.launchConfigService = new LaunchConfigService(context,
-            bazelService,
-            bazelEnvironment.getEnvVars());
+    ) {}
+
+    private async createAttachConfig(target: BazelTarget, port: number): Promise<vscode.DebugConfiguration> {
+        const plugin = LanguageRegistry.getPlugin(target.language);
+        return plugin.createDebugAttachConfig(target, port);
     }
 
     public async execute(target: BazelTarget): Promise<void> {
@@ -161,7 +154,7 @@ export class DebugController implements BazelTargetController {
             // Find an open port
             const port = await getAvailablePort(cancellationToken);
             // Create a debug attach config
-            const config = await this.attachConfigService.createAttachConfig(target, port);
+            const config = await this.createAttachConfig(target, port);
 
             // Get the command to launch the debug server (including the target)
             const runCommand = this.getDebugInBazelCommand(target, port);
@@ -212,7 +205,7 @@ export class DebugController implements BazelTargetController {
             await this.buildController.execute(target);
         }
         return showProgress(`Debugging ${target.action} ${target.buildPath}`, async (cancellationToken) => {
-            const config = await this.launchConfigService.createDirectLaunchConfig(target, cancellationToken);
+            const config = await LanguageRegistry.getPlugin(target.language).createDebugDirectLaunchConfig(target, cancellationToken);
             await vscode.debug.startDebugging(WorkspaceService.getInstance().getWorkspaceFolder(), config);
         });
     }
@@ -222,36 +215,11 @@ export class DebugController implements BazelTargetController {
     }
 
     private static getDebugEnvVars(target: BazelTarget): string[] {
-        switch (BazelService.inferLanguageFromRuleType(target.ruleType)) {
-        case 'cpp':
-            return [];
-        case 'python':
-            return [];
-        case 'go':
-            // This is necessary because bazel tests in go will call bzltestutils.Wrap and
-            // spawn a child process which dlv is not connected to. Turn it off.
-            return target.ruleType.includes('test') ? ['GO_TEST_WRAP=0'] : [];
-        default:
-            return [];
-        }
+        return LanguageRegistry.getPlugin(target.language).getDebugEnvVars(target);
     }
 
     private static getDebugServerCommand(target: BazelTarget, port: number): string {
-        const language = BazelService.inferLanguageFromRuleType(target.ruleType);
-        switch (language) {
-        case 'cpp':
-            // Run under GDB, listening on port
-            return `gdbserver :${port}`;
-        case 'go':
-            // Run under Delve (Go)
-            return `dlv exec --headless --listen=:${port} --api-version=2`;
-        case 'python':
-            throw new Error(`Python is unsupported for debug in bazel (try direct binary in settings): ${target.bazelPath}`);
-            // Run under Debugpy (Python)
-            // return `python3 -m debugpy --listen :${port} --wait-for-client`;
-        default:
-            throw new Error(`Unsupported language ${language} for debug in bazel: ${target.bazelPath}`);
-        }
+        return LanguageRegistry.getPlugin(target.language).getDebugRunUnderCommand(port);
     }
 
 }

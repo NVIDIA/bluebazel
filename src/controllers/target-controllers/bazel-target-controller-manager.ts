@@ -80,7 +80,6 @@ export class BazelTargetControllerManager {
             taskService,
             bazelService,
             buildController,
-            bazelEnvironment,
             bazelTargetStateManager));
 
         // Coverage operates very similar to test, so use test controller

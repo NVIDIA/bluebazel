@@ -21,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { LanguageRegistry } from '../../languages/language-registry';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelService } from '../../services/bazel-service';
 import { Console } from '../../services/console';
@@ -29,17 +30,23 @@ import * as vscode from 'vscode';
 
 export class UnifiedTestCodeLensProvider implements vscode.CodeLensProvider {
 
-    private readonly testRegexes: { language: string; regex: RegExp }[] = [
-        { language: 'go', regex: /^func\s+(Test\w+)\(\w+\s+\*testing\.T\)/gm }, // Go test functions
-        { language: 'cpp', regex: /\b(?:TEST|TEST_F|TYPED_TEST|TYPED_TEST_P)\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s*\)/gm }, // C++/C test macros
-        { language: 'c', regex: /\b(?:TEST|TEST_F|TYPED_TEST|TYPED_TEST_P)\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s*\)/gm }, // C test macros
-        { language: 'python', regex: /(?:^|\s)def\s+(test_\w+)\(/gm }, // Python pytest/unittest functions
-    ];
+    private readonly testRegexes: { language: string; regex: RegExp }[] ;
 
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly bazelService: BazelService
-    ) {}
+    ) {
+        const languages = LanguageRegistry.getLanguages();
+        this.testRegexes = languages.map(language => {
+            try {
+                return {
+                    language: language,
+                    regex: LanguageRegistry.getPlugin(language).getCodeLensTestRegex()};
+            } catch (error) {
+                return undefined;
+            }
+        }).filter(Boolean) as { language: string; regex: RegExp }[];
+    }
 
     provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] {
         const codeLenses: vscode.CodeLens[] = [];

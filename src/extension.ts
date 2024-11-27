@@ -27,6 +27,7 @@ import { registerCommands } from './controllers/command-controller';
 import { BazelTargetControllerManager } from './controllers/target-controllers/bazel-target-controller-manager';
 import { UserCommandsController } from './controllers/user-commands-controller';
 import { WorkspaceEventsController } from './controllers/workspace-events-controller';
+import { registerLanguages } from './languages/language-registry';
 import { BazelActionManager } from './models/bazel-action-manager';
 import { BazelEnvironment } from './models/bazel-environment';
 import { BazelTargetManager } from './models/bazel-target-manager';
@@ -161,6 +162,11 @@ async function initExtension(context: vscode.ExtensionContext) {
     const fileWatcherService = new FileWatcherService(context);
 
     /******
+     * LANGUAGES
+     ******/
+    registerLanguages(context, bazelService, bazelEnvironment);
+
+    /******
      * MODELS
      ******/
     Console.info('Initializing models...');
@@ -183,7 +189,8 @@ async function initExtension(context: vscode.ExtensionContext) {
      * UI
      ******/
     // This is the main tree view provider
-    bazelTargetTreeProvider = new BazelTargetTreeProvider(context, configurationManager, bazelTargetManager, bazelTargetStateManager);
+    bazelTargetTreeProvider = new BazelTargetTreeProvider(context, configurationManager,
+        iconService, bazelTargetManager, bazelTargetStateManager);
     bazelTargetManager.awaitLoading().then(() => bazelTargetTreeProvider.refresh());
 
     // This registers all the code lens that provide actions
