@@ -28,10 +28,11 @@ import { ExtensionUtils } from '../../services/extension-utils';
 import * as vscode from 'vscode';
 
 export class UnifiedTestCodeLensProvider implements vscode.CodeLensProvider {
+
     private readonly testRegexes: { language: string; regex: RegExp }[] = [
         { language: 'go', regex: /^func\s+(Test\w+)\(\w+\s+\*testing\.T\)/gm }, // Go test functions
-        { language: 'cpp', regex: /\b(TEST(?:_F)?)\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s*\)/gm }, // C++ test macros
-        { language: 'c', regex: /\b(TEST(?:_F)?)\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s*\)/gm }, // C test macros
+        { language: 'cpp', regex: /\b(?:TEST|TEST_F|TYPED_TEST|TYPED_TEST_P)\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s*\)/gm }, // C++/C test macros
+        { language: 'c', regex: /\b(?:TEST|TEST_F|TYPED_TEST|TYPED_TEST_P)\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s*\)/gm }, // C test macros
         { language: 'python', regex: /(?:^|\s)def\s+(test_\w+)\(/gm }, // Python pytest/unittest functions
     ];
 

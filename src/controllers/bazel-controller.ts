@@ -54,9 +54,13 @@ export class BazelController {
                 }
             );
         }
-        this.refreshAvailableTargets().catch(error => {
-            vscode.window.showErrorMessage(`Cannot update available targets: ${error}`);
-        });
+
+        if (this.configurationManager.shouldRefreshTargetsOnWorkspaceOpen() ||
+         !this.bazelTargetManager.hasCache()) {
+            this.refreshAvailableTargets().catch(error => {
+                vscode.window.showErrorMessage(`Cannot update available targets: ${error}`);
+            });
+        }
     }
 
     public async format() {

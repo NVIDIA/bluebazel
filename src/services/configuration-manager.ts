@@ -23,8 +23,8 @@
 ////////////////////////////////////////////////////////////////////////////////////
 import { getExtensionDefaultSettings as getDefaultConfiguration, MergedConfiguration } from './configuration-utils';
 import { ExtensionUtils } from './extension-utils';
-import { WorkspaceConfiguration } from 'vscode';
 import * as vscode from 'vscode';
+import { WorkspaceConfiguration } from 'vscode';
 
 export class UserCustomButton {
     title: string;
@@ -210,6 +210,16 @@ export class ConfigurationManager {
     {
         const config = this.getConfig();
         const res = config.get<boolean>('refreshTargetsOnFileChange');
+        if (res === undefined)
+            return false;
+        else
+            return res;
+    }
+
+    public shouldRefreshTargetsOnWorkspaceOpen(): boolean
+    {
+        const config = this.getConfig();
+        const res = config.get<boolean>('refreshTargetsOnWorkspaceOpen');
         if (res === undefined)
             return false;
         else

@@ -16,7 +16,7 @@
     "activationEvents": [
         "workspaceContains:WORKSPACE"
     ],
-    "main": "./out/main.js",
+    "main": "./out/extension.js",
     "contributes": {
         "views": {
             "explorer": [
@@ -322,13 +322,18 @@
                 },
                 "bluebazel.runBinariesDirect": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "description": "Run and debug run targets directly (not under bazel)."
                 },
                 "bluebazel.refreshTargetsTimeoutMs": {
                     "type": "number",
                     "default": 0,
                     "description": "Update available targets timeout in milliseconds. If set to 0, no timeout will occur."
+                },
+                "bluebazel.refreshTargetsOnWorkspaceOpen": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Update available targets when workspace is opened."
                 },
                 "bluebazel.refreshTargetsOnFileChange": {
                     "type": "boolean",
