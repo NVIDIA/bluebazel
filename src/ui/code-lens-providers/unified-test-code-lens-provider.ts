@@ -48,7 +48,7 @@ export class UnifiedTestCodeLensProvider implements vscode.CodeLensProvider {
         }).filter(Boolean) as { language: string; regex: RegExp }[];
     }
 
-    provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] {
+    provideCodeLenses(document: vscode.TextDocument, _token: vscode.CancellationToken): vscode.CodeLens[] {
         const codeLenses: vscode.CodeLens[] = [];
         const text = document.getText();
         const language = document.languageId; // Detect the language of the document

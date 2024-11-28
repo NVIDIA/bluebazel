@@ -32,7 +32,6 @@ import { TaskService } from '../services/task-service';
 import { WorkspaceService } from '../services/workspace-service';
 import { BazelTargetTreeProvider, BazelTreeElement } from '../ui/bazel-target-tree-provider';
 import { showProgress } from '../ui/progress';
-import { time } from 'console';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
