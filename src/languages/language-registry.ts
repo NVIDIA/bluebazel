@@ -60,5 +60,5 @@ export function registerLanguages(context: vscode.ExtensionContext,
 
     LanguageRegistry.registerPlugin(new CppLanguagePlugin(context, bazelService, bazelEnvironment.getEnvVars()));
     LanguageRegistry.registerPlugin(new GoLanguagePlugin(context, bazelService, bazelEnvironment.getEnvVars()));
-    LanguageRegistry.registerPlugin(new PythonLanguagePlugin(context, bazelEnvironment.getEnvVars()));
+    LanguageRegistry.registerPlugin(new PythonLanguagePlugin(context, bazelService, bazelEnvironment.getEnvVars()));
 }

@@ -22,24 +22,27 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 import { BazelTarget } from '../../models/bazel-target';
+import { BazelService } from '../../services/bazel-service';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { LanguagePlugin } from '../language-plugin';
+import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+
 
 
 export class PythonLanguagePlugin implements LanguagePlugin {
     public readonly supportedLanguages: string[];
 
     constructor(private readonly context: vscode.ExtensionContext,
+        private readonly bazelService: BazelService,
         private readonly setupEnvVars: string[]
     ) {
         this.supportedLanguages = ['python'];
     }
 
-    public getDebugRunUnderCommand(port: number): string {
-        throw new Error('python run under is not yet supported');
-        //return `python3 -m debugpy --listen :${port} --wait-for-client`;
+    public getDebugRunUnderCommand(_port: number): string {
+        throw new Error('Python debugpy does not support bazel debugging (try debugging directly)');
     }
 
     public getDebugEnvVars(_target: BazelTarget): string[] {
@@ -48,13 +51,15 @@ export class PythonLanguagePlugin implements LanguagePlugin {
 
     public async createDebugDirectLaunchConfig(
         target: BazelTarget,
-        _cancellationToken?: vscode.CancellationToken
+        cancellationToken?: vscode.CancellationToken
     ): Promise<vscode.DebugConfiguration> {
-        const workingDirectory = '${workspaceFolder}';
-
-        // Resolve the Bazel-built file dynamically
-        const bazelOutputPath = `${workingDirectory}/${target.buildPath}`;
-        const pythonFile = `${bazelOutputPath}.runfiles/_main/${target.buildPath}`; // Generic runfile path
+        let pythonFile = '';
+        try {
+            const runfiles = await this.bazelService.getRunfilesLocation(target, cancellationToken);
+            pythonFile = this.findMainInRunfiles(runfiles);
+        } catch (error) {
+            return Promise.reject(error);
+        }
 
         const args = target.getRunArgs().toString();
         const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
@@ -67,12 +72,12 @@ export class PythonLanguagePlugin implements LanguagePlugin {
             args: args.length > 0 ? args.split(' ') : [],
             pathMappings: [
                 {
-                    localRoot: `${workingDirectory}/${path.dirname(target.buildPath)}`, // Directory containing the local source
-                    remoteRoot: `${bazelOutputPath}.runfiles/_main/${path.dirname(target.buildPath)}` // Remote Bazel runfiles directory
+                    localRoot: '${workspaceFolder}', // Directory containing the local source
+                    remoteRoot: '.' // Remote Bazel runfiles directory
                 }
             ],
             stopOnEntry: false,
-            cwd: workingDirectory,
+            cwd: '${workspaceFolder}',
             env: { ...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars },
             console: 'integratedTerminal',
             justMyCode: true
@@ -102,5 +107,36 @@ export class PythonLanguagePlugin implements LanguagePlugin {
     public getCodeLensTestRegex(): RegExp {
         return /(?:^|\s)def\s+(test_\w+)\(/gm;
     }
+
+    private findMainInRunfiles(runfilesPath: string): string {
+        const files = fs.readdirSync(runfilesPath);
+
+        for (const file of files) {
+            const fullPath = path.join(runfilesPath, file);
+            const stat = fs.statSync(fullPath);
+            if (stat.isDirectory()) {
+                try {
+                    // Recursively search subdirectories
+                    const mainFile = this.findMainInRunfiles(fullPath);
+                    if (mainFile) {
+                        return mainFile;
+                    }
+                } catch (error) {
+                    // Continue searching other branches
+                }
+            } else if (file.endsWith('.py')) {
+                // Check if the file contains `if __name__ == "__main__"`
+                const content = fs.readFileSync(fullPath, 'utf-8');
+                if (content.includes('if __name__ == "__main__"')) {
+                    console.log(`Main function found in: ${fullPath}`);
+                    return fullPath;
+                }
+            }
+        }
+
+        // If no match found in this branch, throw an error
+        throw new Error('No Python file with \'if __name__ == "__main__"\' found');
+    }
+
 
 }

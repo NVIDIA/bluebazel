@@ -29,6 +29,7 @@ import { WorkspaceService } from './workspace-service';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 
 export const BAZEL_BIN = 'bazel-bin';
@@ -461,6 +462,29 @@ export class BazelService {
         }
 
         return matches; // Return all matching rule types and target names
+    }
+
+    public async getRunfilesLocation(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<string> {
+        try {
+            const executable = this.configurationManager.getExecutableCommand();
+
+            // Create a temporary file for the script path
+            const tmpFile = tmp.fileSync();
+            const tmpFilePath = tmpFile.name;
+
+            // Run the Bazel command and extract the runfiles location
+            const command = `${executable} run ${target.bazelPath} --script_path=${tmpFilePath} && grep -oP "(?<=cd ).*\\.runfiles" ${tmpFilePath}`;
+            const data = await this.shellService.runShellCommand(command, cancellationToken);
+
+            // Clean up the temporary file
+            tmpFile.removeCallback();
+
+            // Return the runfiles location
+            return data.stdout.trim();
+        } catch (error) {
+            console.error('Error getting runfiles location', error);
+            return Promise.reject(error);
+        }
     }
 
 }
