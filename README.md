@@ -116,7 +116,6 @@ A custom button configuration has the following syntax:
 "bluebazel.customButtons": [
     {
         "title": "MyCustomSection",
-        "collapsed": false,
         "buttons": [
             {
                 "title": "MyCustomButton",
@@ -143,7 +142,6 @@ Note that commands in custom buttons can call the shell commands. Here is an exa
 "bluebazel.customButtons": [
     {
         "title": "MyCustomSection",
-        "collapsed": false,
         "buttons": [
             {
                 "title": "Echo something",
@@ -195,7 +193,6 @@ This example illustrates the `Test` button:
 "bluebazel.customButtons": [
     {
         "title": "Run",
-        "collapsed": true,
         "buttons": [
             {
                 "title": "Test",

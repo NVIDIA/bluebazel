@@ -23,6 +23,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelService } from '../../services/bazel-service';
+import { Console } from '../../services/console';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { LanguagePlugin } from '../language-plugin';
 import * as fs from 'fs';
@@ -128,7 +129,7 @@ export class PythonLanguagePlugin implements LanguagePlugin {
                 // Check if the file contains `if __name__ == "__main__"`
                 const content = fs.readFileSync(fullPath, 'utf-8');
                 if (content.includes('if __name__ == "__main__"')) {
-                    console.log(`Main function found in: ${fullPath}`);
+                    Console.log(`Main function found in: ${fullPath}`);
                     return fullPath;
                 }
             }

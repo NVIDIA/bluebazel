@@ -215,7 +215,7 @@ async function initExtension(context: vscode.ExtensionContext) {
 
     // The workspace events controller monitors for workspace events and triggers appropriate logic
     // when those events fire.
-    workspaceEventsController = new WorkspaceEventsController(context, bazelTargetTreeProvider);
+    workspaceEventsController = new WorkspaceEventsController(context, configurationManager, userCommandsController, bazelTargetTreeProvider);
 
     // The bazel target controller manager manages all of the bazel target controllers (all the bazel action controllers).
     bazelTargetControllerManager = new BazelTargetControllerManager(context,

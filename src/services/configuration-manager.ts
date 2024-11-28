@@ -23,8 +23,9 @@
 ////////////////////////////////////////////////////////////////////////////////////
 import { getExtensionDefaultSettings as getDefaultConfiguration, MergedConfiguration } from './configuration-utils';
 import { ExtensionUtils } from './extension-utils';
-import * as vscode from 'vscode';
+import { createHashFromIds } from './string-utils';
 import { WorkspaceConfiguration } from 'vscode';
+import * as vscode from 'vscode';
 
 export class UserCustomButton {
     title: string;
@@ -43,7 +44,7 @@ export class UserCustomButton {
         this.description = data.description;
         this.tooltip = data.tooltip;
         this.methodName = data.methodName;
-        this.id = `${this.title}`;
+        this.id = this.methodName;
     }
 
     // Method for deflating the object to configuration (serialization)
@@ -70,7 +71,8 @@ export class UserCustomCategory {
         this.title = data.title;
         this.buttons = data.buttons.map(buttonData => new UserCustomButton(buttonData));
         this.icon = data.icon;
-        this.id = this.title;
+        const buttonHash = createHashFromIds(this.buttons);
+        this.id = `${this.title}-${buttonHash}`;
     }
 
     // Method for deflating the object to configuration (serialization)

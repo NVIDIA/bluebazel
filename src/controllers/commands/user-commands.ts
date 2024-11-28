@@ -23,11 +23,12 @@
 ////////////////////////////////////////////////////////////////////////////////////
 
 import { ConfigurationManager, UserCustomButton } from '../../services/configuration-manager';
+import { Console } from '../../services/console';
 import { ExtensionUtils } from '../../services/extension-utils';
 import { UserCommandsController } from '../user-commands-controller';
 import * as vscode from 'vscode';
 
-export function registerUserCommands(context: vscode.ExtensionContext,
+export function registerCustomButtons(context: vscode.ExtensionContext,
     configurationManager: ConfigurationManager,
     userCommandsController: UserCommandsController
 ): void {
@@ -40,13 +41,24 @@ export function registerUserCommands(context: vscode.ExtensionContext,
         const buttons = section.buttons;
         if (buttons !== undefined) {
             buttons.forEach(button => {
-                const disposableCommand = vscode.commands.registerCommand(button.methodName, async (command: string) => {
-                    await userCommandsController.runCustomTask(command);
-                });
-                context.subscriptions.push(disposableCommand);
+                try {
+                    const disposableCommand = vscode.commands.registerCommand(button.methodName, async (command: string) => {
+                        await userCommandsController.runCustomTask(command);
+                    });
+                    context.subscriptions.push(disposableCommand);
+                } catch (error) {
+                    Console.error(error);
+                }
             });
         }
     });
+}
+
+export function registerUserCommands(context: vscode.ExtensionContext,
+    configurationManager: ConfigurationManager,
+    userCommandsController: UserCommandsController
+): void {
+    registerCustomButtons(context, configurationManager, userCommandsController);
 
     const extensionName = ExtensionUtils.getExtensionName(context);
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.customButton`, (button: UserCustomButton) => {

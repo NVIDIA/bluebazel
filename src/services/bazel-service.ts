@@ -482,7 +482,7 @@ export class BazelService {
             // Return the runfiles location
             return data.stdout.trim();
         } catch (error) {
-            console.error('Error getting runfiles location', error);
+            Console.error('Error getting runfiles location', error);
             return Promise.reject(error);
         }
     }

@@ -270,7 +270,6 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         if (category.icon !== undefined && category.icon.length > 0) {
             item.iconPath = new vscode.ThemeIcon(category.icon);
         }
-        item.id = category.id;
         return item;
     }
 

@@ -21,31 +21,26 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { registerCustomButtons } from './commands/user-commands';
+import { UserCommandsController } from './user-commands-controller';
+import { ConfigurationManager } from '../services/configuration-manager';
 import { ExtensionUtils } from '../services/extension-utils';
 import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
 import * as vscode from 'vscode';
 
 export class WorkspaceEventsController {
-    constructor(private context: vscode.ExtensionContext, private bazelTree: BazelTargetTreeProvider) {
+    constructor(private context: vscode.ExtensionContext,
+        private readonly configurationManager: ConfigurationManager,
+        private readonly userCommandsController: UserCommandsController,
+        private readonly bazelTree: BazelTargetTreeProvider) {
         this.registerConfigurationChangeHandler();
     }
 
     private registerConfigurationChangeHandler() {
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration(ExtensionUtils.getExtensionName(this.context))) {
+                registerCustomButtons(this.context, this.configurationManager, this.userCommandsController);
                 this.bazelTree.refresh();
-
-                const action = 'Reload';
-                vscode.window
-                    .showInformationMessage(
-                        'Reload window in order for changes in bazel extension configuration to take effect.',
-                        action
-                    )
-                    .then(selectedAction => {
-                        if (selectedAction === action) {
-                            vscode.commands.executeCommand('workbench.action.reloadWindow');
-                        }
-                    });
             }
         });
     }

@@ -39,3 +39,19 @@ export function capitalizeFirstLetter(str: string): string {
     }
     return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+export function createHashFromIds(elements: { id: string }[]): string {
+    // Combine all IDs into a single string
+    const combinedIds = elements.map(element => element.id).join(',');
+
+    // Generate a simple hash using a checksum approach
+    let hash = 0;
+    for (let i = 0; i < combinedIds.length; i++) {
+        const char = combinedIds.charCodeAt(i);
+        hash = (hash << 5) - hash + char; // Bitwise operations for hashing
+        hash |= 0; // Convert to 32-bit integer
+    }
+
+    // Convert the hash to a hexadecimal string
+    return hash.toString(16);
+}
