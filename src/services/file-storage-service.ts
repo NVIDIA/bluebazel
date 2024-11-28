@@ -162,11 +162,11 @@ export class FileStorageService {
     }
 
     /**
-     * Checks if a file exists asynchronously.
+     * Checks if a file exists.
      * @param fileName The name of the file to check for.
      * @returns True if the file exists, false otherwise.
      */
-    public async fileExists(fileName: string): Promise<boolean> {
+    public fileExists(fileName: string): boolean {
         if (!this.storagePath) {
             vscode.window.showErrorMessage('Cannot check file: No workspace opened.');
             return false;

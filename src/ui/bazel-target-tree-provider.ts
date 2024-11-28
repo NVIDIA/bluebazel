@@ -29,6 +29,7 @@ import { BazelTargetProperty } from '../models/bazel-target-property';
 import { BazelTargetState, BazelTargetStateManager } from '../models/bazel-target-state-manager';
 import { ConfigurationManager, UserCustomButton, UserCustomCategory as UserCustomCategory } from '../services/configuration-manager';
 import { ExtensionUtils } from '../services/extension-utils';
+import { IconService } from '../services/icon-service';
 import { capitalizeFirstLetter } from '../services/string-utils';
 import * as vscode from 'vscode';
 
@@ -77,6 +78,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
 
     constructor(private context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
+        private readonly iconService: IconService,
         private readonly bazelTargetManager: BazelTargetManager,
         private readonly bazelTargetStateManager: BazelTargetStateManager
     ) {
@@ -221,6 +223,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
 
         treeItem.contextValue = this.formatTargetContextValue(element, targetState);
         treeItem.id = element.id;
+        treeItem.iconPath = this.iconService.getIcon(element.language);
         treeItem.label = element.label;
         treeItem.tooltip = `${element.action} ${this.configurationManager.shouldRunBinariesDirect() ? element.buildPath : element.bazelPath}`;
         const selectedTarget = this.bazelTargetManager.getSelectedTarget(element.action);
@@ -267,7 +270,6 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         if (category.icon !== undefined && category.icon.length > 0) {
             item.iconPath = new vscode.ThemeIcon(category.icon);
         }
-        item.id = category.id;
         return item;
     }
 

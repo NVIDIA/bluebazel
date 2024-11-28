@@ -69,8 +69,13 @@ export class BazelTargetManager {
         this.availableTargetsLoaded = this.loadAvailableTargets(this.availableTargetsLoadCancellationSource.token).then(() => {
             Console.log('Available targets loaded successfully');
         }).catch(error => {
-            Console.error('Error loading targets:', error);
+            this.fileStorageService.deleteFile(this.availableTargetsFileName);
+            Console.error('Error loading available targets:', error);
         });
+    }
+
+    public hasCache(): boolean {
+        return this.fileStorageService.fileExists(this.availableTargetsFileName);
     }
 
     public async areAvailableTargetsLoaded(): Promise<boolean> {
@@ -87,7 +92,7 @@ export class BazelTargetManager {
 
     // Make loadAvailableTargets async
     private async loadAvailableTargets(cancellationToken?: vscode.CancellationToken): Promise<void> {
-        await this.fileStorageService.readJsonArrayElementsFromFileAsStream<SerializedBazelTarget>(this.availableTargetsFileName, (path, value) => {
+        return this.fileStorageService.readJsonArrayElementsFromFileAsStream<SerializedBazelTarget>(this.availableTargetsFileName, (path, value) => {
             const action = path[0] as string;
             const targets = this.availableTargets.get(action) || [];
             targets.push(BazelTarget.fromJSON(this.context, this.bazelService, value));

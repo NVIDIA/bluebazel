@@ -21,27 +21,20 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import { registerCustomButtons } from './commands/user-commands';
-import { UserCommandsController } from './user-commands-controller';
-import { ConfigurationManager } from '../services/configuration-manager';
-import { ExtensionUtils } from '../services/extension-utils';
-import { BazelTargetTreeProvider } from '../ui/bazel-target-tree-provider';
+import { BazelTarget } from '../models/bazel-target';
 import * as vscode from 'vscode';
 
-export class WorkspaceEventsController {
-    constructor(private context: vscode.ExtensionContext,
-        private readonly configurationManager: ConfigurationManager,
-        private readonly userCommandsController: UserCommandsController,
-        private readonly bazelTree: BazelTargetTreeProvider) {
-        this.registerConfigurationChangeHandler();
-    }
 
-    private registerConfigurationChangeHandler() {
-        vscode.workspace.onDidChangeConfiguration((e) => {
-            if (e.affectsConfiguration(ExtensionUtils.getExtensionName(this.context))) {
-                registerCustomButtons(this.context, this.configurationManager, this.userCommandsController);
-                this.bazelTree.refresh();
-            }
-        });
-    }
+export interface LanguagePlugin {
+    supportedLanguages: string[];
+
+    getDebugRunUnderCommand(port: number): string;
+
+    getDebugEnvVars(target: BazelTarget): string[]
+
+    createDebugDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration>;
+
+    createDebugAttachConfig(target: BazelTarget, port: number, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration>;
+
+    getCodeLensTestRegex(): RegExp;
 }

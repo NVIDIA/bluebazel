@@ -5,7 +5,7 @@ This extension provides integration into Visual Studio Code for building, runnin
 
 ![Demo of Blue Bazel Debug](images/demo_debug.gif)
 
-![Screenshot of Blue Bazel](images/screenshot.png)
+![Screenshot of Blue Bazel](images/screenshot.png)![Screenshot of Blue Bazel Test Code Lens](images/test_codelens_screenshot.png)
 
 Follow the steps to install the extension:
 
@@ -116,7 +116,6 @@ A custom button configuration has the following syntax:
 "bluebazel.customButtons": [
     {
         "title": "MyCustomSection",
-        "collapsed": false,
         "buttons": [
             {
                 "title": "MyCustomButton",
@@ -143,7 +142,6 @@ Note that commands in custom buttons can call the shell commands. Here is an exa
 "bluebazel.customButtons": [
     {
         "title": "MyCustomSection",
-        "collapsed": false,
         "buttons": [
             {
                 "title": "Echo something",
@@ -195,7 +193,6 @@ This example illustrates the `Test` button:
 "bluebazel.customButtons": [
     {
         "title": "Run",
-        "collapsed": true,
         "buttons": [
             {
                 "title": "Test",

@@ -38,3 +38,13 @@ Add code lens actions to some language unit tests (run test and debug test).
 Fix bug that caused multiple refresh targets to fire when multiple BUILD files were changed at once (usually a git operation).
 Add option to not refresh targets automatically when BUILD files change as it is still experimental.
 Add optional timeout in milliseconds to refresh targets.
+
+## 1.0.2
+
+Change loading of available targets so if cache exists, do no load targets.
+Make refreshing targets on workspace open optional.
+Fix regex for c/c++ test code lens provider.
+Add plugin support for languages.
+Add debug direct support for python.
+Python debugging with bazel run_under does not work because debugpy cannot work with os.execv. This is called when py_binary builds a wrapper around the src files in the py_binary.
+Allow for no reload when custom buttons are created.

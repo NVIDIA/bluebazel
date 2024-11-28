@@ -2,7 +2,7 @@
     "name": "bluebazel",
     "displayName": "Blue Bazel",
     "description": "Bazel vscode UI integration to build, debug, and test targets",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "engines": {
         "vscode": "^1.85.2"
     },
@@ -302,8 +302,53 @@
             "properties": {
                 "bluebazel.customButtons": {
                     "type": "array",
-                    "default": [],
-                    "description": "List of custom commands"
+                    "description": "Define custom buttons for BlueBazel.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string",
+                                "description": "Title of the custom button group."
+                            },
+                            "buttons": {
+                                "type": "array",
+                                "description": "List of buttons in the group.",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "title": {
+                                            "type": "string",
+                                            "description": "Title of the button."
+                                        },
+                                        "command": {
+                                            "type": "string",
+                                            "description": "The shell command to execute when the button is clicked."
+                                        },
+                                        "description": {
+                                            "type": "string",
+                                            "description": "A description of the button's purpose."
+                                        },
+                                        "tooltip": {
+                                            "type": "string",
+                                            "description": "Tooltip text for the button."
+                                        },
+                                        "methodName": {
+                                            "type": "string",
+                                            "description": "The method to call when the button is clicked."
+                                        }
+                                    },
+                                    "required": [
+                                        "title",
+                                        "command"
+                                    ]
+                                }
+                            }
+                        },
+                        "required": [
+                            "title",
+                            "buttons"
+                        ]
+                    }
                 },
                 "bluebazel.buildAtRun": {
                     "type": "boolean",
@@ -322,13 +367,18 @@
                 },
                 "bluebazel.runBinariesDirect": {
                     "type": "boolean",
-                    "default": true,
+                    "default": false,
                     "description": "Run and debug run targets directly (not under bazel)."
                 },
                 "bluebazel.refreshTargetsTimeoutMs": {
                     "type": "number",
                     "default": 0,
                     "description": "Update available targets timeout in milliseconds. If set to 0, no timeout will occur."
+                },
+                "bluebazel.refreshTargetsOnWorkspaceOpen": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Update available targets when workspace is opened."
                 },
                 "bluebazel.refreshTargetsOnFileChange": {
                     "type": "boolean",
@@ -357,42 +407,27 @@
                 },
                 "bluebazel.shellCommands": {
                     "type": "array",
-                    "default": [
-                        {
-                            "name": "sampleRunHelper",
-                            "command": "echo '${bluebazel.runTarget}'"
+                    "description": "Define custom shell commands for BlueBazel.",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Name of the shell command."
+                            },
+                            "command": {
+                                "type": "string",
+                                "description": "The actual shell command."
+                            }
                         },
-                        {
-                            "name": "sampleRun",
-                            "command": "${bluebazel.executable} run <sampleRunHelper>"
-                        }
-                    ]
-                }
-            }
-        },
-        "problemMatchers": [
-            {
-                "name": "dlv-ready",
-                "owner": "custom",
-                "fileLocation": [
-                    "relative",
-                    "."
-                ],
-                "pattern": [
-                    {
-                        "regexp": "API server listening at (.+)",
-                        "file": 1,
-                        "message": 0,
-                        "line": 0
+                        "required": [
+                            "name",
+                            "command"
+                        ]
                     }
-                ],
-                "background": {
-                    "activeOnStart": true,
-                    "beginsPattern": "Running command line",
-                    "endsPattern": "API server listening at"
                 }
             }
-        ]
+        }
     },
     "scripts": {
         "vscode:prepublish": "npm run compile && npm run esbuild-base -- --minify",

@@ -85,6 +85,7 @@ export class UserCommandsController {
         const result = value.replace(pattern, '--test_arg $1');
         return result;
     }
+
     private resolveKeyword(keyword: string): string {
         const buildTarget = this.bazelTargetManager.getSelectedTarget('build');
         const runTarget = this.bazelTargetManager.getSelectedTarget('run');

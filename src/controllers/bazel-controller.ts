@@ -32,7 +32,6 @@ import { TaskService } from '../services/task-service';
 import { WorkspaceService } from '../services/workspace-service';
 import { BazelTargetTreeProvider, BazelTreeElement } from '../ui/bazel-target-tree-provider';
 import { showProgress } from '../ui/progress';
-import { time } from 'console';
 import * as path from 'path';
 import * as vscode from 'vscode';
 
@@ -54,9 +53,13 @@ export class BazelController {
                 }
             );
         }
-        this.refreshAvailableTargets().catch(error => {
-            vscode.window.showErrorMessage(`Cannot update available targets: ${error}`);
-        });
+
+        if (this.configurationManager.shouldRefreshTargetsOnWorkspaceOpen() ||
+         !this.bazelTargetManager.hasCache()) {
+            this.refreshAvailableTargets().catch(error => {
+                vscode.window.showErrorMessage(`Cannot update available targets: ${error}`);
+            });
+        }
     }
 
     public async format() {
