@@ -31,6 +31,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as tmp from 'tmp';
 import * as vscode from 'vscode';
+import { Worker } from 'worker_threads';
 
 export const BAZEL_BIN = 'bazel-bin';
 
@@ -157,9 +158,14 @@ export class BazelService {
     }
 
     /**
-     * Fetches available run targets for Bazel.
+     * Fetches available targets for Bazel.
      */
     public async fetchAllTargets(cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
+        return this.fetchAllTargetsFromBuildFiles('.*', undefined, cancellationToken);
+        // return this.fetchAllTargetsFromQuery(cancellationToken);
+    }
+
+    public async fetchAllTargetsFromQuery(cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
         Console.info('Fetching all targets from bazel...');
         try {
             const filter = '"^(?!.*\\.aspect_rules_js|.*node_modules|.*bazel-|.*/\\.).*$"';
@@ -213,6 +219,128 @@ export class BazelService {
             Console.error('Error fetching run targets:', error);
             return Promise.reject(error);
         }
+    }
+
+    public async fetchAllTargetsFromBuildFiles(ruleTypeRegex = '.*', rootDir?: string, cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
+        Console.info(`Fetching targets with rule type ${ruleTypeRegex} from bazel BUILD files...`);
+        rootDir = rootDir || WorkspaceService.getInstance().getWorkspaceFolder().uri.path;
+        try {
+            // ruleTypeRegex = '(.*_bin|.*_test)' will fetch all the run targets, for example.
+            // Awk happens to be really, really fast in combination with find at extracting targets
+            // from BUILD files. For now, use this until it is not a viable option because of
+            // brittleness or compatibility issues.
+            const command = `
+                    find ${rootDir} \\( -name BUILD -o -name BUILD.bazel \\) -type f -print0 | \\
+                    xargs -0 awk '
+                    BEGIN {
+                        # Capture the current working directory
+                        cwdir = ENVIRON["PWD"]
+                        # Ensure it ends with a slash for proper prefix matching
+                        if (substr(cwdir, length(cwdir), 1) != "/") {
+                        cwdir = cwdir "/"
+                        }
+                    }
+                    {
+                        # Remove comments from each line
+                        sub(/#.*/, "")
+                        # Accumulate content per file
+                        content[FILENAME] = content[FILENAME] " " $0
+                    }
+                    ENDFILE {
+                        # Initialize relative path as the full filename
+                        relpath = FILENAME
+
+                        # Remove the current working directory prefix if present
+                        if (substr(relpath, 1, length(cwdir)) == cwdir) {
+                        relpath = substr(relpath, length(cwdir) + 1)
+                        }
+                        # Else, remove leading "./" if present
+                        else if (substr(relpath, 1, 2) == "./") {
+                        relpath = substr(relpath, 3)
+                        }
+                        # Else, remove leading "/" if present (for absolute paths)
+                        else if (substr(relpath, 1, 1) == "/") {
+                        relpath = substr(relpath, 2)
+                        }
+                        # Else, leave it as is (already relative)
+
+                        # Remove trailing "/BUILD" or "/BUILD.bazel"
+                        sub(/\\/BUILD(\\.bazel)?$/, "", relpath)
+
+                        # If the BUILD file is in the current directory, set relpath to "."
+                        if (relpath == "") {
+                        relpath = "."
+                        }
+
+                        # Process the accumulated content for the current file
+                        while (match(content[FILENAME], /([a-zA-Z0-9_]+)\\s*\\([^)]*name\\s*=\\s*["'"'"']([a-zA-Z0-9_/.+=,@~-]+)["'"'"'][^)]*\\)/, arr)) {
+                        type = arr[1]
+                        name = arr[2]
+                        if (type ~ /${ruleTypeRegex}$/) {
+                            # Print in desired format: <relative_path>:<type>:<name>
+                            print relpath ":" type ":" name
+                        }
+                        # Remove the matched part to find subsequent matches
+                        content[FILENAME] = substr(content[FILENAME], RSTART + RLENGTH)
+                        }
+                        # Clear the content for the next file
+                        delete content[FILENAME]
+                    }
+                    '
+                    `;
+
+            const result = await this.shellService.runShellCommand(command, cancellationToken);
+            const lines = result.stdout.split('\n').filter(line => line.trim() !== ''); // Split and filter empty lines
+
+            const targets = lines.map(line => {
+                const [bazelPath, ruleType, targetName] = line.split(':');
+                const buildPath = path.join(BAZEL_BIN, ...bazelPath.split('/'), targetName || '');
+                return {
+                    label: targetName,
+                    ruleType: ruleType,
+                    bazelPath: `//${bazelPath}:${targetName}`,
+                    buildPath: buildPath,
+                } as BazelTarget;
+            });
+
+            return targets.sort((a, b) => (a.bazelPath < b.bazelPath ? -1 : 1));
+
+        } catch (error) {
+            Console.error('Error fetching run targets:', error);
+            return Promise.reject(error);
+        }
+    }
+
+    /**
+     * Fetch matching Bazel targets from a BUILD file.
+     * @param filePath - The path to the BUILD or BUILD.bazel file.
+     * @param kindPattern - Regex to match the rule type (e.g., .*_binary).
+     * @param targetPrefix - Prefix to match the target name.
+     * @returns List of target names matching the kindPattern and targetPrefix.
+     */
+    public static fetchMatchingTargets(filePath: string, kindPattern: string, targetPrefix: string): string[] {
+        // Read the content of the file
+        let content = fs.readFileSync(filePath, 'utf-8');
+
+        // Step 1: Remove comments
+        content = content.replace(/#.*$/gm, '');
+
+        // Step 2: Replace newlines with spaces
+        content = content.replace(/\n/g, ' ');
+
+        // Step 3: Extract all rule types and target names
+        const targetRegex = /([a-zA-Z0-9_]+)\s*\(\s*(?:[^)]*\s+)?name\s*=\s*['"]([a-zA-Z0-9_/.+=,@~-]+)['"]/g;
+        const extractedTargets: { type: string; name: string }[] = [];
+        let match;
+        while ((match = targetRegex.exec(content)) !== null) {
+            extractedTargets.push({ type: match[1], name: match[2] });
+        }
+
+        // Step 4: Filter based on kind pattern and target prefix
+        const kindRegex = new RegExp(`^type:${kindPattern}`);
+        return extractedTargets
+            .filter((t) => kindRegex.test(`type:${t.type}`) && t.name.startsWith(targetPrefix))
+            .map((t) => t.name);
     }
 
 

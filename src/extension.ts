@@ -151,6 +151,8 @@ async function initExtension(context: vscode.ExtensionContext) {
     // the fetching run targets or configs.
     bazelService = new BazelService(context, configurationManager, shellService);
 
+    bazelService.fetchAllTargetsFromBuildFiles('.*', 'tools');
+
     // The icon service that looks up the current theme icons
     iconService = new IconService();
 
