@@ -21,12 +21,12 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import { UnifiedTestCodeLensProvider } from './code-lens-providers/unified-test-code-lens-provider';
+import { UnifiedCodeLensProvider } from './code-lens-providers/unified-code-lens-provider';
 import { BazelService } from '../services/bazel-service';
 import * as vscode from 'vscode';
 
 export function registerCodeLensProviders(context: vscode.ExtensionContext, bazelService: BazelService) {
-    const testProvider = new UnifiedTestCodeLensProvider(context, bazelService);
+    const testProvider = new UnifiedCodeLensProvider(context, bazelService);
 
     vscode.languages.registerCodeLensProvider({ language: 'go', scheme: 'file' }, testProvider);
     vscode.languages.registerCodeLensProvider({ language: 'cpp', scheme: 'file' }, testProvider);

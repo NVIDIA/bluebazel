@@ -48,7 +48,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
     }
 
     public async createDebugRunUnderLaunchConfig(target: BazelTarget,
-        cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
+        _cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
         const bazelArgs = target.getBazelArgs().toString();
         const configArgs = target.getConfigArgs().toString();
@@ -95,7 +95,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
         return config;
     }
 
-    public async createDebugDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
+    public async createDebugDirectLaunchConfig(target: BazelTarget, _cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const workingDirectory = '${workspaceFolder}';
         const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
         const programPath = path.join(workingDirectory, targetPath);
@@ -180,8 +180,30 @@ export class CppLanguagePlugin implements LanguagePlugin {
         return config;
     }
 
+    /**
+     * Regex to match test functions in C/C++.
+     * Example matches:
+     * TEST(TestSuite, TestName)
+     * TEST_F(TestFixture, TestName)
+     */
     public getCodeLensTestRegex(): RegExp {
         return /\b(?:TEST|TEST_F|TYPED_TEST|TYPED_TEST_P)\s*\(\s*([a-zA-Z_]\w*)\s*,\s*([a-zA-Z_]\w*)\s*\)/gm;
+    }
+
+    /**
+     * Regex to match main function definitions in C/C++.
+     * Example matches:
+     * int main()
+     * int main(int argc, char** argv)
+     * int main(int argc, char* argv[])
+     * void main()
+     * void main(int argc, char** argv)
+     * void main(int argc, char* argv[])
+     * static int main(int argc, char* argv[])
+     * static void main(int argc, char* argv[])
+     */
+    public getCodeLensRunRegex(): RegExp {
+        return /\b(?:int|void)\s+(main)\s*\(\s*(?:int\s+\w+\s*,\s*char\s*\*\s*\w+\s*)?\s*\)/gm;
     }
 
 }

@@ -24,7 +24,7 @@
 import { LanguagePlugin } from './language-plugin';
 import { CppLanguagePlugin } from './plugins/cpp-language-plugin';
 import { GoLanguagePlugin } from './plugins/go-language-plugin';
-import { PythonLanguagePlugin } from './plugins/python-plugin';
+import { PythonLanguagePlugin } from './plugins/python-language-plugin';
 import { BazelEnvironment } from '../models/bazel-environment';
 import { BazelService } from '../services/bazel-service';
 import * as vscode from 'vscode';

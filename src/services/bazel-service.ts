@@ -96,7 +96,7 @@ export class BazelService {
         return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
     }
 
-    public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken, timeoutMs?: number): Promise<Map<BazelAction, BazelTarget[]>> {
+    public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken, timeoutMs?: number, rootDir?: string): Promise<Map<BazelAction, BazelTarget[]>> {
         // Initialize map entries for each action
         const testTargets: BazelTarget[] = [];
         const map: Map<BazelAction, BazelTarget[]> = new Map([
@@ -109,7 +109,7 @@ export class BazelService {
         try {
             // Fetch all targets
             // Race between the fetch operation and the timeout
-            const fetchPromise = this.fetchAllTargets(cancellationToken);
+            const fetchPromise = this.fetchAllTargets(rootDir, cancellationToken);
             const targets = timeoutMs && timeoutMs !== 0 ? await Promise.race([
                 fetchPromise,
                 new Promise<never>((_, reject) =>
@@ -160,8 +160,8 @@ export class BazelService {
     /**
      * Fetches available targets for Bazel.
      */
-    public async fetchAllTargets(cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
-        return this.fetchAllTargetsFromBuildFiles('.*', undefined, true, cancellationToken);
+    public async fetchAllTargets(rootDir?: string, cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
+        return this.fetchAllTargetsFromBuildFiles('.*', rootDir, true, cancellationToken);
         // return this.fetchAllTargetsFromQuery(cancellationToken);
     }
 
@@ -484,6 +484,8 @@ export class BazelService {
         // Special cases or rules that don't map directly to a language
         if (normalizedRuleType.includes('package')) {
             return 'starlark';
+        } else if (normalizedRuleType.includes('alias')) {
+            return 'starlark';
         }
 
         // Return 'unknown' if no matching language is found
@@ -512,8 +514,8 @@ export class BazelService {
             throw new Error('Could not compute relative path');
         }
 
-        // Find the test target in the BUILD file
-        const targetNames = this.getTargetsFromBuildFile(dir, sourceFilePath);
+        // Find the target in the BUILD file
+        const targetNames = this.getTargetsFromBuildFileWithSource(dir, sourceFilePath);
         if (!targetNames) {
             throw new Error('Could not find any targets in the BUILD file');
         }
@@ -561,7 +563,7 @@ export class BazelService {
      * @param filePath - The full path to the file whose targets we want to find.
      * @returns An array of objects with `ruleType` and `targetName`, or an empty array if no matching targets are found.
      */
-    private static getTargetsFromBuildFile(dir: string, filePath: string): { ruleType: string; targetName: string }[] {
+    private static getTargetsFromBuildFileWithSource(dir: string, filePath: string): { ruleType: string; targetName: string }[] {
         const buildFileNames = ['BUILD', 'BUILD.bazel'];
         let buildFilePath: string | null = null;
 

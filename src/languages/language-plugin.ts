@@ -37,4 +37,7 @@ export interface LanguagePlugin {
     createDebugAttachConfig(target: BazelTarget, port: number, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration>;
 
     getCodeLensTestRegex(): RegExp;
+
+    getCodeLensRunRegex(): RegExp;
+
 }
