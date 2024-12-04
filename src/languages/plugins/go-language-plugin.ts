@@ -52,7 +52,7 @@ export class GoLanguagePlugin implements LanguagePlugin {
 
     public async createDebugDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
+        const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
         const programPath = path.join(workingDirectory, targetPath);
         const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
         const args = target.getRunArgs().toString();

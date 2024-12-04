@@ -48,7 +48,7 @@ export class BuildController implements BazelTargetController {
     ) { }
 
     public async execute(target: BazelTarget): Promise<void> {
-        const actualTarget = this.getActualBuildTarget(target.buildPath);
+        const actualTarget = this.getActualBuildTargetPath(target);
         if (!actualTarget) {
             vscode.window.showErrorMessage('Build failed. Could not find run target.');
             return;
@@ -81,7 +81,7 @@ export class BuildController implements BazelTargetController {
     }
 
     public async getExecuteCommand(target: BazelTarget): Promise<string | undefined> {
-        const actualTarget = this.getActualBuildTarget(target.buildPath);
+        const actualTarget = this.getActualBuildTargetPath(target);
         if (!actualTarget) {
             return undefined;
         }
@@ -103,9 +103,9 @@ export class BuildController implements BazelTargetController {
         return `${command}\n`;
     }
 
-    private getActualBuildTarget(target: string): string | undefined {
-        let actualTarget = target;
-        if (target === BUILD_RUN_TARGET_STR) {
+    private getActualBuildTargetPath(target: BazelTarget): string | undefined {
+        let actualTarget = target.bazelPath;
+        if (target.buildPath === BUILD_RUN_TARGET_STR) {
             // Find run target
             const runTarget = this.bazelTargetManager.getSelectedTarget('run');
             if (runTarget !== undefined &&
@@ -116,8 +116,6 @@ export class BuildController implements BazelTargetController {
             } else {
                 return undefined;
             }
-        } else {
-            actualTarget = path.relative(BAZEL_BIN, target);
         }
         return actualTarget;
     }

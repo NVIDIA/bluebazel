@@ -18,6 +18,24 @@
     ],
     "main": "./out/extension.js",
     "contributes": {
+        "taskDefinitions": [
+            {
+                "type": "bluebazelTask",
+                "required": [
+                    "label"
+                ],
+                "properties": {
+                    "label": {
+                        "type": "string",
+                        "description": "The task's label"
+                    },
+                    "id": {
+                        "type": "string",
+                        "description": "Optional task identifier"
+                    }
+                }
+            }
+        ],
         "views": {
             "explorer": [
                 {

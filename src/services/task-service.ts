@@ -30,13 +30,18 @@ import * as vscode from 'vscode';
 
 export class CustomTaskProvider implements vscode.TaskProvider {
     static readonly type = 'bluebazelTask';
+    private tasks: vscode.Task[] = [];
 
-    provideTasks(): vscode.Task[] | undefined {
-        return undefined;  // You can provide predefined tasks if needed.
+    provideTasks(): vscode.Task[] {
+        return this.tasks;
     }
 
     resolveTask(task: vscode.Task): vscode.Task | undefined {
-        return task;  // Just return the task as-is for simplicity.
+        const definition = task.definition as { type: string; label: string };
+        if (definition.type === CustomTaskProvider.type) {
+            return task;
+        }
+        return undefined;
     }
 }
 
@@ -73,9 +78,15 @@ export class TaskService {
             execution = new vscode.ProcessExecution(args[0], args.slice(1), { cwd: workspaceFolder.uri.path, env: envVarsObj });
         }
 
-        const taskType = `${CustomTaskProvider.type}-${taskName}-${id}`;  // Dynamically set the task type
+        // const taskType = `${CustomTaskProvider.type}-${taskName}-${id}`;  // Dynamically set the task type
+        const taskType = CustomTaskProvider.type;
+        const definition = {
+            type: taskType,
+            label: taskName,
+            id: id
+        };
         const task = new vscode.Task(
-            { type: taskType },
+            definition,
             workspaceFolder,
             taskName,
             ExtensionUtils.getExtensionDisplayName(this.context),

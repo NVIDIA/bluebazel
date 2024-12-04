@@ -70,6 +70,7 @@ export class FileStorageService {
             return;
         }
         const filePath = path.join(this.storagePath, fileName);
+        Console.info(`Reading ${filePath}...`);
 
         return new Promise<void>((resolve, reject) => {
             cancellationToken?.onCancellationRequested(() => {

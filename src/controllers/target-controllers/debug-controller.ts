@@ -29,6 +29,7 @@ import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
+import { Console } from '../../services/console';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { getAvailablePort, waitForPort } from '../../services/network-utils';
 import { cleanAndFormat } from '../../services/string-utils';
@@ -119,7 +120,7 @@ export class DebugController implements BazelTargetController {
             return undefined;
         }
 
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+        const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target);
         // Program (executable) path with respect to workspace.
         const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
         const runArgs = target.getRunArgs().toString();
@@ -151,16 +152,22 @@ export class DebugController implements BazelTargetController {
     private async debugInBazel(target: BazelTarget) {
         // Start a debug server
         return showProgress(`Debugging ${target.action} ${target.bazelPath}`, async (cancellationToken) => {
+            Console.info('Start debugging...');
             // Find an open port
             const port = await getAvailablePort(cancellationToken);
+            Console.info('Found an open port for debugging...');
+
             // Create a debug attach config
             const config = await this.createAttachConfig(target, port);
+            Console.info('Created an attach config...');
+
 
             // Get the command to launch the debug server (including the target)
             const runCommand = this.getDebugInBazelCommand(target, port);
 
             // Launch a debug server and await until the task execution starts
             const serverExec = await this.startDebugServer(target, port, runCommand, cancellationToken);
+            Console.info('Started the debug server...');
 
             // Listen for early cancellation of the debug server
             const waitForPortCancellation = new vscode.CancellationTokenSource();
@@ -171,9 +178,11 @@ export class DebugController implements BazelTargetController {
                 }
             });
 
+            Console.info('Waiting for port to open...');
             // Wait for the port to open up by polling (the loop cancels when the server does)
             await waitForPort(port, waitForPortCancellation.token);
 
+            Console.info('Start debugging...');
             // Start debugging
             const started = await vscode.debug.startDebugging(
                 WorkspaceService.getInstance().getWorkspaceFolder(),

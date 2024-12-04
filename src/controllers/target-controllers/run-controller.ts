@@ -92,7 +92,7 @@ export class RunController implements BazelTargetController {
         }
 
         return showProgress(`${capitalizeFirstLetter(target.action)}ing ${target.buildPath}`, async (cancellationToken) => {
-            const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+            const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target);
             // Program (executable) path with respect to workspace.
             const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
 
@@ -147,7 +147,7 @@ export class RunController implements BazelTargetController {
             return undefined;
         }
 
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+        const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target);
         // Program (executable) path with respect to workspace.
         const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);
         const runArgs = target.getRunArgs().toString();

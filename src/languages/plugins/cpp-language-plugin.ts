@@ -36,7 +36,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
         private readonly bazelService: BazelService,
         private readonly setupEnvVars: string[]
     ) {
-        this.supportedLanguages = ['cpp', 'c'];
+        this.supportedLanguages = ['cpp', 'c', 'shellscript'];
     }
 
     public getDebugRunUnderCommand(port: number): string {
@@ -53,7 +53,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
         const bazelArgs = target.getBazelArgs().toString();
         const configArgs = target.getConfigArgs().toString();
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
+        const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
         const programPath = path.join(workingDirectory, targetPath);
 
         /* The environment key for type 'cppdbg' is different than
@@ -97,7 +97,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
 
     public async createDebugDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
+        const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
         const programPath = path.join(workingDirectory, targetPath);
 
         /* The environment key for type 'cppdbg' is different than
@@ -137,7 +137,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
         _cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target);
+        const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target);
         const programPath = path.join(workingDirectory, targetPath);
 
         const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
