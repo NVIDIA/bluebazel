@@ -22,47 +22,92 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 import { LanguageRegistry } from '../../languages/language-registry';
-import { BazelTarget } from '../../models/bazel-target';
+import { BazelAction, BazelTarget } from '../../models/bazel-target';
 import { BazelService } from '../../services/bazel-service';
 import { Console } from '../../services/console';
 import { ExtensionUtils } from '../../services/extension-utils';
 import * as vscode from 'vscode';
 
-export class UnifiedTestCodeLensProvider implements vscode.CodeLensProvider {
+enum PatternType {
+    Run,
+    Test
+}
+interface Pattern {
+    type: PatternType;
+    language: string;
+    regex: RegExp;
+}
 
-    private readonly testRegexes: { language: string; regex: RegExp }[] ;
+export class UnifiedCodeLensProvider implements vscode.CodeLensProvider {
+
+    private readonly regexPatterns: Pattern[];
 
     constructor(
         private readonly context: vscode.ExtensionContext,
         private readonly bazelService: BazelService
     ) {
+        this.regexPatterns = [];
         const languages = LanguageRegistry.getLanguages();
-        this.testRegexes = languages.map(language => {
+        const testRegexes = languages.map(language => {
             try {
                 return {
                     language: language,
-                    regex: LanguageRegistry.getPlugin(language).getCodeLensTestRegex()};
+                    type: PatternType.Test,
+                    regex: LanguageRegistry.getPlugin(language).getCodeLensTestRegex()
+                };
             } catch (error) {
                 return undefined;
             }
-        }).filter(Boolean) as { language: string; regex: RegExp }[];
+        }).filter(Boolean) as Pattern[];
+
+        const runRegexes = languages.map(language => {
+            try {
+                return {
+                    language: language,
+                    type: PatternType.Run,
+                    regex: LanguageRegistry.getPlugin(language).getCodeLensRunRegex()
+                };
+            } catch (error) {
+                return undefined;
+            }
+        }).filter(Boolean) as Pattern[];
+
+        this.regexPatterns.push(...testRegexes);
+        this.regexPatterns.push(...runRegexes);
     }
 
-    provideCodeLenses(document: vscode.TextDocument, _token: vscode.CancellationToken): vscode.CodeLens[] {
+    public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] {
+        // Match the correct regex based on the document's language
         const codeLenses: vscode.CodeLens[] = [];
+
+        this.regexPatterns
+            .filter(pattern => pattern.language === document.languageId)
+            .forEach(pattern => {
+                const lenses = this.processRegexPattern(document, pattern, token);
+                codeLenses.push(...lenses);
+            });
+
+        return codeLenses;
+    }
+
+    private processRegexPattern(document: vscode.TextDocument, pattern: Pattern, _token: vscode.CancellationToken): vscode.CodeLens[] {
         const text = document.getText();
         const language = document.languageId; // Detect the language of the document
+        const codeLenses: vscode.CodeLens[] = [];
 
-        // Match the correct regex based on the document's language
-        const matchPattern = this.testRegexes.find(({ language: lang }) => lang === language);
-        if (!matchPattern) {
-            return [];
-        }
         const extensionName = ExtensionUtils.getExtensionName(this.context);
         const extensionDisplayName = ExtensionUtils.getExtensionDisplayName(this.context);
 
-        const { regex } = matchPattern;
+        const { regex } = pattern;
         let match;
+
+
+        let action: BazelAction = 'run';
+        if (pattern.type === PatternType.Run) {
+            action = 'run';
+        } else if (pattern.type === PatternType.Test) {
+            action = 'test';
+        }
 
         while ((match = regex.exec(text)) !== null) {
             let functionName = '';
@@ -82,19 +127,21 @@ export class UnifiedTestCodeLensProvider implements vscode.CodeLensProvider {
                 continue;
             }
 
-            Console.info(`Installing code lens provider for tests on ${functionName}...`);
+            Console.info(`Installing code lens provider for ${action} on ${functionName}...`);
 
             const realTargets = targets.map(target => {
-                return new BazelTarget(this.context, this.bazelService, target.label, target.bazelPath, target.buildPath, 'test', target.ruleType);
+                return new BazelTarget(this.context, this.bazelService, target.label, target.bazelPath, target.buildPath, action, target.ruleType);
             });
+
             const target = realTargets[0];
-            target.action = 'test';
 
             // Modify run arguments for the specific function
-            target.getBazelArgs().add(`--test_filter=${functionName}`);
+            if (pattern.type === PatternType.Test) {
+                target.getBazelArgs().add(`--test_filter=${functionName}`);
+            }
             codeLenses.push(
                 new vscode.CodeLens(line.range, {
-                    title: `${extensionName} test`,
+                    title: `${extensionName} ${action}`,
                     tooltip: extensionDisplayName,
                     command: `${extensionName}.executeTarget`,
                     arguments: [target],
@@ -113,7 +160,6 @@ export class UnifiedTestCodeLensProvider implements vscode.CodeLensProvider {
                 })
             );
         }
-
         return codeLenses;
     }
 }

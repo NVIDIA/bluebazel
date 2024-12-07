@@ -236,4 +236,14 @@ export class ConfigurationManager {
         return 0;
     }
 
+    public shouldFetchTargetsUsingQuery(): boolean
+    {
+        const config = this.getConfig();
+        const res = config.get<boolean>('fetchTargetsUsingQuery');
+        if (res === undefined)
+            return false;
+        else
+            return res;
+    }
+
 }

@@ -50,9 +50,9 @@ export class GoLanguagePlugin implements LanguagePlugin {
         return target.ruleType.includes('test') ? ['GO_TEST_WRAP=0'] : [];
     }
 
-    public async createDebugDirectLaunchConfig(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
+    public async createDebugDirectLaunchConfig(target: BazelTarget, _cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
+        const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target, cancellationToken);
         const programPath = path.join(workingDirectory, targetPath);
         const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
         const args = target.getRunArgs().toString();
@@ -104,8 +104,23 @@ export class GoLanguagePlugin implements LanguagePlugin {
         return debugConfig;
     }
 
+    /**
+     * Regex to match test functions in Go.
+     * Example matches:
+     * func TestFunctionName(t *testing.T) {
+     * func TestAnotherFunction(t *testing.T) {
+     */
     public getCodeLensTestRegex(): RegExp {
         return /^func\s+(Test\w+)\(\w+\s+\*testing\.T\)/gm;
+    }
+
+    /**
+     * Regex to match main function definitions in Go.
+     * Example matches:
+     * func main() {
+     */
+    public getCodeLensRunRegex(): RegExp {
+        return /^func\s+(main)\s*\(\s*\)\s*\{/gm;
     }
 
 }

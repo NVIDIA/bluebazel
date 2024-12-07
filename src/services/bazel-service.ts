@@ -21,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { languageMapping as bazelRuleTypeLanguageMapping, sortedBazelRuleTypePrefixes } from './bazel-rule-language-mapping';
 import { ConfigurationManager } from './configuration-manager';
 import { Console } from './console';
 import { ShellService } from './shell-service';
@@ -95,7 +96,7 @@ export class BazelService {
         return '//' + resultSplitted.slice(0, resultSplitted.length - 1).join('/') + ':' + targetName;
     }
 
-    public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken, timeoutMs?: number): Promise<Map<BazelAction, BazelTarget[]>> {
+    public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken, timeoutMs?: number, rootDir?: string): Promise<Map<BazelAction, BazelTarget[]>> {
         // Initialize map entries for each action
         const testTargets: BazelTarget[] = [];
         const map: Map<BazelAction, BazelTarget[]> = new Map([
@@ -108,7 +109,7 @@ export class BazelService {
         try {
             // Fetch all targets
             // Race between the fetch operation and the timeout
-            const fetchPromise = this.fetchAllTargets(cancellationToken);
+            const fetchPromise = this.fetchAllTargets(rootDir, cancellationToken);
             const targets = timeoutMs && timeoutMs !== 0 ? await Promise.race([
                 fetchPromise,
                 new Promise<never>((_, reject) =>
@@ -157,21 +158,35 @@ export class BazelService {
     }
 
     /**
-     * Fetches available run targets for Bazel.
+     * Fetches available targets for Bazel.
      */
-    public async fetchAllTargets(cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
+    public async fetchAllTargets(rootDir?: string, cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
+        if (!this.configurationManager.shouldFetchTargetsUsingQuery()) {
+            return this.fetchAllTargetsFromBuildFiles('.*', rootDir, true, cancellationToken);
+        } else {
+            return this.fetchAllTargetsFromQuery(cancellationToken);
+        }
+    }
+
+    public async fetchAllTargetsFromQuery(cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
         Console.info('Fetching all targets from bazel...');
         try {
             const filter = '"^(?!.*\\.aspect_rules_js|.*node_modules|.*bazel-|.*/\\.).*$"';
             // Run label_kind and package queries in parallel to save time
-            const [targetsQuery, buildPackagesQuery, testPackagesQuery] = await Promise.all([
-                this.runQuery(
-                    `query 'filter(${filter}, kind(".*(${this.isBuildTargetRegex.source}|_binary|_test)", //...)
+            /**
+             * This is how to find all executable targets but we won't use that
+             * because we need all buildable targets:
+             * 'query \'attr("$is_executable", 1,  //...)\'  --output=label_kind --keep_going 2>/dev/null || true',
+             */
+            const [targetsQuery, buildPackagesQuery, testPackagesQuery] = await Promise.
+                all([
+                    this.runQuery(
+                        `query 'filter(${filter}, kind(".*(${this.isBuildTargetRegex.source}|_binary|_test)", //...)
                     )' --output=label_kind --keep_going 2>/dev/null || true`,
-                    cancellationToken),
-                this.runQuery(`query 'filter(${filter}, //...)' --output=package --keep_going 2>/dev/null || true`, cancellationToken),
-                this.runQuery(`query 'filter(${filter}, tests(//...))' --output=package --keep_going 2>/dev/null || true`, cancellationToken)
-            ]);
+                        cancellationToken),
+                    this.runQuery(`query 'filter(${filter}, //...)' --output=package --keep_going 2>/dev/null || true`, cancellationToken),
+                    this.runQuery(`query 'filter(${filter}, tests(//...))' --output=package --keep_going 2>/dev/null || true`, cancellationToken)
+                ]);
 
             const targetOutputs = targetsQuery.stdout.split('\n');
             const buildPackagesOutputs = buildPackagesQuery.stdout.split('\n');
@@ -183,14 +198,13 @@ export class BazelService {
             );
             unifiedPackages.push('package_test package //...');
 
-
             targetOutputs.push(...unifiedPackages);
 
             // Process target outputs to extract necessary fields and filter out empty labels in one pass
             const targets = targetOutputs
                 .filter(line => line.trim() !== '')
                 .map(line => {
-                    const [ruleType, , target] = line.split(' ');
+                    const [ruleType, , target, isExecutable] = line.split(' ');
                     const [targetPath, targetName] = target.split(':');
                     const buildPath = path.join(BAZEL_BIN, ...targetPath.split('/'), targetName || '');
                     if (targetPath.includes('...')) {
@@ -213,6 +227,175 @@ export class BazelService {
             Console.error('Error fetching run targets:', error);
             return Promise.reject(error);
         }
+    }
+
+    private static getBuildFileAwkParser(ruleTypeRegex = '.*', includeOutputPackages = false) {
+        const escapedPattern = ruleTypeRegex.replace(/(["\\])/g, '\\$1');
+
+        // Awk is really, really fast at parsing the BUILD file content and outputting what we need.
+        const awkScript = `
+            BEGIN {
+                # Capture the current working directory
+                cwdir = ENVIRON["PWD"]
+                # Ensure it ends with a slash for proper prefix matching
+                if (substr(cwdir, length(cwdir), 1) != "/") {
+                    cwdir = cwdir "/"
+                }
+            }
+            {
+                # Remove comments from each line
+                sub(/#.*/, "")
+                # Accumulate content per file
+                content[FILENAME] = content[FILENAME] " " $0
+            }
+            ENDFILE {
+                # Initialize relative path as the full filename
+                relpath = FILENAME
+
+                # Remove the current working directory prefix if present
+                if (substr(relpath, 1, length(cwdir)) == cwdir) {
+                    relpath = substr(relpath, length(cwdir) + 1)
+                }
+                # Else, remove leading "./" if present
+                else if (substr(relpath, 1, 2) == "./") {
+                    relpath = substr(relpath, 3)
+                }
+                # Else, remove leading "/" if present (for absolute paths)
+                else if (substr(relpath, 1, 1) == "/") {
+                    relpath = substr(relpath, 2)
+                }
+                # Else, leave it as is (already relative)
+
+                # Remove trailing "/BUILD" or "/BUILD.bazel"
+                sub(/\\/?BUILD(\\.bazel)?$/, "", relpath)
+
+                # Initialize a flag to check for test targets
+                has_test = 0
+
+                # Process the accumulated content for the current file
+                while (match(content[FILENAME], /([a-zA-Z0-9_]+)\\s*\\([^)]*name\\s*=\\s*["'"'"']([a-zA-Z0-9_/.+=,@~-]+)["'"'"'][^)]*\\)/, arr)) {
+                    type = arr[1]
+                    name = arr[2]
+                    if (type ~ /${escapedPattern}/) {
+                        # Check if the current target is a test
+                        if (type ~ /_test$/) {
+                            has_test = 1
+                        }
+                        # Print in desired format: <relative_path>:<type>:<name>
+                        print relpath ":" type ":" name
+                    }
+                    # Remove the matched part to find subsequent matches
+                    content[FILENAME] = substr(content[FILENAME], RSTART + RLENGTH)
+                }
+
+                ${includeOutputPackages ? `
+                # After processing all targets, print the package line
+                if (has_test) {
+                    # Print package_test line
+                    print relpath ":package_test:..."
+                } else {
+                    # Print package_build line
+                    print relpath ":package_build:..."
+                }
+                ` : ''}
+
+                # Clear the content for the next file
+                delete content[FILENAME]
+            }
+        `;
+        return awkScript;
+    }
+
+    public async fetchAllTargetsFromBuildFiles(ruleTypeRegex = '.*',
+        rootDir?: string,
+        includeOutputPackages = false,
+        cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
+        Console.info(`Fetching targets with rule type ${ruleTypeRegex} from Bazel BUILD files...`);
+
+        // Determine the root directory
+        rootDir = rootDir || WorkspaceService.getInstance().getWorkspaceFolder()?.uri.path;
+
+        if (!rootDir) {
+            Console.error('No workspace folder found.');
+            return Promise.reject(new Error('No workspace folder found.'));
+        }
+
+        try {
+            const awkScript = BazelService.getBuildFileAwkParser(ruleTypeRegex, includeOutputPackages);
+            // Escape double quotes and backslashes for the shell command
+            const escapedRootDir = rootDir.replace(/(["\\])/g, '\\$1');
+
+            // Construct the shell command
+            const command = `
+            find "${escapedRootDir}" \\( -name BUILD -o -name BUILD.bazel \\) -type f -print0 | \\
+            xargs -0 awk '
+                ${awkScript}
+            '`;
+
+            // Execute the shell command
+            const result = await this.shellService.runShellCommand(command, cancellationToken);
+
+            // Split the output into lines and filter out empty lines
+            const lines = result.stdout.split('\n').filter(line => line.trim() !== '');
+
+            // Map each line to a BazelTarget object
+            const targets = lines.map(line => {
+                const [bazelPath, ruleType, targetName] = line.split(':');
+                let label = targetName;
+                let fullBazelPath = `//${bazelPath}:${targetName}`;
+                if (targetName === '...') {
+                    fullBazelPath =  `//${path.join(bazelPath, targetName)}`;
+                    label = fullBazelPath;
+                }
+                // Handle regular targets
+                const buildPath = path.join(BAZEL_BIN, ...bazelPath.split('/'), targetName || '');
+                return {
+                    label: label,
+                    ruleType: ruleType,
+                    bazelPath: fullBazelPath,
+                    buildPath: buildPath,
+                } as BazelTarget;
+            });
+
+            // Sort the targets alphabetically
+            return targets.sort((a, b) => (a.bazelPath < b.bazelPath ? -1 : 1));
+        } catch (error) {
+            Console.error('Error fetching run targets:', error);
+            return Promise.reject(error);
+        }
+    }
+
+
+    /**
+     * Fetch matching Bazel targets from a BUILD file.
+     * @param filePath - The path to the BUILD or BUILD.bazel file.
+     * @param kindPattern - Regex to match the rule type (e.g., .*_binary).
+     * @param targetPrefix - Prefix to match the target name.
+     * @returns List of target names matching the kindPattern and targetPrefix.
+     */
+    public static fetchMatchingTargets(filePath: string, kindPattern: string, targetPrefix: string): string[] {
+        // Read the content of the file
+        let content = fs.readFileSync(filePath, 'utf-8');
+
+        // Step 1: Remove comments
+        content = content.replace(/#.*$/gm, '');
+
+        // Step 2: Replace newlines with spaces
+        content = content.replace(/\n/g, ' ');
+
+        // Step 3: Extract all rule types and target names
+        const targetRegex = /([a-zA-Z0-9_]+)\s*\(\s*(?:[^)]*\s+)?name\s*=\s*['"]([a-zA-Z0-9_/.+=,@~-]+)['"]/g;
+        const extractedTargets: { type: string; name: string }[] = [];
+        let match;
+        while ((match = targetRegex.exec(content)) !== null) {
+            extractedTargets.push({ type: match[1], name: match[2] });
+        }
+
+        // Step 4: Filter based on kind pattern and target prefix
+        const kindRegex = new RegExp(`^type:${kindPattern}`);
+        return extractedTargets
+            .filter((t) => kindRegex.test(`type:${t.type}`) && t.name.startsWith(targetPrefix))
+            .map((t) => t.name);
     }
 
 
@@ -291,61 +474,30 @@ export class BazelService {
     }
 
     public static inferLanguageFromRuleType(ruleType: string): string | undefined {
-        // Check for Go-related rules
-        if (ruleType.includes('go_')) {
-            return 'go';
-        }
-
-        // Check for Python-related rules
-        if (ruleType.includes('py_')) {
-            return 'python';
-        }
-
-        // Check for C++-related rules
-        if (ruleType.includes('cc_') || ruleType.includes('cpp_')) {
-            return 'cpp';
-        }
-
-        // Check for Java-related rules
-        if (ruleType.includes('java_')) {
-            return 'java';
-        }
-
-        // Check for JavaScript-related rules
-        if (ruleType.includes('js_')) {
-            return 'javascript';
-        }
-
-        // Check for Typescript-related rules
-        if (ruleType.includes('ts_')) {
-            return 'typescript';
-        }
-
-        // Check for Scala-related rules
-        if (ruleType.includes('scala_')) {
-            return 'scala';
-        }
-
-        // Check for Proto-related rules
-        if (ruleType.includes('proto_')) {
-            return 'proto';
-        }
-
-        // Check for Sh-related rules
-        if (ruleType.includes('sh_')) {
-            return 'bash';
-        }
-
-        // Check for Proto-related rules
-        if (ruleType.includes('json_')) {
-            return 'json';
-        }
-
-        if (ruleType.includes('package')) {
+        if (!ruleType || typeof ruleType !== 'string') {
+            console.warn(`Invalid ruleType: ${ruleType}`);
             return undefined;
         }
 
-        return 'unknown';  // Default case if no known rule types are found
+        // Normalize the ruleType to lowercase to handle case-insensitive matching
+        const normalizedRuleType = ruleType.toLowerCase();
+
+        // Iterate over the sorted prefixes to find the first matching prefix
+        for (const prefix of sortedBazelRuleTypePrefixes) {
+            if (normalizedRuleType.includes(prefix)) {
+                return bazelRuleTypeLanguageMapping.get(prefix);
+            }
+        }
+
+        // Special cases or rules that don't map directly to a language
+        if (normalizedRuleType.includes('package')) {
+            return 'starlark';
+        } else if (normalizedRuleType.includes('alias')) {
+            return 'starlark';
+        }
+
+        // Return 'unknown' if no matching language is found
+        return 'unknown';
     }
 
     /**
@@ -370,8 +522,8 @@ export class BazelService {
             throw new Error('Could not compute relative path');
         }
 
-        // Find the test target in the BUILD file
-        const targetNames = this.getTargetsFromBuildFile(dir, sourceFilePath);
+        // Find the target in the BUILD file
+        const targetNames = this.getTargetsFromBuildFileWithSource(dir, sourceFilePath);
         if (!targetNames) {
             throw new Error('Could not find any targets in the BUILD file');
         }
@@ -419,7 +571,7 @@ export class BazelService {
      * @param filePath - The full path to the file whose targets we want to find.
      * @returns An array of objects with `ruleType` and `targetName`, or an empty array if no matching targets are found.
      */
-    private static getTargetsFromBuildFile(dir: string, filePath: string): { ruleType: string; targetName: string }[] {
+    private static getTargetsFromBuildFileWithSource(dir: string, filePath: string): { ruleType: string; targetName: string }[] {
         const buildFileNames = ['BUILD', 'BUILD.bazel'];
         let buildFilePath: string | null = null;
 

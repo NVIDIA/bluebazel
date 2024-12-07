@@ -71,15 +71,25 @@ export class BazelController {
     }
 
     public async clean() {
-        return showProgress('Cleaning', (cancellationToken) => {
-            const executable = this.configurationManager.getExecutableCommand();
-            return this.taskService.runTask(
-                'clean', // task name
-                `${executable} clean`,
-                this.configurationManager.isClearTerminalBeforeAction(),
-                cancellationToken
-            );
+        const executable = this.configurationManager.getExecutableCommand();
+        vscode.window.showWarningMessage(`Are you sure you want to ${executable} clean your project?`,
+            { modal: true },
+            'OK'
+        ).then((selection) => {
+            if (selection === 'OK') {
+                // Perform the clean action
+                return showProgress('Cleaning', (cancellationToken) => {
+                    const executable = this.configurationManager.getExecutableCommand();
+                    return this.taskService.runTask(
+                        'clean', // task name
+                        `${executable} clean`,
+                        this.configurationManager.isClearTerminalBeforeAction(),
+                        cancellationToken
+                    );
+                });
+            }
         });
+
     }
 
     public async buildSingle() {
@@ -113,7 +123,7 @@ export class BazelController {
         });
     }
 
-    public async refreshAvailableTargets(affectedFiles?: string[]): Promise<void> {
+    public async refreshAvailableTargets(_affectedFiles?: string[]): Promise<void> {
         // TODO: In the future, use uri to only update the available targets based on
         // uri if present in an append mode.
         return showProgress('Updating available targets', async (cancellationToken) => {

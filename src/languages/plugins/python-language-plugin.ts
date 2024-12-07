@@ -105,8 +105,24 @@ export class PythonLanguagePlugin implements LanguagePlugin {
         };
     }
 
+    /**
+     * Regex to match test functions in Python.
+     * Example matches:
+     * def test_function_name():
+     * def test_another_function(param):
+     */
     public getCodeLensTestRegex(): RegExp {
         return /(?:^|\s)def\s+(test_\w+)\(/gm;
+    }
+
+    /**
+     * Regex to match main function definitions in Python.
+     * Example matches:
+     * def main():
+     * def main(arg1, arg2):
+     */
+    public getCodeLensRunRegex(): RegExp {
+        return /(?:^|\s)def\s+(main)\s*\(\s*\)/gm;
     }
 
     private findMainInRunfiles(runfilesPath: string): string {
