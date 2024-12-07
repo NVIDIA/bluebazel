@@ -161,8 +161,11 @@ export class BazelService {
      * Fetches available targets for Bazel.
      */
     public async fetchAllTargets(rootDir?: string, cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
-        return this.fetchAllTargetsFromBuildFiles('.*', rootDir, true, cancellationToken);
-        // return this.fetchAllTargetsFromQuery(cancellationToken);
+        if (!this.configurationManager.shouldFetchTargetsUsingQuery()) {
+            return this.fetchAllTargetsFromBuildFiles('.*', rootDir, true, cancellationToken);
+        } else {
+            return this.fetchAllTargetsFromQuery(cancellationToken);
+        }
     }
 
     public async fetchAllTargetsFromQuery(cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
@@ -170,14 +173,20 @@ export class BazelService {
         try {
             const filter = '"^(?!.*\\.aspect_rules_js|.*node_modules|.*bazel-|.*/\\.).*$"';
             // Run label_kind and package queries in parallel to save time
-            const [targetsQuery, buildPackagesQuery, testPackagesQuery] = await Promise.all([
-                this.runQuery(
-                    `query 'filter(${filter}, kind(".*(${this.isBuildTargetRegex.source}|_binary|_test)", //...)
+            /**
+             * This is how to find all executable targets but we won't use that
+             * because we need all buildable targets:
+             * 'query \'attr("$is_executable", 1,  //...)\'  --output=label_kind --keep_going 2>/dev/null || true',
+             */
+            const [targetsQuery, buildPackagesQuery, testPackagesQuery] = await Promise.
+                all([
+                    this.runQuery(
+                        `query 'filter(${filter}, kind(".*(${this.isBuildTargetRegex.source}|_binary|_test)", //...)
                     )' --output=label_kind --keep_going 2>/dev/null || true`,
-                    cancellationToken),
-                this.runQuery(`query 'filter(${filter}, //...)' --output=package --keep_going 2>/dev/null || true`, cancellationToken),
-                this.runQuery(`query 'filter(${filter}, tests(//...))' --output=package --keep_going 2>/dev/null || true`, cancellationToken)
-            ]);
+                        cancellationToken),
+                    this.runQuery(`query 'filter(${filter}, //...)' --output=package --keep_going 2>/dev/null || true`, cancellationToken),
+                    this.runQuery(`query 'filter(${filter}, tests(//...))' --output=package --keep_going 2>/dev/null || true`, cancellationToken)
+                ]);
 
             const targetOutputs = targetsQuery.stdout.split('\n');
             const buildPackagesOutputs = buildPackagesQuery.stdout.split('\n');
@@ -189,14 +198,13 @@ export class BazelService {
             );
             unifiedPackages.push('package_test package //...');
 
-
             targetOutputs.push(...unifiedPackages);
 
             // Process target outputs to extract necessary fields and filter out empty labels in one pass
             const targets = targetOutputs
                 .filter(line => line.trim() !== '')
                 .map(line => {
-                    const [ruleType, , target] = line.split(' ');
+                    const [ruleType, , target, isExecutable] = line.split(' ');
                     const [targetPath, targetName] = target.split(':');
                     const buildPath = path.join(BAZEL_BIN, ...targetPath.split('/'), targetName || '');
                     if (targetPath.includes('...')) {

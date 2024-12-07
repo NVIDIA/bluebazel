@@ -16,7 +16,7 @@
     "activationEvents": [
         "workspaceContains:WORKSPACE"
     ],
-    "main": "./out/extension.js",
+    "main": "./out/main.js",
     "contributes": {
         "taskDefinitions": [
             {
@@ -402,6 +402,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "(Experimental) Update available targets when BUILD files change."
+                },
+                "bluebazel.fetchTargetsUsingQuery": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Fetch available targets using Bazel query.\nWARNING: this ties up Bazel and can be slow.\nIf it is set to false it will parse the BUILD files to find available targets."
                 },
                 "bluebazel.engineLogging": {
                     "type": "boolean",
