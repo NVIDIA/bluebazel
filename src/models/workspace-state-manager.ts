@@ -29,15 +29,22 @@ import * as vscode from 'vscode';
 
 export class WorkspaceStateManager {
     private versionChangeHappened = false;
+    private majorVersionChangeHappened = false;
 
     constructor(private readonly context: vscode.ExtensionContext) {
         this.versionChangeHappened = this.checkVersionChange();
+        this.majorVersionChangeHappened = this.checkVersionChange(true);
     }
 
 
-    private checkVersionChange(): boolean {
+    private checkVersionChange(majorVersionOnly = false): boolean {
         const version = ExtensionUtils.getExtensionVersion(this.context);
         const oldVersion = this.context.workspaceState.get<string>('version', '');
+        if (majorVersionOnly) {
+            const majorOld = oldVersion.split('.')[0];
+            const majorNew = version.split('.')[0];
+            return majorOld !== majorNew;
+        }
         return oldVersion !== version;
     }
 
@@ -45,10 +52,15 @@ export class WorkspaceStateManager {
         return this.versionChangeHappened;
     }
 
+    public majorVersionChanged(): boolean {
+        return this.majorVersionChangeHappened;
+    }
+
     public refreshWorkspaceState() {
-        if (this.versionChanged()) {
+        if (this.majorVersionChanged()) {
             this.clearWorkspaceState();
             this.context.workspaceState.update('version', ExtensionUtils.getExtensionVersion(this.context));
+            Console.info('Workspace state has been cleared due to major version bump.');
         }
     }
 
@@ -57,7 +69,6 @@ export class WorkspaceStateManager {
         for (const key of keys) {
             this.context.workspaceState.update(key, undefined);
         }
-        Console.info('Workspace state has been cleared due to version bump.');
     }
 
     public update<T>(key: string, value: T) {

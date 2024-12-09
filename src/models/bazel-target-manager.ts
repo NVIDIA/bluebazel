@@ -47,7 +47,7 @@ export class BazelTargetManager {
         private readonly fileStorageService: FileStorageService,
         workspaceStateManager: WorkspaceStateManager
     ) {
-        if (workspaceStateManager.versionChanged()) {
+        if (workspaceStateManager.majorVersionChanged()) {
             this.clear();
             this.targetsLoaded = Promise.resolve();
         } else {
