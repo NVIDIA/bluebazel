@@ -235,9 +235,10 @@ export class BazelService {
         // Awk is really, really fast at parsing the BUILD file content and outputting what we need.
         const awkScript = `
             BEGIN {
-                # Capture the current working directory
-                cwdir = ENVIRON["PWD"]
-                # Ensure it ends with a slash for proper prefix matching
+                # Set the current working directory explicitly
+                cwdir = ""
+                "pwd" | getline cwdir
+                close("pwd")
                 if (substr(cwdir, length(cwdir), 1) != "/") {
                     cwdir = cwdir "/"
                 }
@@ -246,36 +247,36 @@ export class BazelService {
                 # Remove comments from each line
                 sub(/#.*/, "")
                 # Accumulate content per file
-                content[FILENAME] = content[FILENAME] " " $0
+                content[FILENAME] = (content[FILENAME] ? content[FILENAME] " " : "") $0
             }
             ENDFILE {
-                # Initialize relative path as the full filename
+                # Compute relative path
                 relpath = FILENAME
-
-                # Remove the current working directory prefix if present
-                if (substr(relpath, 1, length(cwdir)) == cwdir) {
+                if (index(relpath, cwdir) == 1) {
                     relpath = substr(relpath, length(cwdir) + 1)
-                }
-                # Else, remove leading "./" if present
-                else if (substr(relpath, 1, 2) == "./") {
+                } else if (substr(relpath, 1, 2) == "./") {
                     relpath = substr(relpath, 3)
-                }
-                # Else, remove leading "/" if present (for absolute paths)
-                else if (substr(relpath, 1, 1) == "/") {
+                } else if (substr(relpath, 1, 1) == "/") {
                     relpath = substr(relpath, 2)
                 }
                 # Else, leave it as is (already relative)
 
                 # Remove trailing "/BUILD" or "/BUILD.bazel"
-                sub(/\\/?BUILD(\\.bazel)?$/, "", relpath)
+                sub(/\\/BUILD(\\.bazel)?$/, "", relpath)
 
-                # Initialize a flag to check for test targets
+                # Initialize flag for test targets
                 has_test = 0
 
-                # Process the accumulated content for the current file
-                while (match(content[FILENAME], /([a-zA-Z0-9_]+)\\s*\\([^)]*name\\s*=\\s*["'"'"']([a-zA-Z0-9_/.+=,@~-]+)["'"'"'][^)]*\\)/, arr)) {
-                    type = arr[1]
-                    name = arr[2]
+                # Process accumulated content for current file
+                while (match(content[FILENAME], /([a-zA-Z0-9_]+)\\s*\\([^)]*name\\s*=\\s*["'\\'']([a-zA-Z0-9_/.+=,@~-]+)["'\\''][^)]*\\)/)) {
+                    matched = substr(content[FILENAME], RSTART, RLENGTH)
+
+                    # Extract type and name
+                    sub(/^[[:space:]]*([a-zA-Z0-9_]+)\\s*\\([^)]*name\\s*=\\s*["'\\'']/, "", matched)
+                    sub(/["'\\''][^)]*$/, "", matched)
+                    type = matched
+                    name = matched
+
                     if (type ~ /${escapedPattern}/) {
                         # Check if the current target is a test
                         if (type ~ /_test$/) {
@@ -284,7 +285,8 @@ export class BazelService {
                         # Print in desired format: <relative_path>:<type>:<name>
                         print relpath ":" type ":" name
                     }
-                    # Remove the matched part to find subsequent matches
+
+                    # Remove processed part from content
                     content[FILENAME] = substr(content[FILENAME], RSTART + RLENGTH)
                 }
 
@@ -299,7 +301,7 @@ export class BazelService {
                 }
                 ` : ''}
 
-                # Clear the content for the next file
+                # Clear content for next file
                 delete content[FILENAME]
             }
         `;
