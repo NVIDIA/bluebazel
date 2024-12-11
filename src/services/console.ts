@@ -64,4 +64,8 @@ export class Console {
     public static time(message?: any) {
         console.time(`${Console.instance.prefix} ${message}`);
     }
+
+    public static timeEnd(message?: any) {
+        console.timeEnd(`${Console.instance.prefix} ${message}`);
+    }
 }

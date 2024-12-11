@@ -21,6 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
+import { BazelParser } from './bazel-parser';
 import { languageMapping as bazelRuleTypeLanguageMapping, sortedBazelRuleTypePrefixes } from './bazel-rule-language-mapping';
 import { ConfigurationManager } from './configuration-manager';
 import { Console } from './console';
@@ -204,15 +205,10 @@ export class BazelService {
             const targets = targetOutputs
                 .filter(line => line.trim() !== '')
                 .map(line => {
-                    const [ruleType, , target, isExecutable] = line.split(' ');
+                    const [ruleType, , target] = line.split(' ');
                     const [targetPath, targetName] = target.split(':');
                     const buildPath = path.join(BAZEL_BIN, ...targetPath.split('/'), targetName || '');
-                    if (targetPath.includes('...')) {
-                        (() => {
-                            return;
-                        })();
-                        buildPath.split('/');
-                    }
+
                     return {
                         label: targetName || targetPath,
                         ruleType: ruleType,
@@ -229,83 +225,6 @@ export class BazelService {
         }
     }
 
-    private static getBuildFileAwkParser(ruleTypeRegex = '.*', includeOutputPackages = false) {
-        const escapedPattern = ruleTypeRegex.replace(/(["\\])/g, '\\$1');
-
-        // Awk is really, really fast at parsing the BUILD file content and outputting what we need.
-        const awkScript = `
-            BEGIN {
-                # Capture the current working directory
-                cwdir = ENVIRON["PWD"]
-                # Ensure it ends with a slash for proper prefix matching
-                if (substr(cwdir, length(cwdir), 1) != "/") {
-                    cwdir = cwdir "/"
-                }
-            }
-            {
-                # Remove comments from each line
-                sub(/#.*/, "")
-                # Accumulate content per file
-                content[FILENAME] = content[FILENAME] " " $0
-            }
-            ENDFILE {
-                # Initialize relative path as the full filename
-                relpath = FILENAME
-
-                # Remove the current working directory prefix if present
-                if (substr(relpath, 1, length(cwdir)) == cwdir) {
-                    relpath = substr(relpath, length(cwdir) + 1)
-                }
-                # Else, remove leading "./" if present
-                else if (substr(relpath, 1, 2) == "./") {
-                    relpath = substr(relpath, 3)
-                }
-                # Else, remove leading "/" if present (for absolute paths)
-                else if (substr(relpath, 1, 1) == "/") {
-                    relpath = substr(relpath, 2)
-                }
-                # Else, leave it as is (already relative)
-
-                # Remove trailing "/BUILD" or "/BUILD.bazel"
-                sub(/\\/?BUILD(\\.bazel)?$/, "", relpath)
-
-                # Initialize a flag to check for test targets
-                has_test = 0
-
-                # Process the accumulated content for the current file
-                while (match(content[FILENAME], /([a-zA-Z0-9_]+)\\s*\\([^)]*name\\s*=\\s*["'"'"']([a-zA-Z0-9_/.+=,@~-]+)["'"'"'][^)]*\\)/, arr)) {
-                    type = arr[1]
-                    name = arr[2]
-                    if (type ~ /${escapedPattern}/) {
-                        # Check if the current target is a test
-                        if (type ~ /_test$/) {
-                            has_test = 1
-                        }
-                        # Print in desired format: <relative_path>:<type>:<name>
-                        print relpath ":" type ":" name
-                    }
-                    # Remove the matched part to find subsequent matches
-                    content[FILENAME] = substr(content[FILENAME], RSTART + RLENGTH)
-                }
-
-                ${includeOutputPackages ? `
-                # After processing all targets, print the package line
-                if (has_test) {
-                    # Print package_test line
-                    print relpath ":package_test:..."
-                } else {
-                    # Print package_build line
-                    print relpath ":package_build:..."
-                }
-                ` : ''}
-
-                # Clear the content for the next file
-                delete content[FILENAME]
-            }
-        `;
-        return awkScript;
-    }
-
     public async fetchAllTargetsFromBuildFiles(ruleTypeRegex = '.*',
         rootDir?: string,
         includeOutputPackages = false,
@@ -313,7 +232,8 @@ export class BazelService {
         Console.info(`Fetching targets with rule type ${ruleTypeRegex} from Bazel BUILD files...`);
 
         // Determine the root directory
-        rootDir = rootDir || WorkspaceService.getInstance().getWorkspaceFolder()?.uri.path;
+        const workspaceRoot = WorkspaceService.getInstance().getWorkspaceFolder()?.uri.path;
+        rootDir = rootDir || workspaceRoot;
 
         if (!rootDir) {
             Console.error('No workspace folder found.');
@@ -321,39 +241,14 @@ export class BazelService {
         }
 
         try {
-            const awkScript = BazelService.getBuildFileAwkParser(ruleTypeRegex, includeOutputPackages);
-            // Escape double quotes and backslashes for the shell command
-            const escapedRootDir = rootDir.replace(/(["\\])/g, '\\$1');
+            const parsedTargets = await BazelParser.parseAllBazelBuildFilesTargets(rootDir, workspaceRoot, ruleTypeRegex, includeOutputPackages, cancellationToken);
 
-            // Construct the shell command
-            const command = `
-            find "${escapedRootDir}" \\( -name BUILD -o -name BUILD.bazel \\) -type f -print0 | \\
-            xargs -0 awk '
-                ${awkScript}
-            '`;
-
-            // Execute the shell command
-            const result = await this.shellService.runShellCommand(command, cancellationToken);
-
-            // Split the output into lines and filter out empty lines
-            const lines = result.stdout.split('\n').filter(line => line.trim() !== '');
-
-            // Map each line to a BazelTarget object
-            const targets = lines.map(line => {
-                const [bazelPath, ruleType, targetName] = line.split(':');
-                let label = targetName;
-                let fullBazelPath = `//${bazelPath}:${targetName}`;
-                if (targetName === '...') {
-                    fullBazelPath =  `//${path.join(bazelPath, targetName)}`;
-                    label = fullBazelPath;
-                }
-                // Handle regular targets
-                const buildPath = path.join(BAZEL_BIN, ...bazelPath.split('/'), targetName || '');
+            const targets: BazelTarget[] = parsedTargets.map((parsedTarget) => {
                 return {
-                    label: label,
-                    ruleType: ruleType,
-                    bazelPath: fullBazelPath,
-                    buildPath: buildPath,
+                    label: parsedTarget.name,
+                    ruleType: parsedTarget.ruleType,
+                    bazelPath: parsedTarget.bazelPath,
+                    buildPath: parsedTarget.buildPath
                 } as BazelTarget;
             });
 
@@ -364,40 +259,6 @@ export class BazelService {
             return Promise.reject(error);
         }
     }
-
-
-    /**
-     * Fetch matching Bazel targets from a BUILD file.
-     * @param filePath - The path to the BUILD or BUILD.bazel file.
-     * @param kindPattern - Regex to match the rule type (e.g., .*_binary).
-     * @param targetPrefix - Prefix to match the target name.
-     * @returns List of target names matching the kindPattern and targetPrefix.
-     */
-    public static fetchMatchingTargets(filePath: string, kindPattern: string, targetPrefix: string): string[] {
-        // Read the content of the file
-        let content = fs.readFileSync(filePath, 'utf-8');
-
-        // Step 1: Remove comments
-        content = content.replace(/#.*$/gm, '');
-
-        // Step 2: Replace newlines with spaces
-        content = content.replace(/\n/g, ' ');
-
-        // Step 3: Extract all rule types and target names
-        const targetRegex = /([a-zA-Z0-9_]+)\s*\(\s*(?:[^)]*\s+)?name\s*=\s*['"]([a-zA-Z0-9_/.+=,@~-]+)['"]/g;
-        const extractedTargets: { type: string; name: string }[] = [];
-        let match;
-        while ((match = targetRegex.exec(content)) !== null) {
-            extractedTargets.push({ type: match[1], name: match[2] });
-        }
-
-        // Step 4: Filter based on kind pattern and target prefix
-        const kindRegex = new RegExp(`^type:${kindPattern}`);
-        return extractedTargets
-            .filter((t) => kindRegex.test(`type:${t.type}`) && t.name.startsWith(targetPrefix))
-            .map((t) => t.name);
-    }
-
 
     /**
      * Searches for bash-completion scripts (e.g., for Bazel) in the specified directory.
