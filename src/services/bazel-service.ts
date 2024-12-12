@@ -21,7 +21,7 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
-import { BazelParser } from './bazel-parser';
+import { BAZEL_BIN, BazelParser } from './bazel-parser';
 import { languageMapping as bazelRuleTypeLanguageMapping, sortedBazelRuleTypePrefixes } from './bazel-rule-language-mapping';
 import { ConfigurationManager } from './configuration-manager';
 import { Console } from './console';
@@ -34,7 +34,6 @@ import * as path from 'path';
 import * as tmp from 'tmp';
 import * as vscode from 'vscode';
 
-export const BAZEL_BIN = 'bazel-bin';
 
 export class BazelService {
 

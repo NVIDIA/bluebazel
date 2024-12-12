@@ -22,11 +22,10 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 
-import { BAZEL_BIN } from './bazel-service';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
-import * as vscode from 'vscode';
 
+export const BAZEL_BIN = 'bazel-bin';
 export class BazelParser {
     /**
      * Finds all Bazel workspace and build files under the given root directory.
@@ -172,7 +171,7 @@ export class BazelParser {
      * @param rootDir The root directory to search from.
      * @returns An array of parsed Bazel targets across all files.
      */
-    public static async parseAllBazelBuildFilesTargets(rootDir: string, workspaceFolder: string, ruleTypeRegex = '.*', includeOutputPackages = true, cancellationToken?: vscode.CancellationToken): Promise<
+    public static async parseAllBazelBuildFilesTargets(rootDir: string, workspaceFolder: string, ruleTypeRegex = '.*', includeOutputPackages = true, cancellationToken?: any): Promise<
         { name: string; ruleType: string; srcExtensions: string[]; bazelPath: string, buildPath: string }[]
     > {
         const bazelFiles = await this.findBazelBuildFiles(rootDir);
