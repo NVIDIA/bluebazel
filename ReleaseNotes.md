@@ -54,3 +54,9 @@ Allow for no reload when custom buttons are created.
 Change the way available targets are fetched. Now they can be fetched from BUILD files so that the Bazel engine is not tied up using query. The old query is maintained via a setting.
 Add a dialog before running clean command.
 Add capability to run and debug from main functions for languages that have support.
+
+## 1.0.4
+
+Swap typescript in for awk when available targets are fetched. Awk, albeit much faster, is not as portable as the typescript solution.
+Remove shellscript from C++ language support.
+Clear the workspace state only on major version changes.
