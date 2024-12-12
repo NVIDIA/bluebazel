@@ -157,3 +157,144 @@ export const languageMapping: Map<string, string> = new Map([
 
 // Sort prefixes by length in descending order to prioritize longer, more specific prefixes
 export const sortedBazelRuleTypePrefixes: string[] = Array.from(languageMapping.keys()).sort((a, b) => b.length - a.length);
+
+export const extensionLanguageMapping: Map<string, string> = new Map([
+    // Go
+    ['.go', 'go'],
+
+    // Python
+    ['.py', 'python'],
+
+    // C and C++
+    ['.c', 'c'],
+    ['.cpp', 'cpp'],
+    ['.cc', 'cpp'],
+    ['.h', 'cpp'],
+
+    // Java
+    ['.java', 'java'],
+
+    // JavaScript and TypeScript
+    ['.js', 'javascript'],
+    ['.jsx', 'javascript'],
+    ['.ts', 'typescript'],
+    ['.tsx', 'typescript'],
+
+    // Scala
+    ['.scala', 'scala'],
+
+    // Protocol Buffers
+    ['.proto', 'protobuf'],
+
+    // Shell/Bash
+    ['.sh', 'shellscript'],
+
+    // JSON
+    ['.json', 'json'],
+
+    // HTML and CSS
+    ['.html', 'html'],
+    ['.css', 'css'],
+
+    // Ruby
+    ['.rb', 'ruby'],
+
+    // PHP
+    ['.php', 'php'],
+
+    // Rust
+    ['.rs', 'rust'],
+
+    // Swift
+    ['.swift', 'swift'],
+
+    // Kotlin
+    ['.kt', 'kotlin'],
+    ['.kts', 'kotlin'],
+
+    // Lua
+    ['.lua', 'lua'],
+
+    // SQL
+    ['.sql', 'sql'],
+
+    // Markdown
+    ['.md', 'markdown'],
+
+    // XML
+    ['.xml', 'xml'],
+
+    // Dart
+    ['.dart', 'dart'],
+
+    // Haskell
+    ['.hs', 'haskell'],
+
+    // Erlang
+    ['.erl', 'erlang'],
+    ['.hrl', 'erlang'],
+
+    // Clojure
+    ['.clj', 'clojure'],
+    ['.cljs', 'clojure'],
+
+    // R
+    ['.r', 'r'],
+
+    // Visual Basic
+    ['.vb', 'vb'],
+
+    // CoffeeScript
+    ['.coffee', 'coffeescript'],
+
+    // F#
+    ['.fs', 'fsharp'],
+
+    // Groovy
+    ['.groovy', 'groovy'],
+
+    // YAML
+    ['.yaml', 'yaml'],
+    ['.yml', 'yaml'],
+
+    // PowerShell
+    ['.ps1', 'powershell'],
+
+    // Batch Scripting
+    ['.bat', 'bat'],
+
+    // Makefile
+    ['Makefile', 'makefile'],
+
+    // Dockerfile
+    ['Dockerfile', 'dockerfile'],
+
+    // Racket
+    ['.rkt', 'racket'],
+
+    // Lisp and Scheme
+    ['.lisp', 'lisp'],
+    ['.scm', 'scheme'],
+
+    // Vala
+    ['.vala', 'vala'],
+
+    // Objective-C and Objective-C++
+    ['.m', 'objective-c'],
+    ['.mm', 'objective-cpp'],
+
+    // Nim
+    ['.nim', 'nim'],
+
+    // Elixir
+    ['.ex', 'elixir'],
+    ['.exs', 'elixir'],
+
+    // Haxe
+    ['.hx', 'haxe'],
+
+    // Fortran
+    ['.f90', 'fortran'],
+    ['.f95', 'fortran'],
+    ['.for', 'fortran'],
+]);
