@@ -5,7 +5,11 @@ This extension provides integration into Visual Studio Code for building, runnin
 
 ![Demo of Blue Bazel Debug](images/demo_debug.gif)
 
-![Screenshot of Blue Bazel](images/screenshot.png)![Screenshot of Blue Bazel Test Code Lens](images/test_codelens_screenshot.png)
+Keep track of targets with custom environment variables, arguments, and configuration.
+![Screenshot of Blue Bazel](images/screenshot.png)
+
+Test and debug unit tests and main functions right from the code editor.
+![Screenshot of Blue Bazel Test Code Lens](images/test_codelens_screenshot.png)
 
 Follow the steps to install the extension:
 
