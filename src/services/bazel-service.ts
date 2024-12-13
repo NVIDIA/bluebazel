@@ -63,30 +63,6 @@ export class BazelService {
     }
 
     /**
-     * Gets the Bazel build path for the given target.
-     */
-    public async getBazelTargetBuildPath(target: BazelTarget, cancellationToken?: vscode.CancellationToken): Promise<string> {
-        try {
-            const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
-            const executable = this.configurationManager.getExecutableCommand();
-            const configs = target.getConfigArgs().toString();
-            const args = target.getBazelArgs().toString();
-            const cmd = cleanAndFormat(
-                'cquery',
-                args,
-                configs,
-                '--output=starlark --starlark:expr=target.files_to_run.executable.path'
-            );
-
-            const result = await this.shellService.runShellCommand(`${executable} ${cmd} ${bazelTarget}`, cancellationToken);
-            return result.stdout;
-        } catch (error) {
-            Console.error('Error fetching Bazel target build path:', error);
-            return Promise.reject(error);  // Rejecting instead of throwing
-        }
-    }
-
-    /**
      * Converts the provided path into a valid Bazel target path.
      */
     public static formatBazelTargetFromPath(path: string): string {
@@ -122,16 +98,16 @@ export class BazelService {
                 const target = new BazelTarget(this.context, this, item.label, item.bazelPath, item.buildPath, '', item.ruleType);
 
                 // Determine which categories this target belongs to
-                if (target.ruleType.includes('_test')) {
+                if (target.action === 'test') {
                     map.get('test')?.push(target);
                     if (target.ruleType !== 'package_test') {
                         map.get('run')?.push(target); // Tests can also be run
                     }
                     map.get('build')?.push(target); // Tests are built before running
-                } else if (target.ruleType.includes('_binary')) {
+                } else if (target.action === 'run') {
                     map.get('run')?.push(target);
                     map.get('build')?.push(target); // Binaries need to be built
-                } else if (this.isBuildTargetRegex.test(target.ruleType)) {
+                } else {
                     map.get('build')?.push(target);
                 }
             });
@@ -181,8 +157,7 @@ export class BazelService {
             const [targetsQuery, buildPackagesQuery, testPackagesQuery] = await Promise.
                 all([
                     this.runQuery(
-                        `query 'filter(${filter}, kind(".*(${this.isBuildTargetRegex.source}|_binary|_test)", //...)
-                    )' --output=label_kind --keep_going 2>/dev/null || true`,
+                        `query 'filter(${filter}, kind(".*", //...))' --output=label_kind --keep_going 2>/dev/null || true`,
                         cancellationToken),
                     this.runQuery(`query 'filter(${filter}, //...)' --output=package --keep_going 2>/dev/null || true`, cancellationToken),
                     this.runQuery(`query 'filter(${filter}, tests(//...))' --output=package --keep_going 2>/dev/null || true`, cancellationToken)
@@ -215,9 +190,7 @@ export class BazelService {
                         buildPath: buildPath
                     } as BazelTarget;
                 });
-
-            // Sort the targets alphabetically
-            return targets.sort((a, b) => (a.bazelPath < b.bazelPath ? -1 : 1));
+            return targets;
         } catch (error) {
             Console.error('Error fetching run targets:', error);
             return Promise.reject(error);
@@ -243,9 +216,19 @@ export class BazelService {
             const parsedTargets = await BazelParser.parseAllBazelBuildFilesTargets(rootDir, workspaceRoot, ruleTypeRegex, includeOutputPackages, cancellationToken);
 
             const targets: BazelTarget[] = parsedTargets.map((parsedTarget) => {
+
+                let action = 'build';
+
+                if (parsedTarget.ruleType.includes('_test')) {
+                    action = 'test';
+                } else if (parsedTarget.ruleType.includes('_binary')) {
+                    action = 'run';
+                }
+
                 return {
                     label: parsedTarget.name,
                     ruleType: parsedTarget.ruleType,
+                    action: action,
                     bazelPath: parsedTarget.bazelPath,
                     buildPath: parsedTarget.buildPath
                 } as BazelTarget;
@@ -335,7 +318,7 @@ export class BazelService {
 
     public static inferLanguageFromRuleType(ruleType: string): string | undefined {
         if (!ruleType || typeof ruleType !== 'string') {
-            console.warn(`Invalid ruleType: ${ruleType}`);
+            Console.warn(`Invalid ruleType: ${ruleType}`);
             return undefined;
         }
 

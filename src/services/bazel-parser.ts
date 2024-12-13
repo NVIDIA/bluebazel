@@ -22,8 +22,10 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 
+import { Console } from './console';
 import * as fsPromises from 'fs/promises';
 import * as path from 'path';
+import * as vscode from 'vscode';
 
 export const BAZEL_BIN = 'bazel-bin';
 export class BazelParser {
@@ -33,6 +35,7 @@ export class BazelParser {
      * @returns An array of file paths to Bazel build files.
      */
     public static async findBazelBuildFiles(rootDir: string): Promise<{workspace: string[], build: string[]}> {
+        Console.debug('Find all bazel build and workspace files...');
         const bazelFiles: string[] = [];
         const workspaceFiles: string[] = [];
         const stack: string[] = [rootDir];
@@ -54,12 +57,13 @@ export class BazelParser {
                         }
                     }
                 } catch (err) {
-                    console.error(`Error reading directory ${dir}:`, (err as Error).message || err);
+                    Console.error(`Error reading directory ${dir}:`, (err as Error).message || err);
                 }
             });
             await Promise.all(promises);
         }
 
+        Console.debug(`Found ${workspaceFiles.length} workspace files and ${bazelFiles.length} build files.`);
         return {workspace: workspaceFiles, build: bazelFiles};
     }
 
@@ -171,9 +175,10 @@ export class BazelParser {
      * @param rootDir The root directory to search from.
      * @returns An array of parsed Bazel targets across all files.
      */
-    public static async parseAllBazelBuildFilesTargets(rootDir: string, workspaceFolder: string, ruleTypeRegex = '.*', includeOutputPackages = true, cancellationToken?: any): Promise<
+    public static async parseAllBazelBuildFilesTargets(rootDir: string, workspaceFolder: string, ruleTypeRegex = '.*', includeOutputPackages = true, cancellationToken?: vscode.CancellationToken): Promise<
         { name: string; ruleType: string; srcExtensions: string[]; bazelPath: string, buildPath: string }[]
     > {
+        Console.debug('Parsing all bazel build file targets...');
         const bazelFiles = await this.findBazelBuildFiles(rootDir);
 
         const workspaceFiles = new Set(bazelFiles.workspace.map(workspaceFile => path.dirname(workspaceFile)));
@@ -189,7 +194,7 @@ export class BazelParser {
                     const buildFileResult = await this.parseBazelBuildFileTargets(filePath, workspaceRoot, ruleTypeRegex);
                     return { filePath, targets: buildFileResult.targets, hasTest: buildFileResult.hasTest };
                 } catch (err) {
-                    console.error(`Error parsing file ${filePath}:`, (err as Error).message || err);
+                    Console.error(`Error parsing file ${filePath}:`, (err as Error).message || err);
                     return null;
                 }
             })
@@ -226,6 +231,8 @@ export class BazelParser {
             }
             targets.push(...buildFileSet.targets);
         });
+
+        Console.debug(`Found ${targets.length} targets...`);
 
         return targets;
     }

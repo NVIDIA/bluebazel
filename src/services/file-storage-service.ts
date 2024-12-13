@@ -76,6 +76,10 @@ export class FileStorageService {
             cancellationToken?.onCancellationRequested(() => {
                 reject(new Error('Reading json file as stream cancelled'));
             });
+            if (!fs.existsSync(filePath)) {
+                Console.info('No available targets previously cached');
+                return resolve();
+            }
 
             oboe(fs.createReadStream(filePath))
                 .node('!*.*', (value, path) => {
