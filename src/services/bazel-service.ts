@@ -26,7 +26,6 @@ import { languageMapping as bazelRuleTypeLanguageMapping, sortedBazelRuleTypePre
 import { ConfigurationManager } from './configuration-manager';
 import { Console } from './console';
 import { ShellService } from './shell-service';
-import { cleanAndFormat } from './string-utils';
 import { WorkspaceService } from './workspace-service';
 import { BazelAction, BazelTarget } from '../models/bazel-target';
 import * as fs from 'fs';
@@ -95,7 +94,7 @@ export class BazelService {
 
             // Iterate through fetched targets and categorize them by action
             targets.forEach(item => {
-                const target = new BazelTarget(this.context, this, item.label, item.bazelPath, item.buildPath, '', item.ruleType);
+                const target = new BazelTarget(this.context, this, item.label, item.bazelPath, item.buildPath, item.action, item.ruleType);
 
                 // Determine which categories this target belongs to
                 if (target.action === 'test') {
@@ -121,14 +120,25 @@ export class BazelService {
     }
 
 
-    private async runQuery(query: string, cancellationToken?: vscode.CancellationToken): Promise<{ stdout: string, stderr: string}> {
+    private async runQueriesForTargets(cancellationToken?: vscode.CancellationToken): Promise<{ stdout: string, stderr: string}> {
         try {
+            const filter = '"^(?!.*\\.aspect_rules_js|.*node_modules|.*bazel-|.*/\\.).*$"';
             const executable = this.configurationManager.getExecutableCommand();
-            const data = await this.shellService.runShellCommand(`${executable} ${query}`, cancellationToken);
-            Console.info('running query', `${executable} ${query}`);
+            const combinedCommand = `
+            echo "### Run Targets";
+            ${executable} query 'attr("$is_executable", 1, //...)' --output=label_kind --keep_going 2>/dev/null;
+
+            echo "### Test Targets";
+            ${executable} query 'filter(${filter}, tests(//...))' --output=label_kind --keep_going 2>/dev/null;
+
+            echo "### Other Targets";
+            ${executable} query 'filter(${filter}, //... except attr("$is_executable", 1, //...) except tests(//...))' --output=label_kind --keep_going 2>/dev/null;
+            `.trim();
+            const data = await this.shellService.runShellCommand(combinedCommand, cancellationToken);
+            Console.info('running command', combinedCommand);
             return data;
         } catch (error) {
-            Console.error('Error running query', query, error);
+            Console.error('Error running fetch queries', error);
             return Promise.reject(error);
         }
     }
@@ -147,50 +157,66 @@ export class BazelService {
     public async fetchAllTargetsFromQuery(cancellationToken?: vscode.CancellationToken): Promise<BazelTarget[]> {
         Console.info('Fetching all targets from bazel...');
         try {
-            const filter = '"^(?!.*\\.aspect_rules_js|.*node_modules|.*bazel-|.*/\\.).*$"';
+
             // Run label_kind and package queries in parallel to save time
-            /**
-             * This is how to find all executable targets but we won't use that
-             * because we need all buildable targets:
-             * 'query \'attr("$is_executable", 1,  //...)\'  --output=label_kind --keep_going 2>/dev/null || true',
-             */
-            const [targetsQuery, buildPackagesQuery, testPackagesQuery] = await Promise.
-                all([
-                    this.runQuery(
-                        `query 'filter(${filter}, kind(".*", //...))' --output=label_kind --keep_going 2>/dev/null || true`,
-                        cancellationToken),
-                    this.runQuery(`query 'filter(${filter}, //...)' --output=package --keep_going 2>/dev/null || true`, cancellationToken),
-                    this.runQuery(`query 'filter(${filter}, tests(//...))' --output=package --keep_going 2>/dev/null || true`, cancellationToken)
-                ]);
+            const result = await this.runQueriesForTargets(cancellationToken);
+            const sections = result.stdout.split('###').map(section => section.trim()).filter(Boolean);
+            const query = {
+                runTargets: [] as string[],
+                testTargets: [] as string[],
+                otherTargets: [] as string[],
+            };
 
-            const targetOutputs = targetsQuery.stdout.split('\n');
-            const buildPackagesOutputs = buildPackagesQuery.stdout.split('\n');
-            const testPackagesOutputs = new Set(testPackagesQuery.stdout.split('\n'));
+            sections.forEach(section => {
+                const lines = section.split('\n');
+                if (lines[0].includes('Run Targets')) {
+                    query.runTargets = lines.slice(1); // Skip the header line
+                } else if (lines[0].includes('Test Targets')) {
+                    query.testTargets = lines.slice(1);
+                } else if (lines[0].includes('Other Targets')) {
+                    query.otherTargets = lines.slice(1);
+                }
+            });
 
-            // Combine build and test package information
-            const unifiedPackages = buildPackagesOutputs.map(pkg =>
-                testPackagesOutputs.has(pkg) ? `package_test package //${pkg}/...` : `package_build package //${pkg}/...`
-            );
-            unifiedPackages.push('package_test package //...');
 
-            targetOutputs.push(...unifiedPackages);
+            const createTargets = (action: BazelAction, lines: string[]): BazelTarget[] => {
+                return lines.filter(line => line.trim() !== '')
+                    .map(line => {
+                        const [ruleType, , target] = line.split(' ');
+                        const [targetPath, targetName] = target.split(':');
+                        const buildPath = path.join(BAZEL_BIN, ...targetPath.split('/'), targetName || '');
 
-            // Process target outputs to extract necessary fields and filter out empty labels in one pass
-            const targets = targetOutputs
-                .filter(line => line.trim() !== '')
-                .map(line => {
-                    const [ruleType, , target] = line.split(' ');
-                    const [targetPath, targetName] = target.split(':');
-                    const buildPath = path.join(BAZEL_BIN, ...targetPath.split('/'), targetName || '');
+                        return {
+                            label: targetName || targetPath,
+                            ruleType: ruleType,
+                            bazelPath: target,
+                            buildPath: buildPath,
+                            action: action,
+                        } as BazelTarget;
+                    });
+            };
 
-                    return {
-                        label: targetName || targetPath,
-                        ruleType: ruleType,
-                        bazelPath: target,
-                        buildPath: buildPath
-                    } as BazelTarget;
-                });
-            return targets;
+            const targets = createTargets('run', query.runTargets);
+            const testTargets = createTargets('test', query.testTargets);
+            const otherTargets = createTargets('build', query.otherTargets);
+
+            const testPackageLines = new Set(testTargets.map(target => {
+                return `package_test package //${target.bazelPath.split(':')}/...`;
+            }));
+
+            const otherPackageLines = new Set(otherTargets.map(target => {
+                return `package_build package //${target.bazelPath.split(':')}/...`;
+            }));
+
+            const testPackages = createTargets('test', Array.from(testPackageLines));
+            const otherPackages = createTargets('build', Array.from(otherPackageLines));
+
+            return [...targets,
+                ...testTargets,
+                ...testPackages,
+                ...otherTargets,
+                ...otherPackages
+            ];
         } catch (error) {
             Console.error('Error fetching run targets:', error);
             return Promise.reject(error);
