@@ -129,11 +129,9 @@ export class UserCommandsController {
                 if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
             }
 
-            await vscode.window.showQuickPick(outputList, { 'ignoreFocusOut': true }).then(data => {
-                if (data !== undefined)
-                    return data;
+            return vscode.window.showQuickPick(outputList, { 'ignoreFocusOut': true }).then(data => {
+                return data !== undefined ? data : ''
             });
-            return '';
         } catch (error) {
             return Promise.reject(error);
         }
