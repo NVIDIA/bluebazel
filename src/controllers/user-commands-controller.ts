@@ -55,6 +55,7 @@ export class UserCommandsController {
     };
 
     private static EXTENSION_COMMANDS = {
+        multipick: 'MultiPick',
         pick: 'Pick',
         input: 'Input'
     };
@@ -118,20 +119,33 @@ export class UserCommandsController {
 
     }
 
+    private async buildPickList(input: string): Promise<string[]> {
+        // Evaluate the inner command of the pick
+        const output = await this.resolveCommands(input);
+        // Make a list of the output
+        const outputList = [];
+        for (const element of output.split('\n')) {
+            const elementTrimmed = element.trim();
+            if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
+        }
+        return outputList;
+    }
+
     private async extPick(input: string): Promise<string> {
         try {
-            // Evaluate the inner command of the pick
-            const output = await this.resolveCommands(input);
-            // Make a list of the output
-            const outputList = [];
-            for (const element of output.split('\n')) {
-                const elementTrimmed = element.trim();
-                if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
-            }
-
-            return vscode.window.showQuickPick(outputList, { 'ignoreFocusOut': true }).then(data => {
+            return vscode.window.showQuickPick(this.buildPickList(input), { 'ignoreFocusOut': true }).then(data => {
                 return data !== undefined ? data : ''
             });
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    }
+
+    private async extPickMany(input: string): Promise<string[]> {
+        try {
+            return vscode.window.showQuickPick(this.buildPickList(input), { 'ignoreFocusOut': true, 'canPickMany': true }).then(data => {
+                return data !== undefined ? data : []
+            });;
         } catch (error) {
             return Promise.reject(error);
         }
@@ -149,7 +163,10 @@ export class UserCommandsController {
                     const extCommand = match[1];
                     const extArgs = match[2];
                     let evalRes = '';
-                    if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
+                    if (extCommand === UserCommandsController.EXTENSION_COMMANDS.multipick) {
+                        const multiRes = await this.extPickMany(extArgs);
+                        evalRes = multiRes.map((el) => el.replace(/[\r\n]/g, " ")).join("\n");
+                    } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
                         evalRes = await this.extPick(extArgs);
                     } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
                         await vscode.window.showInputBox(
