@@ -89,7 +89,8 @@ The configuration has the following syntax:
 "bluebazel.shellCommands": [
     {
         "name": "myCommand1",
-        "command": "A shell command"
+        "command": "A shell command",
+        "memoized": false
     }
 ]
 ```
@@ -100,14 +101,22 @@ Example:
 "bluebazel.shellCommands": [
     {
         "name": "myEcho",
-        "command": "echo this is my custom shell command"
+        "command": "echo this is my custom shell command",
+        "memoized": true,
     },
     {
         "name": "myEchoEcho",
         "command": "echo <myEcho>" // This will execute the command `myEcho` and echo the result.
+    },
+    {
+        "name": "myDecoaratedEcho",
+        "command": "echo \"Echo was: <myEcho>\""
     }
 ]
 ```
+
+In the above example, the command `myEcho` will only be evaluated once, then memoized and reused in both 
+`myEchoMyEcho` and `myDecoratedEcho`.
 
 ### Custom Button configuration
 
@@ -212,8 +221,8 @@ This example illustrates the `Test` button:
         "title": "Run PyTest",
         "buttons": [
             {
-                "title": "Test PyTest",
-                "command": "bazel test <testTarget> --build_tests_only --test_timeout=1500 --test_arg=\"--no-cov\" <testCaseTestArgList>",
+                "title": "Run Selected Test Cases",
+                "command": "bazel test <confirmedTestTargetAsLabel> --build_tests_only --test_timeout=1500 <confirmExtraTestArgs> <testCaseTestArgList>",
                 "description": "Select and run specific test case(s)",
                 "tooltip": "Select and run specific test case(s) with `bazel test`",
                 "methodName": "bluebazel.runPyTestCase"
@@ -235,12 +244,21 @@ This example illustrates the `Test` button:
         "command": "echo -n ${bluebazel.testTarget} | perl -pe 's|^bazel-bin(/.*?)/([^/]+)$|/$1:$2|'"
     },
     {
-        "name": "testCasePyTestListHelper",
-        "command": "bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress <testTargetAsLabel> -- --collect-only -qq --no-cov --disable-warnings --color=no | grep -E '.*/.+::.+'"
+        "name": "confirmedTestTargetAsLabel",
+        "command": "echo -n \"[Input(<testTargetAsLabel>)]\"",
+        "memoized": true
+    },
+    {
+        "name": "testCaseListHelper",
+        "command": "bazel run --ui_event_filters=-info,-stdout,-stderr --noshow_progress <confirmedTestTargetAsLabel> -- --collect-only -qq --no-cov --disable-warnings --color=no | grep -E '(.*?/).+::.+'",
+    },
+    {
+        "name": "confirmExtraTestArgs",
+        "command": "echo -n \"[Input(--test_arg=\\\"--no-cov\\\")]\"",
     },
     {
         "name": "testCaseTestArgList",
-        "command": "echo -n \"[MultiPick(<testCasePyTestListHelper>)]\" | awk '{print \"--test_arg=\\\"\"$1\"\\\"\"}' | tr \"\n\" \" \""
+        "command": "echo -n \"[MultiPick(<testCaseListHelper>)]\" | awk '{print \"--test_arg=\\\"\"$1\"\\\"\"}' | tr \"\n\" \" \"",
     }
 ]
 ```
@@ -252,13 +270,13 @@ modifies it to return something in the form of `//path/...`.
 
 `testTargetAsLabel` formats the selected test target bazel path as a label.
 
-`testCaseTestArgList` takes a `MultiSelect` output and formats it as a series of `--test-arg` options
+`testCaseTestArgList` takes a `MultiSelect` output and formats it as a series of `--test_arg` options
 passed to the Bazel test command.
 
 The button `Test` uses the output of `testTarget` to display the user the list of tests to choose from,
 and executes the test using the current configs and run arguments.
 
-Finally, the button `Test PyTest` uses the output of `testCaseTestArgList` to display the user the
+Finally, the button `Run Selected Test Cases` uses the output of `testCaseTestArgList` to display the user the
 list of PyTest-managed Python test cases corresponding to the current `testTarget`.  `testTarget`
 is assumed to support both the Bazel test and run execution phases and that it conforms to the PyTest
 command line program interface.

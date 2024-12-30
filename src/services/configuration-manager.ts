@@ -85,9 +85,26 @@ export class UserCustomCategory {
     }
 }
 
-export interface ShellCommand {
-    'name': string,
-    'command': string
+export class ShellCommand {
+    name: string;
+    command: string;
+    memoized: boolean;
+    public readonly id: string;
+
+    constructor(data: { 'name': string, 'command': string, 'memoized': boolean }) {
+        this.name = data.name;
+        this.command = data.command;
+        this.memoized = data.memoized ?? false;
+        this.id = this.name;
+    }
+
+    toJSON(): { 'name': string, 'command': string, 'memoized': boolean } {
+        return {
+            'name': this.name,
+            'command': this.command,
+            'memoized': this.memoized
+        };
+    }
 }
 
 export class ConfigurationManager {
@@ -121,11 +138,11 @@ export class ConfigurationManager {
     }
 
     public getShellCommands(): Array<ShellCommand> {
-        const result = this.getConfig().get<Array<ShellCommand>>('shellCommands');
-        if (result !== undefined) {
-            return result;
+        const shellCommands = this.getConfig().get<Array<ShellCommand>>('shellCommands');
+        if (shellCommands === undefined) {
+            return [];
         }
-        return [];
+        return shellCommands.map(commandData => new ShellCommand(commandData));
     }
 
 
