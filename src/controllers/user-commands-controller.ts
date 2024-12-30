@@ -133,7 +133,10 @@ export class UserCommandsController {
 
     private async extPick(input: string): Promise<string> {
         try {
-            return vscode.window.showQuickPick(this.buildPickList(input), { 'ignoreFocusOut': true }).then(data => {
+            return vscode.window.showQuickPick(
+                this.buildPickList(input),
+                { 'ignoreFocusOut': true }
+            ).then((data) => {
                 return data !== undefined ? data : ''
             });
         } catch (error) {
@@ -143,9 +146,29 @@ export class UserCommandsController {
 
     private async extPickMany(input: string): Promise<string[]> {
         try {
-            return vscode.window.showQuickPick(this.buildPickList(input), { 'ignoreFocusOut': true, 'canPickMany': true }).then(data => {
+            return vscode.window.showQuickPick(
+                this.buildPickList(input),
+                { 'ignoreFocusOut': true, 'canPickMany': true }
+            ).then((data) => {
                 return data !== undefined ? data : []
             });;
+        } catch (error) {
+            return Promise.reject(error);
+        }
+    }
+
+    private async extInput(input: string): Promise<string> {
+        try {
+            let resolvedInput = await this.resolveCommands(input);
+            if (resolvedInput !== undefined) {
+                // we take the first result if this is a multi-line string
+                resolvedInput = resolvedInput.split('\n')[0];
+            }
+            return vscode.window.showInputBox(
+                { value: resolvedInput }
+            ).then((val) => {
+                return val !== undefined ? val : ''
+            });
         } catch (error) {
             return Promise.reject(error);
         }
@@ -169,13 +192,7 @@ export class UserCommandsController {
                     } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
                         evalRes = await this.extPick(extArgs);
                     } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
-                        await vscode.window.showInputBox(
-                            { value: extArgs }
-                        ).then((val) => {
-                            if (val !== undefined) {
-                                evalRes = val;
-                            }
-                        });
+                        evalRes = await this.extInput(extArgs);
                     }
                     output = output.replace(match[0], evalRes);
                 }
