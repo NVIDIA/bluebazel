@@ -2,7 +2,7 @@
     "name": "bluebazel",
     "displayName": "Blue Bazel",
     "description": "Bazel vscode UI integration to build, debug, and test targets",
-    "version": "1.0.5",
+    "version": "1.1.0",
     "engines": {
         "vscode": "^1.85.2"
     },

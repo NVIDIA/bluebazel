@@ -64,5 +64,8 @@ Clear the workspace state only on major version changes.
 ## 1.0.5
 
 Fix bug where no output from quickpik is returned.
+
+## 1.1.0
+
 Support MultiPick quickpik extension.
 Support memoizing shellCommand outputs for repeated use in a button command.
