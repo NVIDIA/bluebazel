@@ -211,7 +211,7 @@ async function initExtension(context: vscode.ExtensionContext) {
     attachTreeDataProviderToView(context, bazelController, bazelTargetTreeProvider);
 
     // The user commands controller runs user dynamic tasks added through configuration settings.
-    userCommandsController = new UserCommandsController(configurationManager, shellService, taskService, bazelTargetManager);
+    userCommandsController = new UserCommandsController(configurationManager, shellService, taskService, bazelTargetManager, workspaceStateManager);
 
     // The workspace events controller monitors for workspace events and triggers appropriate logic
     // when those events fire.

@@ -22,6 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 import { BazelTargetManager } from '../models/bazel-target-manager';
+import { WorkspaceStateManager } from '../models/workspace-state-manager';
 import { BazelService } from '../services/bazel-service';
 import { ConfigurationManager, ShellCommand } from '../services/configuration-manager';
 import { ShellService } from '../services/shell-service';
@@ -33,6 +34,11 @@ import * as vscode from 'vscode';
 /**
  * Controller class for executing user custom commands.
  */
+
+type PickStateRecord = Record<string, boolean>;
+
+type PickStateMap = Record<string, PickStateRecord>;
+
 export class UserCommandsController {
 
     private static CONFIG_KEYWORDS = {
@@ -54,21 +60,26 @@ export class UserCommandsController {
         formatCommand: 'bluebazel.formatCommand'
     };
 
-    private static EXTENSION_COMMANDS: Map<string, (resolver: any, extArgs: string) => string> = new Map([
-        [ 'MultiPick', (resolver, extArgs) => resolver.extPickMany(extArgs) ],
-        [ 'Pick', (resolver, extArgs) => resolver.extPick(extArgs) ],
-        [ 'Input', (resolver, extArgs) => resolver.extInput(extArgs) ]
-    ]);
+    private static EXTENSION_COMMANDS = {
+        multipick: 'MultiPick',
+        pick: 'Pick',
+        input: 'Input'
+    };
 
     constructor(
         private readonly configurationManager: ConfigurationManager,
         private readonly shellService: ShellService, // Inject the services
         private readonly taskService: TaskService,
-        private readonly bazelTargetManager: BazelTargetManager
-    ) { }
+        private readonly bazelTargetManager: BazelTargetManager,
+        private readonly workspaceStateManager: WorkspaceStateManager
+    ) {
+    }
+
+    private static PICK_STATE_KEY: string = "userCommandsController.pickStateMap";
 
     public async runCustomTask(command: string): Promise<void> {
-        const resolver = new this.ResolverContext(this);
+        const pickStateMap: PickStateMap = this.workspaceStateManager.get(UserCommandsController.PICK_STATE_KEY, {});
+        const resolver = new this.Resolver(this.bazelTargetManager, this.configurationManager, this.shellService, pickStateMap);
         let completeCommand = resolver.resolveKeywords(command);
         return showProgress(`Running ${completeCommand}`, async (cancellationToken) => {
             try {
@@ -78,8 +89,7 @@ export class UserCommandsController {
             } catch (error) {
                 vscode.window.showErrorMessage(`Error running custom task: ${error}`);
             } finally {
-
-                resolver.cache.clear();
+                this.workspaceStateManager.update(UserCommandsController.PICK_STATE_KEY, pickStateMap);
             }
         });
     }
@@ -91,15 +101,20 @@ export class UserCommandsController {
         return result;
     }
 
-    private ResolverContext = class {
+    private Resolver = class {
         public cache: Map<string, string> = new Map<string, string>();
 
-        constructor(private controller: UserCommandsController) { }
+        constructor(
+            private bazelTargetManager: BazelTargetManager,
+            private configurationManager: ConfigurationManager,
+            private shellService: ShellService,
+            private pickStateMap: PickStateMap
+        ) { }
 
         protected resolveKeyword(keyword: string): string {
-            const buildTarget = this.controller.bazelTargetManager.getSelectedTarget('build');
-            const runTarget = this.controller.bazelTargetManager.getSelectedTarget('run');
-            const testTarget = this.controller.bazelTargetManager.getSelectedTarget('test');
+            const buildTarget = this.bazelTargetManager.getSelectedTarget('build');
+            const runTarget = this.bazelTargetManager.getSelectedTarget('run');
+            const testTarget = this.bazelTargetManager.getSelectedTarget('test');
 
             const keywordMap: Map<string, () => string> = new Map([
                 [UserCommandsController.CONFIG_KEYWORDS.runArgs, () => runTarget.getRunArgs().toString()],
@@ -118,50 +133,51 @@ export class UserCommandsController {
                 [UserCommandsController.CONFIG_KEYWORDS.runEnvVars, () => runTarget.getEnvVars().toStringArray().join(' ')],
                 [UserCommandsController.CONFIG_KEYWORDS.testEnvVars, () => buildTarget.getEnvVars().toStringArray().join(' ')],
                 [UserCommandsController.CONFIG_KEYWORDS.buildTarget, () => testTarget.buildPath],
-                [UserCommandsController.CONFIG_KEYWORDS.executable, () => this.controller.configurationManager.getExecutableCommand()],
-                [UserCommandsController.CONFIG_KEYWORDS.formatCommand, () => this.controller.configurationManager.getFormatCommand()],
+                [UserCommandsController.CONFIG_KEYWORDS.executable, () => this.configurationManager.getExecutableCommand()],
+                [UserCommandsController.CONFIG_KEYWORDS.formatCommand, () => this.configurationManager.getFormatCommand()],
             ]);
 
             const getValue = keywordMap.get(keyword);
             return getValue ? getValue() : `\${${keyword}}`;
         }
 
-        private async buildPickList(input: string): Promise<string[]> {
+        private async buildPickList(input: string, picker: (label: string) => boolean): Promise<vscode.QuickPickItem[]> {
             // Evaluate the inner command of the pick
             const output = await this.resolveCommands(input);
             // Make a list of the output
             const outputList = [];
             for (const element of output.split('\n')) {
-                const elementTrimmed = element.trim();
-                if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
+                const label = element.trim();
+                if (label.length > 0) {
+                    outputList.push({ 'label': label, 'picked': picker(label) });
+                }
             }
             return outputList;
         }
 
-        private async extPick(input: string): Promise<string> {
+        private async extPick(input: vscode.QuickPickItem[]): Promise<string> {
             try {
                 return vscode.window.showQuickPick(
-                    this.buildPickList(input),
+                    input,
                     { 'ignoreFocusOut': true }
                 ).then((data) => {
-                    return data !== undefined ? data : ''
+                    return data !== undefined ? data.label : ''
                 });
             } catch (error) {
                 return Promise.reject(error);
             }
         }
 
-        private async extPickMany(input: string): Promise<string> {
+        private async extPickMany(input: vscode.QuickPickItem[]): Promise<string[]> {
             try {
                 return vscode.window.showQuickPick(
-                    this.buildPickList(input),
+                    input,
                     { 'ignoreFocusOut': true, 'canPickMany': true }
                 ).then((data) => {
                     return data !== undefined ? data : []
                 }).then((data) => {
-                    data = data.map((item) => item.replace(/\n/g, "\\n"));
-                    return data.join("\n");
-                });
+                    return data.map((item) => item.label);
+               });
             } catch (error) {
                 return Promise.reject(error);
             }
@@ -196,9 +212,19 @@ export class UserCommandsController {
                         const extCommand = match[1];
                         const extArgs = match[2];
                         let evalRes = '';
-                        const handler = UserCommandsController.EXTENSION_COMMANDS.get(extCommand);
-                        if (handler !== undefined) {
-                            evalRes = await handler(this, extArgs);
+                        if (extCommand === UserCommandsController.EXTENSION_COMMANDS.multipick) {
+                            let state = this.pickStateMap[output];
+                            const input = await this.buildPickList(extArgs, (label) => state[label] ?? false);
+                            const labels = await this.extPickMany(input);
+                            evalRes = labels.join("\n");
+                            state = {};
+                            labels.forEach((label) => state[label] = true);
+                            this.pickStateMap[output] = state;
+                        } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
+                            const input = await this.buildPickList(extArgs, (label) => false);
+                            evalRes = await this.extPick(input);
+                        } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
+                            evalRes = await this.extInput(extArgs);
                         }
                         output = output.replace(match[0], evalRes);
                     }
@@ -224,7 +250,7 @@ export class UserCommandsController {
         }
 
         private findCommandByKeyword(keyword: string): ShellCommand | undefined {
-            const commands = this.controller.configurationManager.getShellCommands();
+            const commands = this.configurationManager.getShellCommands();
             return commands.find((item) => item.name == keyword);
         }
 
@@ -244,7 +270,7 @@ export class UserCommandsController {
                                 evalRes = this.cache.get(cmd.name) ?? '';
                             } else {
                                 const resolvedCmd = await this.resolveCommand(cmd.command);
-                                const cmdRes = await this.controller.shellService.runShellCommand(resolvedCmd);
+                                const cmdRes = await this.shellService.runShellCommand(resolvedCmd);
                                 evalRes = cmdRes.stdout;
                                 this.cache.set(cmd.name, evalRes);
                             }
