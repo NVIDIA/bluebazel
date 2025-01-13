@@ -36,7 +36,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
         private readonly bazelService: BazelService,
         private readonly setupEnvVars: string[]
     ) {
-        this.supportedLanguages = ['cpp', 'c'];
+        this.supportedLanguages = ['cpp', 'c', 'shellscript'];
     }
 
     public getDebugRunUnderCommand(port: number): string {
@@ -142,6 +142,8 @@ export class CppLanguagePlugin implements LanguagePlugin {
 
         const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
 
+        const runArgs = target.getRunArgs().toString();
+
         const config = {
             name: `${bazelTarget} (Attach)`,
             type: 'cppdbg',
@@ -162,12 +164,22 @@ export class CppLanguagePlugin implements LanguagePlugin {
                     description: '',
                     text: `-file-exec-and-symbols ${programPath}`,
                     ignoreFailures: false
+                },
+                {
+                    description: 'Set follow-fork-mode to child',
+                    text: 'set follow-fork-mode child',
+                    ignoreFailures: true
                 }
             ],
             setupCommands: [
                 {
                     description: 'Enable pretty-printing for gdb',
                     text: '-enable-pretty-printing',
+                    ignoreFailures: true
+                },
+                {
+                    description: 'Set program arguments',
+                    text: `set args ${runArgs}`,
                     ignoreFailures: true
                 }
             ],
