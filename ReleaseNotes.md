@@ -60,3 +60,9 @@ Add capability to run and debug from main functions for languages that have supp
 Swap typescript in for awk when available targets are fetched. Awk, albeit much faster, is not as portable as the typescript solution.
 Remove shellscript from C++ language support.
 Clear the workspace state only on major version changes.
+
+## 1.0.5
+
+Add unit tests for the bazel parser and service.
+Fix query of targets to be more accurate.
+Fix argument passing when debugging with C/C++ and GDB.

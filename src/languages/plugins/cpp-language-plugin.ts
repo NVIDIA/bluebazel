@@ -36,7 +36,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
         private readonly bazelService: BazelService,
         private readonly setupEnvVars: string[]
     ) {
-        this.supportedLanguages = ['cpp', 'c', 'shellscript'];
+        this.supportedLanguages = ['cpp', 'c'];
     }
 
     public getDebugRunUnderCommand(port: number): string {
