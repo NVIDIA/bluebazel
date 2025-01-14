@@ -26,7 +26,7 @@ import { BazelTargetController } from './bazel-target-controller';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetManager } from '../../models/bazel-target-manager';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
-import { BAZEL_BIN } from '../../services/bazel-service';
+import { BAZEL_BIN } from '../../services/bazel-parser';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
 import { cleanAndFormat } from '../../services/string-utils';

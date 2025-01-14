@@ -86,7 +86,7 @@ export class ShellService {
                 if (code !== 0) {
                     reject(new Error(`Error running ${cmd} exited with code: ${code}`));
                 }
-                resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code });
+                resolve({ stdout: stdout.trim(), stderr: stderr.trim(), exitCode: code || 0 });
             });
 
             // Handle process errors
