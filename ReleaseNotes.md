@@ -66,3 +66,8 @@ Clear the workspace state only on major version changes.
 Add unit tests for the bazel parser and service.
 Fix query of targets to be more accurate.
 Fix argument passing when debugging with C/C++ and GDB.
+
+## 1.1.0
+
+Support MultiPick quickpik extension.
+Support memoizing shellCommand outputs for repeated use in a button command.
