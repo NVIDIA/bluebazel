@@ -26,14 +26,14 @@ import * as vscode from 'vscode';
 
 suite('Extension E2E Tests', () => {
     suiteSetup(async () => {
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
+        const extension = vscode.extensions.getExtension('NVIDIA.bluebazel');
         assert.notStrictEqual(extension, undefined);
         await extension?.activate();
     });
 
     test('Commands are registered', () => {
         // Test if commands are correctly registered
-        const extension = vscode.extensions.getExtension('nvidia.bluebazel');
+        const extension = vscode.extensions.getExtension('NVIDIA.bluebazel');
         assert.notStrictEqual(extension, undefined);
         if (extension === undefined) {
             return false;

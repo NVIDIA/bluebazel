@@ -63,7 +63,9 @@ Clear the workspace state only on major version changes.
 
 ## 1.0.5
 
-Fix bug where no output from quickpik is returned.
+Add unit tests for the bazel parser and service.
+Fix query of targets to be more accurate.
+Fix argument passing when debugging with C/C++ and GDB.
 
 ## 1.1.0
 
