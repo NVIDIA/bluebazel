@@ -41,7 +41,7 @@ export class GoLanguagePlugin implements LanguagePlugin {
     }
 
     public getDebugRunUnderCommand(port: number): string {
-        return `dlv exec --headless --listen=:${port} --api-version=2`;
+        return `$(go env GOPATH)/bin/dlv exec --headless --listen=:${port} --api-version=2`;
     }
 
     public getDebugEnvVars(target: BazelTarget): string[] {
@@ -68,12 +68,12 @@ export class GoLanguagePlugin implements LanguagePlugin {
             cwd: workingDirectory,
             env: {...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars},
             console: 'integratedTerminal',
-            substitutePath: [
-                {
-                    from: '${workspaceFolder}',
-                    to: ''
-                }
-            ]
+            // substitutePath: [
+            //     {
+            //         from: '${workspaceFolder}',
+            //         to: ''
+            //     }
+            // ]
         };
     }
 
@@ -91,16 +91,16 @@ export class GoLanguagePlugin implements LanguagePlugin {
             trace: 'verbose', // Enable verbose logging for debugging
             showLog: true,
         } as vscode.DebugConfiguration;
-
-        if (isRemoteSession()) {
-            // Paths don't match up for vscode over ssh
-            debugConfig.substitutePath = [ // This is necessary for test breakpoints to work
-                {
-                    from: '${workspaceFolder}',
-                    to: ''
-                }
-            ];
-        }
+        // No need in WSL
+        // if (isRemoteSession()) {
+        //     // Paths don't match up for vscode over ssh
+        //     debugConfig.substitutePath = [ // This is necessary for test breakpoints to work
+        //         {
+        //             from: '${workspaceFolder}',
+        //             to: ''
+        //         }
+        //     ];
+        // }
         return debugConfig;
     }
 
