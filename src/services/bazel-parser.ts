@@ -52,7 +52,7 @@ export class BazelParser {
                             stack.push(fullPath); // Skip hidden directories
                         } else if (/^BUILD(\.bazel)?$/.test(entry.name)) {
                             bazelFiles.push(fullPath);
-                        } else if (/^WORKSPACE(\.bazel)?$/.test(entry.name)) {
+                        } else if (/^(WORKSPACE|MODULE)(\.bazel)?$/.test(entry.name)) {
                             workspaceFiles.push(fullPath);
                         }
                     }

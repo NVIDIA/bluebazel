@@ -418,7 +418,8 @@ export class BazelService {
 
         const forever = true;
         while (forever) {
-            if (fs.existsSync(path.join(dir, 'WORKSPACE'))) {
+            const workspaceFiles = ['WORKSPACE', 'WORKSPACE.bazel', 'MODULE', 'MODULE.bazel'];
+            if (workspaceFiles.some(file => fs.existsSync(path.join(dir, file)))) {
                 return dir;
             }
 
