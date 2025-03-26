@@ -130,7 +130,7 @@ export class UserCommandsController {
             }
 
             return vscode.window.showQuickPick(outputList, { 'ignoreFocusOut': true }).then(data => {
-                return data !== undefined ? data : ''
+                return data !== undefined ? data : '';
             });
         } catch (error) {
             return Promise.reject(error);

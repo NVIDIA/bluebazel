@@ -416,10 +416,13 @@ export class BazelService {
     private static findWorkspaceRoot(currentDir: string): string | null {
         let dir = currentDir;
 
+        const workspaceFiles = ['WORKSPACE', 'WORKSPACE.bazel', 'MODULE', 'MODULE.bazel'];
         const forever = true;
         while (forever) {
-            if (fs.existsSync(path.join(dir, 'WORKSPACE'))) {
-                return dir;
+            for (const name of workspaceFiles) {
+                if (fs.existsSync(path.join(dir, name))) {
+                    return dir;
+                }
             }
 
             const parentDir = path.dirname(dir);

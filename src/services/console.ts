@@ -70,6 +70,7 @@ export class Console {
         console.time(`${Console.instance.prefix} ${message}`);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     public static timeEnd(message?: any) {
         console.timeEnd(`${Console.instance.prefix} ${message}`);
     }

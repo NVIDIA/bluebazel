@@ -66,3 +66,8 @@ Clear the workspace state only on major version changes.
 Add unit tests for the bazel parser and service.
 Fix query of targets to be more accurate.
 Fix argument passing when debugging with C/C++ and GDB.
+
+## 1.0.6
+
+Fix gdbserver not following child processes in C/C++ applications.
+Add support for bzlmod files.

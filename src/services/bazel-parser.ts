@@ -54,6 +54,8 @@ export class BazelParser {
                             bazelFiles.push(fullPath);
                         } else if (/^WORKSPACE(\.bazel)?$/.test(entry.name)) {
                             workspaceFiles.push(fullPath);
+                        } else if (/^MODULE(\.bazel)?$/.test(entry.name)) {
+                            workspaceFiles.push(fullPath);
                         }
                     }
                 } catch (err) {
