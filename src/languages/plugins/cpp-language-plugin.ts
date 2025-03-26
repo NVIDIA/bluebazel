@@ -137,7 +137,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
         _cancellationToken?: vscode.CancellationToken): Promise<vscode.DebugConfiguration> {
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
         const workingDirectory = '${workspaceFolder}';
-        const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target);
+        const targetPath = target.buildPath;
         const programPath = path.join(workingDirectory, targetPath);
 
         const envVars = EnvVarsUtils.listToArrayOfObjects(target.getEnvVars().toStringArray());
@@ -153,21 +153,45 @@ export class CppLanguagePlugin implements LanguagePlugin {
             program: programPath,
             miDebuggerServerAddress: `127.0.0.1:${port}`,
             miDebuggerPath: '/usr/bin/gdb',
+            MIMode: 'gdb',
             stopAtEntry: false,
             cwd: workingDirectory,
-            sourceFileMap: { '/proc/self/cwd': workingDirectory },
+            sourceFileMap: {
+                '/proc/self/cwd': workingDirectory,
+                '.': workingDirectory
+            },
             environment: [...EnvVarsUtils.listToArrayOfObjects(this.setupEnvVars), ...envVars],
             externalConsole: false,
             targetArchitecture: 'x64',
             customLaunchSetupCommands: [
                 {
-                    description: '',
+                    description: 'Load symbols',
                     text: `-file-exec-and-symbols ${programPath}`,
                     ignoreFailures: false
                 },
                 {
+                    description: 'Load all symbols',
+                    text: 'sharedlibrary',
+                    ignoreFailures: true
+                },
+                {
+                    description: 'Do not detach from child on fork',
+                    text: 'set detach-on-fork off',
+                    ignoreFailures: true
+                },
+                {
                     description: 'Set follow-fork-mode to child',
                     text: 'set follow-fork-mode child',
+                    ignoreFailures: true
+                },
+                {
+                    description: 'Set follow-exec-mode',
+                    text: 'set follow-exec-mode new',
+                    ignoreFailures: true
+                },
+                {
+                    description: 'Ignore child thread exit signals',
+                    text: 'handle SIGCHLD nostop noprint',
                     ignoreFailures: true
                 }
             ],
@@ -184,7 +208,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
                 }
             ],
             logging: {
-                programOutput: true
+                programOutput: true,
             },
             internalConsoleOptions: 'openOnSessionStart',
             useExtendedRemote: true,
