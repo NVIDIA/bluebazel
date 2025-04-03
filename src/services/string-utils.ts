@@ -55,3 +55,18 @@ export function createHashFromIds(elements: { id: string }[]): string {
     // Convert the hash to a hexadecimal string
     return hash.toString(16);
 }
+
+export function toGerund(word: string): string {
+    // Special case for 'run' which needs to double the 'n' before adding 'ing'
+    if (word === 'run') {
+        return 'Running';
+    }
+    
+    // Special cases for actions that don't work well with -ing suffix
+    const specialActions = ['aquery', 'cquery', 'mobile-install', 'print_action'];
+    if (specialActions.includes(word)) {
+        return `Running ${word}`;
+    }
+    
+    return `${capitalizeFirstLetter(word)}ing`;
+}
