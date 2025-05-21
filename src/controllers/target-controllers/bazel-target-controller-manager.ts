@@ -68,7 +68,8 @@ export class BazelTargetControllerManager {
         const testController = new TestController(context,
             configurationManager,
             taskService,
-            bazelTargetStateManager);
+            bazelTargetStateManager,
+            bazelService);
 
         this.controllers.set('build', buildController);
         this.controllers.set('run', runController);

@@ -139,12 +139,16 @@ export class UserCommandsController {
         }
     }
 
-    private async resolveExtensionCommands(input: string): Promise<string> {
-        // Recursively resolve nested [Pick(...)] and [Input(...)] expressions
+    private async resolveExtensionCommands(input: string, cache?: Map<string, string>): Promise<string> {
+        // Recursively resolve nested [Pick(...)] and [Input(...)] expressions with caching
         let output = input;
         // This regex matches the innermost [Command(...)]
         const regexp = /\[([A-Za-z]+)\(([^\[\]]*)\)\]/g;
         let hasMatch = true;
+        // Use a cache to avoid repeated prompts for the same expression
+        if (!cache) {
+            cache = new Map<string, string>();
+        }
         try {
             while (hasMatch) {
                 hasMatch = false;
@@ -160,21 +164,28 @@ export class UserCommandsController {
                     hasMatch = true;
                     const extCommand = match[1];
                     const extArgs = match[2];
+                    const fullExpr = match[0]; // e.g., '[Pick(foo)]'
                     let evalRes = '';
-                    // Recursively resolve arguments first
-                    const resolvedArgs = await this.resolveExtensionCommands(extArgs);
-                    if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
-                        evalRes = await this.extPick(resolvedArgs);
-                    } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
-                        await vscode.window.showInputBox(
-                            { value: resolvedArgs }
-                        ).then((val) => {
-                            if (val !== undefined) {
-                                evalRes = val;
-                            }
-                        });
+                    // Check cache first
+                    if (cache.has(fullExpr)) {
+                        evalRes = cache.get(fullExpr) || '';
+                    } else {
+                        // Recursively resolve arguments first
+                        const resolvedArgs = await this.resolveExtensionCommands(extArgs, cache);
+                        if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
+                            evalRes = await this.extPick(resolvedArgs);
+                        } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
+                            await vscode.window.showInputBox(
+                                { value: resolvedArgs }
+                            ).then((val) => {
+                                if (val !== undefined) {
+                                    evalRes = val;
+                                }
+                            });
+                        }
+                        cache.set(fullExpr, evalRes);
                     }
-                    output = output.replace(match[0], evalRes);
+                    output = output.replace(fullExpr, evalRes);
                 }
             }
         } catch (error) {

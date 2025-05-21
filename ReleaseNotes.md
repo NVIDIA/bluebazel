@@ -75,3 +75,8 @@ Add support for bzlmod files.
 ## 1.0.7
 
 Fix typo when running targets.
+Fix shell newlines for the picker.
+Fix tooltips on user buttons.
+Add support for nested Pick and Input with caching (in case the same command appears twice).
+
+

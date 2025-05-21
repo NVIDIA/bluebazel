@@ -105,14 +105,12 @@ export class TaskService {
         const taskExecution = await vscode.tasks.executeTask(task);
 
         return new Promise<vscode.TaskExecution>((resolve, reject) => {
-            // if (resolveOn === 'onDidEndTask') {
             const disposable = vscode.tasks.onDidEndTask(e => {
                 if (e.execution === taskExecution) {
                     disposable.dispose();
                     resolve(e.execution);
                 }
             });
-            // }
             if (resolveOn === 'onDidStartTask') {
                 const disposable = vscode.tasks.onDidStartTask(e => {
                     if (e.execution === taskExecution) {
