@@ -140,22 +140,34 @@ export class UserCommandsController {
     }
 
     private async resolveExtensionCommands(input: string): Promise<string> {
-        // Execute commands
+        // Recursively resolve nested [Pick(...)] and [Input(...)] expressions
         let output = input;
-        const regexp = /\[([^\s]*)\(([^\s]*)\)\]/g;
-        let match;
+        // This regex matches the innermost [Command(...)]
+        const regexp = /\[([A-Za-z]+)\(([^\[\]]*)\)\]/g;
+        let hasMatch = true;
         try {
-            do {
-                match = regexp.exec(input);
-                if (match) {
+            while (hasMatch) {
+                hasMatch = false;
+                // Collect all matches manually for compatibility
+                const matches: RegExpExecArray[] = [];
+                let match: RegExpExecArray | null;
+                while ((match = regexp.exec(output)) !== null) {
+                    matches.push(match);
+                }
+                if (matches.length === 0) break;
+                // For each match, resolve it and replace in the string
+                for (const match of matches) {
+                    hasMatch = true;
                     const extCommand = match[1];
                     const extArgs = match[2];
                     let evalRes = '';
+                    // Recursively resolve arguments first
+                    const resolvedArgs = await this.resolveExtensionCommands(extArgs);
                     if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
-                        evalRes = await this.extPick(extArgs);
+                        evalRes = await this.extPick(resolvedArgs);
                     } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
                         await vscode.window.showInputBox(
-                            { value: extArgs }
+                            { value: resolvedArgs }
                         ).then((val) => {
                             if (val !== undefined) {
                                 evalRes = val;
@@ -164,7 +176,7 @@ export class UserCommandsController {
                     }
                     output = output.replace(match[0], evalRes);
                 }
-            } while (match);
+            }
         } catch (error) {
             return Promise.reject(error);
         }
