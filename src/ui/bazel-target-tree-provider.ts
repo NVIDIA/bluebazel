@@ -277,6 +277,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         const item = new vscode.TreeItem(button.title, vscode.TreeItemCollapsibleState.None);
         item.contextValue = 'customButton';
         item.id = button.id;
+        item.tooltip = button.tooltip || button.title; // Set tooltip from config or fallback to title
         return item;
     }
 
