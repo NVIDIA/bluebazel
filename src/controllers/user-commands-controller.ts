@@ -124,7 +124,9 @@ export class UserCommandsController {
             const output = await this.resolveCommands(input);
             // Make a list of the output
             const outputList = [];
-            for (const element of output.split('\n')) {
+            // Decode newlines before splitting
+            const decodedOutput = output.replace(/\\n/g, '\n');
+            for (const element of decodedOutput.split('\n')) {
                 const elementTrimmed = element.trim();
                 if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
             }
@@ -194,8 +196,9 @@ export class UserCommandsController {
                 try {
                     const currentCommand = await this.resolveCommandByKeyword(match[1]);
                     const evalRes = await this.shellService.runShellCommand(currentCommand);
-
-                    output = output.replace(match[0], evalRes.stdout);
+                    // Replace newlines with a special character that won't break command parsing
+                    const encodedOutput = evalRes.stdout.replace(/\n/g, '\\n');
+                    output = output.replace(match[0], encodedOutput);
                 } catch (error) {
                     return Promise.reject(error);
                 }
