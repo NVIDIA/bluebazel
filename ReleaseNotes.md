@@ -80,3 +80,6 @@ Fix tooltips on user buttons.
 Add support for nested Pick and Input with caching (in case the same command appears twice).
 Add support for named problem matchers in custom buttons.
 
+## 1.0.8
+
+Update copyright year in license
