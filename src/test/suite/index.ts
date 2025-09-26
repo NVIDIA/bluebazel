@@ -30,7 +30,8 @@ export function run(): Promise<void> {
     // Create the mocha test
     const mocha = new Mocha({
         ui: 'tdd',
-        color: true
+        color: true,
+        grep: process.env.MOCHA_GREP ? new RegExp(process.env.MOCHA_GREP) : undefined
     });
 
     const testsRoot = path.resolve(__dirname, '..');

@@ -203,7 +203,8 @@ This example illustrates the `Test` button:
                 "command": "bazel test ${bluebazel.testConfigs} --build_tests_only --test_timeout=1500 [Pick(<testTarget>)] --test_arg=${bluebazel.testArgs}",
                 "description": "Test in sandbox",
                 "tooltip": "Run target with `bazel test`",
-                "methodName": "bluebazel.test"
+                "methodName": "bluebazel.test",
+                "problemMatcher": "$gcc"  // Optional: parses errors/warnings. Can be a string or array (e.g., ["$gcc", "$tsc"])
             }
         ]
     }

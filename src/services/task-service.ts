@@ -63,7 +63,7 @@ export class TaskService {
         envVars: { [key: string]: string } = {},
         executionType: 'shell' | 'process' = 'shell',
         resolveOn: 'onDidStartTask' | 'onDidEndTask' = 'onDidEndTask',
-        problemMatcher = '$gcc') {
+        problemMatcher: string | string[] = '$gcc') {
         const workspaceFolder = this.workspaceFolder;
 
         const envVarsObj = { ...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars };

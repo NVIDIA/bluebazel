@@ -22,6 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////////
 import { BAZEL_BIN, BazelParser } from '../../../services/bazel-parser';
+import { Console } from '../../../services/console';
 import * as assert from 'assert';
 import * as fsPromises from 'fs/promises';
 import * as os from 'os';
@@ -62,6 +63,18 @@ suite('BazelParser', () => {
     let tempDir: string;
 
     setup(async () => {
+        // Initialize Console singleton for tests
+        const mockContext = {
+            extension: {
+                id: 'test.bluebazel',
+                extensionUri: vscode.Uri.file('/test'),
+                packageJSON: {
+                    displayName: 'Blue Bazel Test'
+                }
+            }
+        } as unknown as vscode.ExtensionContext;
+        Console.initialize(mockContext);
+        
         tempDir = await createTempDir();
     });
 

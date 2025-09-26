@@ -66,13 +66,23 @@ export class UserCommandsController {
         private readonly bazelTargetManager: BazelTargetManager
     ) { }
 
-    public async runCustomTask(command: string): Promise<void> {
+    public async runCustomTask(command: string, problemMatcher?: string | string[]): Promise<void> {
         let completeCommand = this.resolveKeywords(command);
         return showProgress(`Running ${completeCommand}`, async (cancellationToken) => {
             try {
                 completeCommand = await this.resolveExtensionCommands(completeCommand);
                 completeCommand = await this.resolveCommands(completeCommand);
-                this.taskService.runTask(completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction(), cancellationToken);
+                this.taskService.runTask(
+                    completeCommand,
+                    completeCommand,
+                    this.configurationManager.isClearTerminalBeforeAction(),
+                    cancellationToken,
+                    '',  // id
+                    {},  // envVars
+                    'shell',  // executionType
+                    'onDidEndTask',  // resolveOn
+                    problemMatcher  // Pass the problemMatcher (undefined will use default)
+                );
             } catch (error) {
                 vscode.window.showErrorMessage(`Error running custom task: ${error}`);
             }
@@ -143,7 +153,7 @@ export class UserCommandsController {
         // Recursively resolve nested [Pick(...)] and [Input(...)] expressions with caching
         let output = input;
         // This regex matches the innermost [Command(...)]
-        const regexp = /\[([A-Za-z]+)\(([^\[\]]*)\)\]/g;
+        const regexp = /\[([A-Za-z]+)\(([^[\]]*)\)\]/g;
         let hasMatch = true;
         // Use a cache to avoid repeated prompts for the same expression
         if (!cache) {
