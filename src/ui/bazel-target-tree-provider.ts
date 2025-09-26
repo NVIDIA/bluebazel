@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2021-2025 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -277,6 +277,7 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         const item = new vscode.TreeItem(button.title, vscode.TreeItemCollapsibleState.None);
         item.contextValue = 'customButton';
         item.id = button.id;
+        item.tooltip = button.tooltip || button.title; // Set tooltip from config or fallback to title
         return item;
     }
 

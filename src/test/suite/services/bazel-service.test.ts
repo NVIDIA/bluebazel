@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2021-2025 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,7 @@
 import { BazelTarget } from '../../../models/bazel-target';
 import { BazelService } from '../../../services/bazel-service';
 import { ConfigurationManager } from '../../../services/configuration-manager';
+import { Console } from '../../../services/console';
 import { ShellService } from '../../../services/shell-service';
 import { WorkspaceService } from '../../../services/workspace-service';
 import * as assert from 'assert';
@@ -46,7 +47,18 @@ suite('BazelService Tests', () => {
                 get: (key: string) => undefined,
                 update: async (key: string, value: unknown) => Promise.resolve(),
             },
+            extension: {
+                id: 'test.bluebazel',
+                extensionUri: vscode.Uri.file('/test'),
+                packageJSON: {
+                    displayName: 'Blue Bazel Test'
+                }
+            }
         } as unknown as vscode.ExtensionContext;
+
+        // Initialize Console singleton
+        Console.initialize(mockContext);
+
         mockConfigurationManager = sinon.createStubInstance(ConfigurationManager);
         mockShellService = sinon.createStubInstance(ShellService);
         mockWorkspaceService = sinon.createStubInstance(WorkspaceService);

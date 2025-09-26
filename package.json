@@ -2,7 +2,7 @@
     "name": "bluebazel",
     "displayName": "Blue Bazel",
     "description": "Bazel vscode UI integration to build, debug, and test targets",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "engines": {
         "vscode": "^1.85.2"
     },
@@ -356,6 +356,22 @@
                                         "methodName": {
                                             "type": "string",
                                             "description": "The method to call when the button is clicked."
+                                        },
+                                        "problemMatcher": {
+                                            "oneOf": [
+                                                {
+                                                    "type": "string",
+                                                    "description": "The name of a problem matcher to use (e.g., '$gcc', '$tsc')."
+                                                },
+                                                {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "description": "An array of problem matcher names to use."
+                                                }
+                                            ],
+                                            "description": "Problem matcher(s) to parse the command output for errors and warnings."
                                         }
                                     },
                                     "required": [
@@ -464,7 +480,7 @@
         "lint": "eslint src --ext ts",
         "watch": "tsc -watch -p ./",
         "pretest": "npm run clean && npm run compile && npm run lint",
-        "test": "tsc && node ./out/test/runTest.js",
+        "test": "tsc && npm run esbuild-base && node ./out/test/runTest.js",
         "esbuild-base": "esbuild ./src/extension.ts --bundle --outfile=out/main.js --external:vscode --format=cjs --platform=node --sourcemap"
     },
     "devDependencies": {

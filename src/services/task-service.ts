@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2021-2025 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -63,7 +63,7 @@ export class TaskService {
         envVars: { [key: string]: string } = {},
         executionType: 'shell' | 'process' = 'shell',
         resolveOn: 'onDidStartTask' | 'onDidEndTask' = 'onDidEndTask',
-        problemMatcher = '$gcc') {
+        problemMatcher: string | string[] = '$gcc') {
         const workspaceFolder = this.workspaceFolder;
 
         const envVarsObj = { ...EnvVarsUtils.listToObject(this.setupEnvVars), ...envVars };
@@ -105,14 +105,12 @@ export class TaskService {
         const taskExecution = await vscode.tasks.executeTask(task);
 
         return new Promise<vscode.TaskExecution>((resolve, reject) => {
-            // if (resolveOn === 'onDidEndTask') {
             const disposable = vscode.tasks.onDidEndTask(e => {
                 if (e.execution === taskExecution) {
                     disposable.dispose();
                     resolve(e.execution);
                 }
             });
-            // }
             if (resolveOn === 'onDidStartTask') {
                 const disposable = vscode.tasks.onDidStartTask(e => {
                     if (e.execution === taskExecution) {

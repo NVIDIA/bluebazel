@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2021-2025 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -42,8 +42,13 @@ export function registerCustomButtons(context: vscode.ExtensionContext,
         if (buttons !== undefined) {
             buttons.forEach(button => {
                 try {
-                    const disposableCommand = vscode.commands.registerCommand(button.methodName, async (command: string) => {
-                        await userCommandsController.runCustomTask(command);
+                    const disposableCommand = vscode.commands.registerCommand(button.methodName, async (commandOrButton: string | UserCustomButton) => {
+                        // Support both string (backward compatibility) and button object
+                        if (typeof commandOrButton === 'string') {
+                            await userCommandsController.runCustomTask(commandOrButton);
+                        } else {
+                            await userCommandsController.runCustomTask(commandOrButton.command, commandOrButton.problemMatcher);
+                        }
                     });
                     context.subscriptions.push(disposableCommand);
                 } catch (error) {
@@ -63,7 +68,7 @@ export function registerUserCommands(context: vscode.ExtensionContext,
     const extensionName = ExtensionUtils.getExtensionName(context);
     context.subscriptions.push(vscode.commands.registerCommand(`${extensionName}.customButton`, (button: UserCustomButton) => {
         const registeredCommand = button.methodName;
-        vscode.commands.executeCommand(registeredCommand, button.command);
+        vscode.commands.executeCommand(registeredCommand, button);
     }));
 
 }

@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2021-2025 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,28 +34,31 @@ export class UserCustomButton {
     description: string;
     tooltip: string;
     methodName: string;
+    problemMatcher?: string | string[];
     public readonly id: string;
 
     // Constructor for inflating from configuration (deserialization)
-    constructor(data: { title: string, command: string, icon: string, description: string, tooltip: string, methodName: string }) {
+    constructor(data: { title: string, command: string, icon: string, description: string, tooltip: string, methodName: string, problemMatcher?: string | string[] }) {
         this.title = data.title;
         this.command = data.command;
         this.icon = data.icon;
         this.description = data.description;
         this.tooltip = data.tooltip;
         this.methodName = data.methodName;
+        this.problemMatcher = data.problemMatcher;
         this.id = this.methodName;
     }
 
     // Method for deflating the object to configuration (serialization)
-    toJSON(): { title: string, command: string, icon: string, description: string, tooltip: string, methodName: string } {
+    toJSON(): { title: string, command: string, icon: string, description: string, tooltip: string, methodName: string, problemMatcher?: string | string[] } {
         return {
             title: this.title,
             command: this.command,
             icon: this.icon,
             description: this.description,
             tooltip: this.tooltip,
-            methodName: this.methodName
+            methodName: this.methodName,
+            problemMatcher: this.problemMatcher
         };
     }
 }

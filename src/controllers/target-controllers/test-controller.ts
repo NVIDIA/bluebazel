@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2021-2025 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,19 +25,20 @@
 import { BazelTargetController } from './bazel-target-controller';
 import { BazelTarget } from '../../models/bazel-target';
 import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-target-state-manager';
+import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
-import { capitalizeFirstLetter, cleanAndFormat } from '../../services/string-utils';
+import { cleanAndFormat, toGerund } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
 import { showProgress } from '../../ui/progress';
 import * as vscode from 'vscode';
-
 
 export class TestController implements BazelTargetController {
     constructor(private readonly context: vscode.ExtensionContext,
         private readonly configurationManager: ConfigurationManager,
         private readonly taskService: TaskService,
-        private readonly bazelTargetStateManager: BazelTargetStateManager
+        private readonly bazelTargetStateManager: BazelTargetStateManager,
+        private readonly bazelService: BazelService
     ) { }
 
     public async execute(target: BazelTarget) {
@@ -49,7 +50,7 @@ export class TestController implements BazelTargetController {
 
         const taskLabel = `${target.action} ${target.bazelPath}`;
 
-        return showProgress(`${capitalizeFirstLetter(target.action)}ing ${target.bazelPath}`, async (cancellationToken) => {
+        return showProgress(`${toGerund(target.action)} ${target.bazelPath}`, async (cancellationToken) => {
             try {
                 this.bazelTargetStateManager.setTargetState(target, BazelTargetState.Executing);
                 await this.taskService.runTask(taskLabel, testCommand,

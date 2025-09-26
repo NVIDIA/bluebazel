@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2021-2025 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -29,7 +29,7 @@ import { BazelTargetState, BazelTargetStateManager } from '../../models/bazel-ta
 import { BazelService } from '../../services/bazel-service';
 import { ConfigurationManager } from '../../services/configuration-manager';
 import { EnvVarsUtils } from '../../services/env-vars-utils';
-import { capitalizeFirstLetter, cleanAndFormat } from '../../services/string-utils';
+import { cleanAndFormat, toGerund } from '../../services/string-utils';
 import { TaskService } from '../../services/task-service';
 import { WorkspaceService } from '../../services/workspace-service';
 import { showProgress } from '../../ui/progress';
@@ -67,7 +67,7 @@ export class RunController implements BazelTargetController {
         // bazelTarget is in the form of //path:executable
         const bazelTarget = BazelService.formatBazelTargetFromPath(target.buildPath);
 
-        return showProgress(`${capitalizeFirstLetter(target.action)}ing ${bazelTarget}`, async (cancellationToken) => {
+        return showProgress(`${toGerund(target.action)} ${bazelTarget}`, async (cancellationToken) => {
             const envVars = EnvVarsUtils.listToObject(target.getEnvVars().toStringArray());
 
             const runCommand = this.getRunInBazelCommand(target);
@@ -91,7 +91,7 @@ export class RunController implements BazelTargetController {
             await this.buildController.execute(target);
         }
 
-        return showProgress(`${capitalizeFirstLetter(target.action)}ing ${target.buildPath}`, async (cancellationToken) => {
+        return showProgress(`${toGerund(target.action)} ${target.buildPath}`, async (cancellationToken) => {
             const targetPath = target.buildPath;//await this.bazelService.getBazelTargetBuildPath(target);
             // Program (executable) path with respect to workspace.
             const programPath = path.join(WorkspaceService.getInstance().getWorkspaceFolder().uri.path, targetPath);

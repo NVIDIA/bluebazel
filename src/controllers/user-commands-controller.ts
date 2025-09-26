@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////////////////
 // MIT License
 //
-// Copyright (c) 2021-2024 NVIDIA Corporation
+// Copyright (c) 2021-2025 NVIDIA Corporation
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -66,13 +66,23 @@ export class UserCommandsController {
         private readonly bazelTargetManager: BazelTargetManager
     ) { }
 
-    public async runCustomTask(command: string): Promise<void> {
+    public async runCustomTask(command: string, problemMatcher?: string | string[]): Promise<void> {
         let completeCommand = this.resolveKeywords(command);
         return showProgress(`Running ${completeCommand}`, async (cancellationToken) => {
             try {
                 completeCommand = await this.resolveExtensionCommands(completeCommand);
                 completeCommand = await this.resolveCommands(completeCommand);
-                this.taskService.runTask(completeCommand, completeCommand, this.configurationManager.isClearTerminalBeforeAction(), cancellationToken);
+                this.taskService.runTask(
+                    completeCommand,
+                    completeCommand,
+                    this.configurationManager.isClearTerminalBeforeAction(),
+                    cancellationToken,
+                    '',  // id
+                    {},  // envVars
+                    'shell',  // executionType
+                    'onDidEndTask',  // resolveOn
+                    problemMatcher  // Pass the problemMatcher (undefined will use default)
+                );
             } catch (error) {
                 vscode.window.showErrorMessage(`Error running custom task: ${error}`);
             }
@@ -124,7 +134,9 @@ export class UserCommandsController {
             const output = await this.resolveCommands(input);
             // Make a list of the output
             const outputList = [];
-            for (const element of output.split('\n')) {
+            // Decode newlines before splitting
+            const decodedOutput = output.replace(/\\n/g, '\n');
+            for (const element of decodedOutput.split('\n')) {
                 const elementTrimmed = element.trim();
                 if (elementTrimmed.length > 0) outputList.push(elementTrimmed);
             }
@@ -137,32 +149,55 @@ export class UserCommandsController {
         }
     }
 
-    private async resolveExtensionCommands(input: string): Promise<string> {
-        // Execute commands
+    private async resolveExtensionCommands(input: string, cache?: Map<string, string>): Promise<string> {
+        // Recursively resolve nested [Pick(...)] and [Input(...)] expressions with caching
         let output = input;
-        const regexp = /\[([^\s]*)\(([^\s]*)\)\]/g;
-        let match;
+        // This regex matches the innermost [Command(...)]
+        const regexp = /\[([A-Za-z]+)\(([^[\]]*)\)\]/g;
+        let hasMatch = true;
+        // Use a cache to avoid repeated prompts for the same expression
+        if (!cache) {
+            cache = new Map<string, string>();
+        }
         try {
-            do {
-                match = regexp.exec(input);
-                if (match) {
+            while (hasMatch) {
+                hasMatch = false;
+                // Collect all matches manually for compatibility
+                const matches: RegExpExecArray[] = [];
+                let match: RegExpExecArray | null;
+                while ((match = regexp.exec(output)) !== null) {
+                    matches.push(match);
+                }
+                if (matches.length === 0) break;
+                // For each match, resolve it and replace in the string
+                for (const match of matches) {
+                    hasMatch = true;
                     const extCommand = match[1];
                     const extArgs = match[2];
+                    const fullExpr = match[0]; // e.g., '[Pick(foo)]'
                     let evalRes = '';
-                    if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
-                        evalRes = await this.extPick(extArgs);
-                    } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
-                        await vscode.window.showInputBox(
-                            { value: extArgs }
-                        ).then((val) => {
-                            if (val !== undefined) {
-                                evalRes = val;
-                            }
-                        });
+                    // Check cache first
+                    if (cache.has(fullExpr)) {
+                        evalRes = cache.get(fullExpr) || '';
+                    } else {
+                        // Recursively resolve arguments first
+                        const resolvedArgs = await this.resolveExtensionCommands(extArgs, cache);
+                        if (extCommand === UserCommandsController.EXTENSION_COMMANDS.pick) {
+                            evalRes = await this.extPick(resolvedArgs);
+                        } else if (extCommand === UserCommandsController.EXTENSION_COMMANDS.input) {
+                            await vscode.window.showInputBox(
+                                { value: resolvedArgs }
+                            ).then((val) => {
+                                if (val !== undefined) {
+                                    evalRes = val;
+                                }
+                            });
+                        }
+                        cache.set(fullExpr, evalRes);
                     }
-                    output = output.replace(match[0], evalRes);
+                    output = output.replace(fullExpr, evalRes);
                 }
-            } while (match);
+            }
         } catch (error) {
             return Promise.reject(error);
         }
@@ -194,8 +229,9 @@ export class UserCommandsController {
                 try {
                     const currentCommand = await this.resolveCommandByKeyword(match[1]);
                     const evalRes = await this.shellService.runShellCommand(currentCommand);
-
-                    output = output.replace(match[0], evalRes.stdout);
+                    // Replace newlines with a special character that won't break command parsing
+                    const encodedOutput = evalRes.stdout.replace(/\n/g, '\\n');
+                    output = output.replace(match[0], encodedOutput);
                 } catch (error) {
                     return Promise.reject(error);
                 }
