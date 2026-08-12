@@ -31,19 +31,25 @@ suite('Extension E2E Tests', () => {
         await extension?.activate();
     });
 
-    test('Commands are registered', () => {
+    test('Commands are registered', async () => {
         // Test if commands are correctly registered
         const extension = vscode.extensions.getExtension('NVIDIA.bluebazel');
         assert.notStrictEqual(extension, undefined);
         if (extension === undefined) {
-            return false;
+            return;
         }
-        vscode.commands.getCommands(true).then((registeredCommands: string[]) => {
-            const expectedCommands = extension.packageJSON.commands;
-            for (const cmd of expectedCommands) {
-                assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
-            }
-        });
+        const registeredCommands = await vscode.commands.getCommands(true);
+        const rawExpectedCommands =
+            extension.packageJSON.commands ??
+            extension.packageJSON.contributes?.commands ??
+            [];
+        const expectedCommands = rawExpectedCommands.map((cmd: any) =>
+            typeof cmd === 'string' ? cmd : cmd.command
+        ).filter((cmd: string) => cmd);
+        assert.ok(expectedCommands.length > 0, 'No expected commands found in package.json.');
+        for (const cmd of expectedCommands) {
+            assert.ok(registeredCommands.includes(cmd), `Command '${cmd}' is not registered.`);
+        }
     });
 
 });
