@@ -318,11 +318,13 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         return undefined; // Parent category not found
     }
 
-    public expandTarget(target: BazelTarget): void {
-        // Expand the parent category
-        this.findParentOfBazelTargetTreeItem(target.id).then((parent) => {
+    public async expandTarget(target: BazelTarget): Promise<void> {
+        try {
+            // Expand the parent category
+            const parent = await this.findParentOfBazelTargetTreeItem(target.id);
             if (!parent) {
-                throw new Error('Could not find target category in tree');
+                console.warn(`Could not find target category for ${target.id}; skipping expand.`);
+                return;
             }
             const parentCategoryId = parent.id;
 
@@ -332,8 +334,9 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
             this.setExpandedState(target.id, true);
 
             this._onDidChangeTreeData.fire(parent);
-        });
-
+        } catch (error) {
+            console.error(`Failed to expand target ${target.id}:`, error);
+        }
     }
 
     // Store the expanded/collapsed state in workspaceState
