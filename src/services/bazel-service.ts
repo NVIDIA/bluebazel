@@ -201,11 +201,11 @@ export class BazelService {
             const otherTargets = createTargets('build', query.otherTargets);
 
             const testPackageLines = new Set(testTargets.map(target => {
-                return `package_test package //${target.bazelPath.split(':')}/...`;
+                return `package_test package ${target.bazelPath.split(':')[0]}/...`;
             }));
 
             const otherPackageLines = new Set(otherTargets.map(target => {
-                return `package_build package //${target.bazelPath.split(':')}/...`;
+                return `package_build package ${target.bazelPath.split(':')[0]}/...`;
             }));
 
             const testPackages = createTargets('test', Array.from(testPackageLines));
