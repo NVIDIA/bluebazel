@@ -42,11 +42,13 @@ export class BazelTargetCategory {
     }
 }
 
-export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTreeElement> {
+export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTreeElement>, vscode.Disposable {
     private _onDidChangeTreeData: vscode.EventEmitter<BazelTreeElement | undefined | void> = new vscode.EventEmitter<BazelTreeElement | undefined | void>();
     readonly onDidChangeTreeData: vscode.Event<BazelTreeElement | undefined | void> = this._onDidChangeTreeData.event;
 
     private expandedStateCache: { [key: string]: boolean } = {};
+    private readonly disposables: vscode.Disposable[] = [];
+
 
     // Define a map of BazelAction to vscode.ThemeIcon
     private iconMap: Map<BazelAction, vscode.ThemeIcon> = new Map([
@@ -87,11 +89,24 @@ export class BazelTargetTreeProvider implements vscode.TreeDataProvider<BazelTre
         this.expandedStateCache = savedState || {};
 
         // Subscribe to target state changes
-        this.bazelTargetStateManager.onDidChangeTargetState(() => {
-            // Refresh the tree whenever a target state changes
-            this.refresh();
-        });
+        this.disposables.push(
+            this.bazelTargetStateManager.onDidChangeTargetState(() => {
+                // Refresh the tree whenever a target state changes
+                this.refresh();
+            })
+        );
+
+        this.disposables.push(this._onDidChangeTreeData);
+
+        // Ensure the provider is disposed when the extension deactivates
+        this.context.subscriptions.push(this);
     }
+
+    public dispose(): void {
+        this.disposables.forEach(d => d.dispose());
+        this.disposables.length = 0;
+    }
+
 
     private getIcon(element: BazelTarget | BazelTargetCategory): vscode.ThemeIcon {
         // Return the icon based on the action, defaulting to the 'question' icon
