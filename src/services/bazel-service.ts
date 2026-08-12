@@ -73,12 +73,11 @@ export class BazelService {
 
     public async fetchAllTargetsByAction(cancellationToken?: vscode.CancellationToken, timeoutMs?: number, rootDir?: string): Promise<Map<BazelAction, BazelTarget[]>> {
         // Initialize map entries for each action
-        const testTargets: BazelTarget[] = [];
         const map: Map<BazelAction, BazelTarget[]> = new Map([
             ['run', []],
             ['build', []],
-            ['test', testTargets],
-            ['coverage', testTargets]
+            ['test', []],
+            ['coverage', []]
         ]);
 
         try {
@@ -99,6 +98,7 @@ export class BazelService {
                 // Determine which categories this target belongs to
                 if (target.action === 'test') {
                     map.get('test')?.push(target);
+                    map.get('coverage')?.push(target); // Coverage runs on test targets
                     if (target.ruleType !== 'package_test') {
                         map.get('run')?.push(target); // Tests can also be run
                     }
