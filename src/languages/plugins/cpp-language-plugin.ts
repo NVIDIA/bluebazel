@@ -239,7 +239,7 @@ export class CppLanguagePlugin implements LanguagePlugin {
      * static void main(int argc, char* argv[])
      */
     public getCodeLensRunRegex(): RegExp {
-        return /\b(?:int|void)\s+(main)\s*\(\s*(?:int\s+\w+\s*,\s*char\s*\*\s*\w+\s*)?\s*\)/gm;
+        return /\b(?:int|void)\s+(main)\s*\(\s*(?:int\s+\w+\s*,\s*char\s*\*\s*\*?\s*\w+(?:\s*\[[^\]]*\])?\s*)?\s*\)/gm;
     }
 
 }
