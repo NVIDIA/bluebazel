@@ -393,7 +393,7 @@ export class BazelService {
 
         // Find the target in the BUILD file
         const targetNames = this.getTargetsFromBuildFileWithSource(dir, sourceFilePath);
-        if (!targetNames) {
+        if (targetNames.length === 0) {
             throw new Error('Could not find any targets in the BUILD file');
         }
 
